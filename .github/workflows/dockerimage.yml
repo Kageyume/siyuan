@@ -1,28 +1,22 @@
 name: Release Docker Image
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 # ref https://docs.github.com/zh/actions/learn-github-actions/variables
 env:
   package_json: "app/package.json"
-  docker_hub_owner: "b3log"
-  docker_hub_repo: "siyuan"
+  docker_hub_owner: "linzia"
+  docker_hub_repo: "unlocksy"
 
 jobs:
   build:
-    # 仅 stable 版本（tag 不含 alpha/beta/rc）才构建 Docker 镜像，
-    # alpha/beta/rc 预发布版本跳过整个构建流程
-    if: ${{ github.repository_owner == 'siyuan-note' && !contains(github.ref_name, '-alpha') && !contains(github.ref_name, '-beta') && !contains(github.ref_name, '-rc') }}
     name: build
     runs-on: ubuntu-latest
     permissions:
       packages: write
       contents: read
-
+    
     steps:
       - name: Checkout repository and submodules
         uses: actions/checkout@v6
@@ -78,4 +72,4 @@ jobs:
       - name: Build and push Docker image
         # 走到这里的一定是 stable 版本，直接同时打 :latest 和具体版本号标签
         run: |
-          docker buildx build --push --platform linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v8 -t ${{ env.docker_hub_owner }}/${{ env.docker_hub_repo }}:latest -t ${{ env.docker_hub_owner }}/${{ env.docker_hub_repo }}:v${{ steps.version.outputs.value }} .
+          docker buildx build --push --platform linux/amd64 -t ${{ env.docker_hub_owner }}/${{ env.docker_hub_repo }}:latest -t ${{ env.docker_hub_owner }}/${{ env.docker_hub_repo }}:v${{ steps.version.outputs.value }} .
