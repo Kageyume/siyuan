@@ -356,10 +356,10 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           name: ${{ needs.prepare.outputs.release_title }}
-          tag: ${{ github.ref }}
+          tag: ${{ needs.prepare.outputs.version }}
           body: ${{ needs.prepare.outputs.release_body }}
           draft: false
-          prerelease: true
+          prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Assets
@@ -368,7 +368,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           VERSION=${{ needs.prepare.outputs.version }}
-          gh release upload ${{ github.ref_name }} \
+          gh release upload ${{ needs.prepare.outputs.version }} \
             "siyuan-linux/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage" \
             "siyuan-linux/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz" \
             "siyuan-linux/siyuan-${VERSION}-linux.deb#siyuan-${VERSION}-linux.deb" \
