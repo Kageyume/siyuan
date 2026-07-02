@@ -369,11 +369,5 @@ jobs:
         run: |
           VERSION=${{ needs.prepare.outputs.version }}
           gh release upload ${{ needs.prepare.outputs.version }} \
-            "siyuan-linux/siyuan-${VERSION}-linux.AppImage#siyuan-${VERSION}-linux.AppImage" \
-            "siyuan-linux/siyuan-${VERSION}-linux.tar.gz#siyuan-${VERSION}-linux.tar.gz" \
-            "siyuan-linux/siyuan-${VERSION}-linux.deb#siyuan-${VERSION}-linux.deb" \
-            "siyuan-linux/siyuan-${VERSION}-linux.rpm#siyuan-${VERSION}-linux.rpm" \
-            "siyuan-mac.dmg/siyuan-${VERSION}-mac.dmg#siyuan-${VERSION}-mac.dmg" \
-            "siyuan-mac-arm64.dmg/siyuan-${VERSION}-mac-arm64.dmg#siyuan-${VERSION}-mac-arm64.dmg" \
             "siyuan-win.exe/siyuan-${VERSION}-win.exe#siyuan-${VERSION}-win.exe" \
             "siyuan-android/siyuan-${VERSION}.apk#siyuan-${VERSION}.apk"
