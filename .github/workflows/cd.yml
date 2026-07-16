@@ -368,6 +368,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           VERSION=${{ needs.prepare.outputs.version }}
-          gh release upload ${{ github.ref_name }} \
+          gh release upload v${{ needs.prepare.outputs.version }} \
             "siyuan-win.exe/siyuan-${VERSION}-win.exe#siyuan-${VERSION}-win.exe" \
             "siyuan-android/siyuan-${VERSION}.apk#siyuan-${VERSION}.apk"
