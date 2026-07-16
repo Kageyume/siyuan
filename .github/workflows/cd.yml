@@ -356,7 +356,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           name: ${{ needs.prepare.outputs.release_title }}
-          tag: ${{ needs.prepare.outputs.version }}
+          tag: v${{ needs.prepare.outputs.version }}
           body: ${{ needs.prepare.outputs.release_body }}
           draft: false
           prerelease: false
