@@ -1,10 +1,6 @@
 import {fetchPost, fetchSyncPost} from "../../util/fetch";
 import {processSync} from "../../dialog/processSystem";
 import {
-    onSetaccount,
-    updateAccountSwitchesVisibility,
-} from "./accountUi";
-import {
     refreshLANSyncConfigItemVisibility,
     refreshSyncModeRelatedItems,
     refreshSyncTabPanels,
@@ -22,7 +18,6 @@ export const clearSyncTabElement = () => {
 export const mountSyncTabExtras = (root: HTMLElement) => {
     syncTabElement = root;
     refreshSyncTabPanels(root);
-    updateAccountSwitchesVisibility(root);
 };
 
 export const refreshLANSyncStatus = (root: Element) => {
@@ -65,48 +60,15 @@ export const mountLANSyncStatus = (root: HTMLElement) => {
     window.setTimeout(poll, 5000);
 };
 
-/** 切换同步提供商等场景：刷新云空间相关区块并重置云目录列表 */
-export const refreshSyncCloudSpaceGroup = (root: Element) => {
-    refreshSyncTabPanels(root);
-    const syncConfigElement = root.querySelector("#syncCloudList");
-    if (syncConfigElement) {
-        syncConfigElement.innerHTML = "";
-        syncConfigElement.classList.add("fn__none");
-    }
-};
-
 /** 账号同步 Tab：按控件 id 提交配置并更新本地运行时 */
 export const patchSyncConfig = (controlId: string, value: unknown) => {
     switch (controlId) {
-        case "account.displayTitle": {
-            const displayTitle = Boolean(value) as Config.IAccount["displayTitle"];
-            fetchPost("/api/setting/setAccount", {
-                ...window.siyuan.config.account,
-                displayTitle,
-            }, (response) => {
-                window.siyuan.config.account = response.data;
-                onSetaccount();
-            });
-            break;
-        }
-        case "account.displayVIP": {
-            const displayVIP = Boolean(value) as Config.IAccount["displayVIP"];
-            fetchPost("/api/setting/setAccount", {
-                ...window.siyuan.config.account,
-                displayVIP,
-            }, (response) => {
-                window.siyuan.config.account = response.data;
-                onSetaccount();
-            });
-            break;
-        }
-
         case "sync.provider": {
             const provider = value as Config.ISync["provider"];
             fetchPost("/api/sync/setSyncProvider", {provider}, () => {
                 window.siyuan.config.sync.provider = provider;
                 if (syncTabElement) {
-                    refreshSyncCloudSpaceGroup(syncTabElement);
+                    refreshSyncTabPanels(syncTabElement);
                 }
             });
             break;

@@ -1,17 +1,15 @@
 import type {SettingTabBuilder} from "../setting/builder";
-import {registerAccountGroup} from "./accountUi";
 import {Constants} from "../../constants";
 import {fetchPost} from "../../util/fetch";
 import {confirmDialog} from "../../dialog/confirmDialog";
 import {showMessage} from "../../dialog/message";
 import {processSync} from "../../dialog/processSystem";
 import {writeText} from "../../protyle/util/compatibility";
-import {bindSyncCloudListEvent, renderSyncCloudList, setKey} from "../../sync/syncGuide";
+import {setKey} from "../../sync/syncGuide";
 import {Dialog} from "../../dialog";
-import {genConfigItemMainHtml, genConfigItemName} from "../render/fragments";
+import {genConfigItemName} from "../render/fragments";
 import {getLANSyncSearchAvailability, getSyncProviderConfigKeywords} from "./syncUi";
 import {mountLANSyncStatus, patchSyncConfig} from "./syncRuntime";
-import {openHistory} from "../../history/history";
 
 const registerSyncGroup = (tab: SettingTabBuilder) => {
     const group = tab.group("sync", window.siyuan.languages.configGroupSync);
@@ -20,10 +18,8 @@ const registerSyncGroup = (tab: SettingTabBuilder) => {
         title: window.siyuan.languages.syncProvider,
         desc: window.siyuan.languages.syncProviderTip,
         options: [
-            {value: 0, label: "SiYuan"},
             {value: 2, label: "S3"},
             {value: 3, label: "WebDAV"},
-            ...(["std", "docker"].includes(window.siyuan.config.system.container) ? [{value: 4, label: window.siyuan.languages.localFileSystem}] : []),
         ],
         save: (value) => patchSyncConfig("sync.provider", value),
     });
@@ -31,11 +27,6 @@ const registerSyncGroup = (tab: SettingTabBuilder) => {
         key: "syncProviderConfig",
         keywords: getSyncProviderConfigKeywords(),
         html: () => '<div id="syncProviderConfig" class="b3-label config-item"></div>',
-    });
-    group.slot({
-        key: "cloudSpace",
-        keywords: [window.siyuan.languages.cloudStorage, window.siyuan.languages.trafficStat, window.siyuan.languages.backup],
-        html: () => '<div id="cloudSpace" class="b3-label config-item"></div>',
     });
     group.switch("sync.enabled", {
         title: window.siyuan.languages.cloudSync,
@@ -77,56 +68,6 @@ const registerSyncGroup = (tab: SettingTabBuilder) => {
         afterMount: mountLANSyncStatus,
         searchAvailability: getLANSyncSearchAvailability,
     });
-    group.slot({
-        key: "syncCloudDir",
-        keywords: [window.siyuan.languages.cloudSyncDir, window.siyuan.languages.cloudSyncDirTip, window.siyuan.languages.config],
-        html: () => `<div class="b3-label config-item" id="syncCloudDirBlock">
-    <div class="fn__flex config-wrap">
-        ${genConfigItemMainHtml(window.siyuan.languages.cloudSyncDir, window.siyuan.languages.cloudSyncDirTip)}
-        <div class="fn__space"></div>
-        <button class="b3-button b3-button--outline fn__flex-center fn__size200" data-action="config">
-            <svg><use xlink:href="#iconSettings"></use></svg>${window.siyuan.languages.config}
-        </button>
-    </div>
-    <div id="syncCloudList" class="fn__none"></div>
-</div>`,
-        afterMount: mountSyncCloudDir,
-    });
-    group.slot({
-        key: "syncCloudBackup",
-        keywords: [
-            window.siyuan.languages.cloudBackup,
-            window.siyuan.languages.cloudBackupTip,
-            window.siyuan.languages.dataSnapshot,
-        ],
-        html: () => `<div class="b3-label config-item" id="syncCloudBackupBlock">
-    <div class="fn__flex config-wrap">
-        ${genConfigItemMainHtml(window.siyuan.languages.cloudBackup, window.siyuan.languages.cloudBackupTip)}
-        <div class="fn__space"></div>
-        <button class="b3-button b3-button--outline fn__flex-center fn__size200" id="openCloudBackup">
-            <svg><use xlink:href="#iconHistory"></use></svg>${window.siyuan.languages.dataSnapshot}
-        </button>
-    </div>
-</div>`,
-        afterMount: (root) => {
-            root.querySelector("#openCloudBackup")?.addEventListener("click", () => {
-                openHistory(window.siyuan.ws.app, "repo");
-            });
-        },
-    });
-};
-
-const mountSyncCloudDir = (root: HTMLElement) => {
-    const cloudListElement = root.querySelector("#syncCloudList");
-    if (cloudListElement) {
-        bindSyncCloudListEvent(cloudListElement);
-        root.querySelector('#syncCloudDirBlock [data-action="config"]')?.addEventListener("click", () => {
-            const hidden = cloudListElement.classList.toggle("fn__none");
-            if (!hidden) {
-                renderSyncCloudList(cloudListElement, true);
-            }
-        });
-    }
 };
 
 const registerRepoGroup = (tab: SettingTabBuilder) => {
@@ -270,7 +211,6 @@ const mountRepoKey = (root: HTMLElement) => {
 };
 
 export const registerSyncTab = (tab: SettingTabBuilder) => {
-    registerAccountGroup(tab);
     registerSyncGroup(tab);
     registerRepoGroup(tab);
 };
