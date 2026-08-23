@@ -203,32 +203,6 @@ func diffRepoSnapshots(c *gin.Context) {
 	}
 }
 
-func getCloudSpace(c *gin.Context) {
-	ret := gulu.Ret.NewResult()
-	defer c.JSON(http.StatusOK, ret)
-
-	sync, backup, hSize, hAssetSize, hTotalSize, exchangeSize, hTrafficUploadSize, hTrafficDownloadSize, htrafficAPIGet, hTrafficAPIPut, err := model.GetCloudSpace()
-	if err != nil {
-		ret.Code = 1
-		ret.Msg = err.Error()
-		util.PushErrMsg(err.Error(), 3000)
-		return
-	}
-
-	ret.Data = map[string]any{
-		"sync":                 sync,
-		"backup":               backup,
-		"hAssetSize":           hAssetSize,
-		"hSize":                hSize,
-		"hTotalSize":           hTotalSize,
-		"hExchangeSize":        exchangeSize,
-		"hTrafficUploadSize":   hTrafficUploadSize,
-		"hTrafficDownloadSize": hTrafficDownloadSize,
-		"hTrafficAPIGet":       htrafficAPIGet,
-		"hTrafficAPIPut":       hTrafficAPIPut,
-	}
-}
-
 func checkoutRepo(c *gin.Context) {
 	ret := gulu.Ret.NewResult()
 	defer c.JSON(http.StatusOK, ret)
