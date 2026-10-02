@@ -18,7 +18,7 @@ describe("mobile bottom bar config", () => {
             false,
             "not json",
             [],
-            {version: 4, actions: ["recent", "outline", "bookmark", "tag", "back"]},
+            {version: 5, actions: ["recent", "outline", "bookmark", "tag", "back"]},
             {version: MOBILE_BOTTOM_BAR_CONFIG_VERSION, actions: "documents"},
         ].forEach((storedValue) => {
             assert.deepEqual(normalizeMobileBottomBarConfig(storedValue), createDefaultMobileBottomBarConfig());
@@ -79,13 +79,22 @@ describe("mobile bottom bar config", () => {
         assert.deepEqual(config.actions, ["tabs", "forward", "documents", "back", "search"]);
     });
 
-    it("supports inbox, backlinks, the agent, spaced repetition, and forward as configurable actions", () => {
+    it("supports backlinks, the agent, spaced repetition, and forward as configurable actions", () => {
         const config = normalizeMobileBottomBarConfig({
             version: MOBILE_BOTTOM_BAR_CONFIG_VERSION,
+            actions: ["backlink", "agent", "spacedRepetition", "forward", "documents"],
+        });
+
+        assert.deepEqual(config.actions, ["backlink", "agent", "spacedRepetition", "forward", "documents"]);
+    });
+
+    it("replaces the removed inbox action when migrating an older configuration", () => {
+        const config = normalizeMobileBottomBarConfig({
+            version: 3,
             actions: ["inbox", "backlink", "agent", "spacedRepetition", "forward"],
         });
 
-        assert.deepEqual(config.actions, ["inbox", "backlink", "agent", "spacedRepetition", "forward"]);
+        assert.deepEqual(config.actions, ["back", "backlink", "agent", "spacedRepetition", "forward"]);
     });
 
     it("supports selecting and quickly creating daily notes", () => {

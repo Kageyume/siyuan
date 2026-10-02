@@ -56,8 +56,6 @@ const getActionLabel = (action: MobileBottomBarBuiltInAction) => {
             return window.siyuan.languages.tag;
         case "backlink":
             return window.siyuan.languages.backlinks;
-        case "inbox":
-            return window.siyuan.languages.inbox;
         case "agent":
             return window.siyuan.languages.agentChat;
         case "spacedRepetition":
@@ -257,11 +255,6 @@ export const initMobileBottomBar = (app: App) => {
     bindBottomBarAction("mobileBottomBarBacklink", () => {
         if (!isMobileBlockSelecting()) {
             openDock("backlink");
-        }
-    });
-    bindBottomBarAction("mobileBottomBarInbox", () => {
-        if (!isMobileBlockSelecting()) {
-            openDock("inbox");
         }
     });
     bindBottomBarAction("mobileBottomBarAgent", () => {

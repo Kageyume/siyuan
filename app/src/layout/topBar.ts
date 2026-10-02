@@ -11,7 +11,6 @@ import {initTopBarMenu} from "../menus/topBar";
 import {MenuItem} from "../menus/Menu";
 import {hideTooltip} from "../dialog/tooltip";
 import {setMode} from "../util/assets";
-import {openSetting} from "../config";
 import {openSearch} from "../search/spread";
 import type {App} from "../index";
 /// #if !BROWSER
@@ -100,8 +99,6 @@ export const initBar = (app: App) => {
     <svg><use xlink:href="#iconForward"></use></svg>
 </button>
 <div class="fn__flex-1 fn__ellipsis" id="drag"><span class="fn__none">开发版，使用前请进行备份 Development version, please backup before use</span></div>
-<div id="toolbarVIP" data-topbar-entry="toolbarVIP" class="fn__flex${window.siyuan.config.readonly ? " fn__none" : ""}" aria-label="${window.siyuan.languages.accountDisplayVIP}"></div>
-<div id="toolbarTitle" data-topbar-entry="toolbarTitle" class="fn__flex${window.siyuan.config.readonly ? " fn__none" : ""}" aria-label="${window.siyuan.languages.accountDisplayTitle}"></div>
 <div id="barPlugins" data-topbar-entry="barPlugins" class="toolbar__item ariaLabel" aria-label="${window.siyuan.languages.plugin}">
     <svg><use xlink:href="#iconPlugin"></use></svg>
 </div>
@@ -168,8 +165,7 @@ ${isInMobileApp() ? `<div id="barExit" data-topbar-entry="barExit" class="ft__er
                     const useElement = hideElement.querySelector("use");
                     const menuOptions: IMenu = {
                         label: hideElement.getAttribute("aria-label"),
-                        icon: itemId === "toolbarVIP" || itemId === "toolbarTitle" ? "iconAccount" :
-                            (useElement ? useElement.getAttribute("xlink:href").substring(1) : undefined),
+                        icon: useElement ? useElement.getAttribute("xlink:href").substring(1) : undefined,
                         click: () => {
                             if (itemId.startsWith("plugin")) {
                                 hideElement.dispatchEvent(new CustomEvent("click"));
@@ -256,12 +252,6 @@ ${isInMobileApp() ? `<div id="barExit" data-topbar-entry="barExit" class="ft__er
                     rect = toolbarElement.querySelector("#barMore").getBoundingClientRect();
                 }
                 window.siyuan.menus.menu.popup({x: rect.right, y: rect.bottom, h: rect.height, isLeft: true});
-                event.stopPropagation();
-                break;
-            } else if (targetId === "toolbarVIP" || targetId === "toolbarTitle") {
-                if (!window.siyuan.config.readonly) {
-                    openSetting(app, "sync");
-                }
                 event.stopPropagation();
                 break;
             } else if (targetId === "barSearch") {

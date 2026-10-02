@@ -774,7 +774,7 @@ export const getLocalStorage = (cb: () => void) => {
         };
         defaultStorage[Constants.LOCAL_MOBILE_SIDE_PANEL] = {
             version: 1,
-            left: ["file", "bookmark", "tag", "inbox", "plugin"],
+            left: ["file", "bookmark", "tag", "plugin"],
             right: ["outline", "backlink", "agent"],
         };
         defaultStorage[Constants.LOCAL_IMAGES] = {

@@ -1,6 +1,6 @@
 import {isPluginDockEntryKey, type PluginDockEntryKey} from "../../plugin/dockKey";
 
-export const MOBILE_BOTTOM_BAR_CONFIG_VERSION = 3 as const;
+export const MOBILE_BOTTOM_BAR_CONFIG_VERSION = 4 as const;
 
 export const MOBILE_BOTTOM_BAR_ACTIONS = [
     "back",
@@ -14,7 +14,6 @@ export const MOBILE_BOTTOM_BAR_ACTIONS = [
     "bookmark",
     "tag",
     "backlink",
-    "inbox",
     "agent",
     "spacedRepetition",
     "dailyNote",
@@ -125,7 +124,8 @@ export const normalizeMobileBottomBarConfig = (storedValue: unknown): IMobileBot
     }
 
     const record = value as Record<string, unknown>;
-    if ((record.version !== 1 && record.version !== 2 && record.version !== MOBILE_BOTTOM_BAR_CONFIG_VERSION) ||
+    if ((record.version !== 1 && record.version !== 2 && record.version !== 3 &&
+        record.version !== MOBILE_BOTTOM_BAR_CONFIG_VERSION) ||
         !Array.isArray(record.actions)) {
         return createDefaultMobileBottomBarConfig();
     }

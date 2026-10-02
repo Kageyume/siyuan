@@ -9,7 +9,6 @@ import {Menus} from "./menus";
 import {Model} from "./layout/Model";
 import {loadDesktopHostConnection, onGetConfig} from "./boot/onGetConfig";
 import {initBlockPopover} from "./block/popover";
-import {applyCloudUserState, onSetaccount} from "./config/tabs/accountUi";
 import {addScript, addScriptSync} from "./protyle/util/addScript";
 import {genUUID} from "./util/genID";
 import {fetchPost} from "./util/fetch";
@@ -46,7 +45,6 @@ import {loadPlugins} from "./plugin/loader";
 import {applyPluginReload, syncGlobalPluginConfig} from "./plugin/globalState";
 import "./assets/scss/base.scss";
 import {reloadEmoji} from "./emoji";
-import {processIOSPurchaseResponse} from "./util/iOSPurchase";
 import {updateServerAddresses} from "./config/tabs/accessRuntime";
 import {emitToPlugins} from "./plugin/EventBusCore";
 /// #if !BROWSER
@@ -143,9 +141,6 @@ export class App {
                         case "setConf":
                             window.siyuan.config = data.data;
                             syncGlobalPluginConfig(this, data.data.bazaar.petalDisabled);
-                            break;
-                        case "setCloudUser":
-                            applyCloudUserState(data.data.user, data.data.userName);
                             break;
                         case "setServerAddrs":
                             updateServerAddresses(data.data);
@@ -335,12 +330,10 @@ export class App {
                     );
                     window.siyuan.menus = new Menus(this);
                     bootSync();
-                    fetchPost("/api/setting/getCloudUser", {cached: true}, async userResponse => {
-                        window.siyuan.user = userResponse.data && "userId" in userResponse.data ? userResponse.data : null;
+                    (async () => {
                         await ensureOnboarding();
                         await setNoteBook();
                         await onGetConfig(response.data.start, this);
-                        onSetaccount();
                         setTitle("", true);
                         initMessage();
                         /// #if BROWSER && !MOBILE
@@ -352,8 +345,7 @@ export class App {
                         /// #endif
                         window.siyuan.isReady = true;
                         mainWs.flushMainMessages();
-                        fetchPost("/api/setting/getCloudUser", {});
-                    });
+                    })();
                 });
             });
         });
@@ -402,7 +394,6 @@ window.showKeyboardToolbar = () => {
 window.hideKeyboardToolbar = () => {
     // 桌面界面没有手机键盘工具栏，兼容原生容器的键盘隐藏回调。
 };
-window.processIOSPurchaseResponse = processIOSPurchaseResponse;
 // 移动端容器（Android/鸿蒙）启用桌面模式时，原生壳默认禁用 WebView 自身键盘行为、等待 JS 调用
 // showKeyboard 弹键盘，而桌面 bundle 不会调用它，导致键盘无法弹出。这里把键盘控制权交还给
 // WebView 自身管理（与平板走桌面 bundle 时的行为一致）

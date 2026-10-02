@@ -56,8 +56,6 @@ test("blank menu lists configurable entries in runtime order", () => {
         assert.equal(ids[0], "topBar.barMode");
         assert.ok(!ids.includes("topBar.barExit"));
         assert.ok(ids.includes("topBar.barSync"));
-        assert.ok(ids.includes("topBar.toolbarVIP"));
-        assert.ok(ids.includes("topBar.toolbarTitle"));
         assert.ok(!ids.includes("topBar.drag"));
         items.forEach((item) => assert.equal(item.iconHTML, ""));
     });
@@ -89,7 +87,7 @@ test("dock blank menu lists configurable dock entries only", () => {
         const items = buildEntryVisibilityMenuItems("dock", runtime);
         const ids = items.map((item) => item.id);
         assert.ok(ids.includes("dock.file"));
-        assert.ok(ids.includes("dock.inbox"));
+        assert.ok(!ids.includes("dock.inbox"));
         assert.ok(!ids.some((id) => id.includes("separator")));
     });
 });

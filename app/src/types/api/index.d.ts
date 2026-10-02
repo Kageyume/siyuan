@@ -506,12 +506,6 @@ export type AVViewSortInput = { "column"?: string | null; "dateEndpoint"?: "star
 
 export type AVViewTableColumn = { "align"?: "" | "left" | "center" | "right"; "calc"?: AVFieldCalc; "desc"?: string; "hidden": boolean; "id": string; "pin": boolean; "width": string; "wrap": boolean; } | ({ "align"?: "" | "left" | "center" | "right"; "calc"?: AVFieldCalc; "pin": boolean; "width": string; } & { "desc"?: never; "hidden"?: never; "id"?: never; "wrap"?: never; });
 
-export type AccountLoginData = { "needCaptcha": string | null; "token": string | null; "userName": string | null; };
-
-export type AccountLoginRequestInput = { "captcha": string; "cloudRegion": number; "userName": string; "userPassword": string; };
-
-export type ActivationCodeRequestInput = { "data": string; };
-
 export type AddAttributeViewBlocksRequestInput = { "avID": string; "blockID"?: string | null; "groupID"?: string | null; "ignoreDefaultFill"?: boolean | null; "previousID"?: string | null; "srcs": Array<AVBlockSourceInput>; "viewID"?: string | null; };
 
 export type AddAttributeViewKeyRequestInput = { "avID": string; "blockID"?: string | null; "keyID": string; "keyIcon": string; "keyName": string; "keyType": string; "previousKeyID": string; };
@@ -758,8 +752,6 @@ export type ChangeMasterPasswordRequestInput = { "newPassword": string; "oldPass
 
 export type ChangeSortNotebookRequestInput = { "notebooks": Array<string>; };
 
-export type CheckActivationCodeRequestInput = { "data": string; };
-
 export type CheckBlockRefRequestInput = { "deletedIDs"?: Array<string>; "exactIDs"?: Array<string>; "id"?: string | null; "ids"?: Array<string>; "notebook"?: string | null; "paths"?: Array<string>; "scope"?: string; };
 
 export type CheckBlocksExistRequestInput = { "id"?: string | null; "ids": Array<JSONValue>; "notebook"?: string | null; };
@@ -778,13 +770,7 @@ export type ClipboardPathRequestInput = { "path": string; };
 
 export type CloseNotebookRequestInput = { "notebook": string; };
 
-export type CloudBackup = { "hSize": string; "saveDir": string; "size": number; "updated": string; };
-
 export type CloudReminderRequestInput = { "content": string; "id": string; "timed": string; };
-
-export type CloudSpaceData = { "backup": CloudBackup | null; "hAssetSize": string; "hExchangeSize": string; "hSize": string; "hTotalSize": string; "hTrafficAPIGet": string; "hTrafficAPIPut": string; "hTrafficDownloadSize": string; "hTrafficUploadSize": string; "sync": CloudSync | null; };
-
-export type CloudSync = { "cloudName": string; "hSize": string; "saveDir": string; "size": number; "updated": string; };
 
 export type CloudSyncDir = { "cloudName": string; "hSize": string; "saveDir": string; "size": number; "updated": string; };
 
@@ -1322,8 +1308,6 @@ export type LocalGraphResult = { "box": string; "conf": LocalGraphConf; "id": st
 
 export type LockScreenRequestInput = { "lockScreenMode": number; };
 
-export type Login2faEnvelope = { "code": number; "data": ({ "code": number; "msg": string; } & { [key: string]: JSONValue }) | null; "msg": string; };
-
 export type MCPOAuthClient = { "id": string; "name": string; "redirectURI": string; };
 
 export type MCPOAuthClientRequestInput = { "name": string; "redirectURI": string; };
@@ -1555,8 +1539,6 @@ export type RemoveCriterionRequestInput = { "name": string; };
 export type RemoveFileRequestInput = { "app"?: string | null; "path": string; };
 
 export type RemoveRepoTagSnapshotRequestInput = { "tag": string; };
-
-export type RemoveShorthandsRequestInput = { "ids": Array<string>; };
 
 export type RemoveTagRequestInput = { "label": string; };
 
@@ -1890,8 +1872,6 @@ export type SettingCapabilityPolicy = { "default": string; "overrides": Record<s
 
 export type SettingCapabilityPolicyInput = { "default"?: string | null; "overrides"?: Record<string, string> | null; };
 
-export type SettingCloudUserRequestInput = { "cached"?: boolean; "token"?: string | null; };
-
 export type SettingDecision = { "apiKey": string; "enabled": boolean; "endpoint": string; "name": string; "timeout": number; };
 
 export type SettingDecisionInput = { "apiKey"?: string | null; "enabled"?: boolean | null; "endpoint"?: string | null; "name"?: string | null; "timeout"?: number | null; };
@@ -1933,8 +1913,6 @@ export type SettingImageGeneration = { "modelId": string; "outputFormat": string
 export type SettingImageGenerationInput = { "modelId"?: string | null; "outputFormat"?: string | null; "quality"?: string | null; "requestTimeout"?: number | null; "size"?: string | null; };
 
 export type SettingKeymapRequestInput = { "data"?: { [key: string]: JSONValue } | null; };
-
-export type SettingLogin2faRequestInput = { "code": string; "token": string; };
 
 export type SettingMCP = { "exposurePolicy": SettingCapabilityPolicy | null; "servers": Array<SettingMCPServer> | null; };
 
@@ -1988,25 +1966,11 @@ export type SettingStatusBarInput = { "msgDataSyncDisabled"?: boolean | null; "m
 
 export type SettingThemeRequestInput = { "appearanceMode"?: string | null; "modes"?: Array<number> | null; "theme"?: string | null; };
 
-export type SettingUser = { "userAvatarURL": string; "userCreateTime": string; "userHomeBImgURL": string; "userId": string; "userIntro": string; "userName": string; "userNickname": string; "userSiYuanAssetSize": number; "userSiYuanOneTimePayStatus": number; "userSiYuanPointExchangeRepoSize": number; "userSiYuanProExpireTime": number; "userSiYuanRepoSize": number; "userSiYuanSubscriptionPlan": number; "userSiYuanSubscriptionStatus": number; "userSiYuanSubscriptionType": number; "userTitles": Array<SettingUserTitle | null> | null; "userToken": string; "userTokenExpireTime": string; "userTrafficAPIGet": number; "userTrafficAPIPut": number; "userTrafficDownload": number; "userTrafficTime": number; "userTrafficUpload": number; };
-
-export type SettingUserTitle = { "desc": string; "icon": string; "name": string; };
-
 export type SettingVariable = { "name": string; "value": string; };
 
 export type SettingVariableInput = { "name"?: string | null; "value"?: string | null; };
 
 export type SettingVariables = { "items": Array<SettingVariable | null> | null; };
-
-export type Shorthand = { "hCreated": string; "oId": string; "shorthandContent": string; "shorthandDesc": string; "shorthandFrom": number; "shorthandMd": string; "shorthandTitle": string; "shorthandURL": string; };
-
-export type ShorthandPage = { "pagination": ShorthandPagination; "shorthands": Array<Shorthand | null>; };
-
-export type ShorthandPagination = { "paginationPageCount": number; "paginationPageNums": Array<number> | null; "paginationRecordCount": number; };
-
-export type ShorthandsData = { "code": number; "data": ShorthandPage; "msg": string; };
-
-export type ShorthandsRequestInput = { "page": number; };
 
 export type Snippet = { "content": string; "disabledInPublish": boolean; "enabled": boolean; "id": string; "name": string; "type": string; };
 
@@ -2524,31 +2488,6 @@ export type APILegacyPOSTPath =
     never;
 
 export interface APIPOSTRoutes {
-    "/api/account/checkActivationcode": {
-        request: CheckActivationCodeRequestInput;
-        response: { "code": 0; "data": null; "msg": string; } | { "code": -1 | 1; "data": { "closeTimeout": number; } | null | null; "msg": string; };
-        body: "json";
-    };
-    "/api/account/deactivate": {
-        request: EmptyRequestInput;
-        response: { "code": 0; "data": null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "none";
-    };
-    "/api/account/login": {
-        request: AccountLoginRequestInput;
-        response: { "code": 0; "data": AccountLoginData | null; "msg": string; } | { "code": -1 | 1 | 10; "data": { "closeTimeout": number; } | null | AccountLoginData | null; "msg": string; };
-        body: "json";
-    };
-    "/api/account/startFreeTrial": {
-        request: EmptyRequestInput;
-        response: { "code": 0; "data": null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "none";
-    };
-    "/api/account/useActivationcode": {
-        request: ActivationCodeRequestInput;
-        response: { "code": 0; "data": null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "json";
-    };
     "/api/ai/agent/browserCapabilityResult": {
         request: AIBrowserCapabilityResultRequestInput;
         response: { "code": 0; "data": null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
@@ -3675,11 +3614,6 @@ export interface APIPOSTRoutes {
         response: { "code": 0; "data": null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
         body: "json";
     };
-    "/api/cloud/getCloudSpace": {
-        request: EmptyRequestInput;
-        response: { "code": 0; "data": CloudSpaceData; "msg": string; } | { "code": -1 | 1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "none";
-    };
     "/api/cloud/setCloudReminder": {
         request: CloudReminderRequestInput;
         response: { "code": 0; "data": null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
@@ -4280,21 +4214,6 @@ export interface APIPOSTRoutes {
     "/api/import/startObsidianVaultImport": {
         request: ObsidianImportRequestInput;
         response: { "code": 0; "data": ObsidianVaultTask | null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "json";
-    };
-    "/api/inbox/getShorthand": {
-        request: TrimmedIDRequestInput;
-        response: { "code": 0; "data": Shorthand | null; "msg": string; } | { "code": -1 | 1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "json";
-    };
-    "/api/inbox/getShorthands": {
-        request: ShorthandsRequestInput;
-        response: { "code": 0; "data": ShorthandsData | null; "msg": string; } | { "code": -1 | 1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "json";
-    };
-    "/api/inbox/removeShorthands": {
-        request: RemoveShorthandsRequestInput;
-        response: { "code": 0; "data": null; "msg": string; } | { "code": -1 | 1; "data": { "closeTimeout": number; } | null; "msg": string; };
         body: "json";
     };
     "/api/lute/copyStdMarkdown": {
@@ -4949,11 +4868,6 @@ export interface APIPOSTRoutes {
         response: { "code": 0; "data": SettingBootAppearancesData; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
         body: "none";
     };
-    "/api/setting/getCloudUser": {
-        request: SettingCloudUserRequestInput;
-        response: { "code": 0; "data": SettingUser | null; "msg": string; } | { "code": -1 | 1 | 255; "data": { "closeTimeout": number; } | null | SettingUser | null; "msg": string; };
-        body: "json";
-    };
     "/api/setting/getPandocBin": {
         request: EmptyRequestInput;
         response: { "code": 0; "data": string; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
@@ -4962,17 +4876,6 @@ export interface APIPOSTRoutes {
     "/api/setting/getPublish": {
         request: EmptyRequestInput;
         response: { "code": 0; "data": SettingPublishData; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "none";
-    };
-    "/api/setting/login2faCloudUser": {
-        request: SettingLogin2faRequestInput;
-        response: Login2faEnvelope | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
-        body: "json";
-        output: "directJSON";
-    };
-    "/api/setting/logoutCloudUser": {
-        request: EmptyRequestInput;
-        response: { "code": 0; "data": null; "msg": string; } | { "code": -1; "data": { "closeTimeout": number; } | null; "msg": string; };
         body: "none";
     };
     "/api/setting/refreshVirtualBlockRef": {

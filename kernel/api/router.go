@@ -141,12 +141,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/storage/patchViewState", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, patchViewState)
 	ginServer.Handle("POST", "/api/storage/removeViewState", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, removeViewState)
 
-	ginServer.Handle("POST", "/api/account/login", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, login)
-	ginServer.Handle("POST", "/api/account/checkActivationcode", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, checkActivationcode)
-	ginServer.Handle("POST", "/api/account/useActivationcode", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, useActivationcode)
-	ginServer.Handle("POST", "/api/account/deactivate", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, deactivateUser)
-	ginServer.Handle("POST", "/api/account/startFreeTrial", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, startFreeTrial)
-
 	ginServer.Handle("POST", "/api/notebook/lsNotebooks", model.CheckAuth, lsNotebooks)
 	ginServer.Handle("POST", "/api/notebook/openNotebook", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, openNotebook)
 	ginServer.Handle("POST", "/api/notebook/closeNotebook", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, closeNotebook)
@@ -363,7 +357,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/attr/getBlockAttrs", model.CheckAuth, getBlockAttrs)
 	ginServer.Handle("POST", "/api/attr/batchGetBlockAttrs", model.CheckAuth, batchGetBlockAttrs)
 
-	ginServer.Handle("POST", "/api/cloud/getCloudSpace", model.CheckAuth, model.CheckAdminRole, getCloudSpace)
 	ginServer.Handle("POST", "/api/cloud/setCloudReminder", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setCloudReminder)
 
 	ginServer.Handle("POST", "/api/sync/setSyncEnable", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setSyncEnable)
@@ -390,10 +383,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/sync/importSyncProviderS3", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importSyncProviderS3)
 	ginServer.Handle("POST", "/api/sync/exportSyncProviderWebDAV", model.CheckAuth, model.CheckAdminRole, exportSyncProviderWebDAV)
 	ginServer.Handle("POST", "/api/sync/importSyncProviderWebDAV", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, importSyncProviderWebDAV)
-
-	ginServer.Handle("POST", "/api/inbox/getShorthands", model.CheckAuth, model.CheckAdminRole, getShorthands)
-	ginServer.Handle("POST", "/api/inbox/getShorthand", model.CheckAuth, model.CheckAdminRole, getShorthand)
-	ginServer.Handle("POST", "/api/inbox/removeShorthands", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, removeShorthands)
 
 	ginServer.Handle("POST", "/api/extension/copy", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, extensionCopy)
 
@@ -500,9 +489,6 @@ func ServeAPI(ginServer *gin.Engine) {
 	ginServer.Handle("POST", "/api/setting/setEntryVisibility", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setEntryVisibility)
 	ginServer.Handle("POST", "/api/setting/setIcon", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setIcon)
 	ginServer.Handle("POST", "/api/setting/setTheme", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setTheme)
-	ginServer.Handle("POST", "/api/setting/getCloudUser", model.CheckAuth, getCloudUser)
-	ginServer.Handle("POST", "/api/setting/logoutCloudUser", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, logoutCloudUser)
-	ginServer.Handle("POST", "/api/setting/login2faCloudUser", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, login2faCloudUser)
 	ginServer.Handle("POST", "/api/setting/setEmoji", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setEmoji)
 	ginServer.Handle("POST", "/api/setting/setFlashcard", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setFlashcard)
 	ginServer.Handle("POST", "/api/setting/setAI", model.CheckAuth, model.CheckAdminRole, model.CheckReadonly, setAI)

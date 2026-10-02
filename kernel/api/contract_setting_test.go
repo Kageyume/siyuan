@@ -143,10 +143,6 @@ func TestAPIContractSettingErrorsAndAdmission(t *testing.T) {
 			t.Fatalf("%s changed: %d %s %s", entry.route, code, msg, data)
 		}
 	}
-	code, _, data := settingContractRequest(t, "getCloudUser", getCloudUser, `{invalid`)
-	if code != 0 || string(data) != "null" {
-		t.Fatalf("non-admin cloud query read body: %d %s", code, data)
-	}
 }
 
 func TestAPIContractSettingEmojiAndPublishValidation(t *testing.T) {
@@ -247,7 +243,6 @@ func TestAPIContractSettingCompletePayloads(t *testing.T) {
 	compareSettingPayload(t, "setAppearance", settingAppearancePayload)
 	compareSettingPayload(t, "setEntryVisibility", settingEntryVisibilityPayload)
 	compareSettingPayload(t, "", settingPublishPayload)
-	compareSettingPayload(t, "getCloudUser", settingUserPayload)
 	compareSettingPayload(t, "setBootAppearance", settingBootAppearanceSelectionPayload)
 	compareSettingPayload(t, "", settingBootAppearancePayload)
 }

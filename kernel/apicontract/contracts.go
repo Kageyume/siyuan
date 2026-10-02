@@ -499,27 +499,12 @@ var GetBroadcastChannels = define[EmptyRequest, BroadcastChannelsData]("getChann
 var BroadcastPublish = define[MultipartFields, BroadcastPublishData]("broadcastPublish", "/api/broadcast/publish", MultipartBody, ResponseOptions{AdditionalCodes: []int{1}}, "POST")
 
 var SetCloudReminder = define[CloudReminderRequest, Null]("setCloudReminder", "/api/cloud/setCloudReminder", JSONBody, ResponseOptions{}, "POST")
-var GetCloudSpace = define[EmptyRequest, CloudSpaceData]("getCloudSpace", "/api/cloud/getCloudSpace", NoBody, ResponseOptions{AdditionalCodes: []int{1}}, "POST")
-
-var RemoveShorthands = define[RemoveShorthandsRequest, Null]("removeShorthands", "/api/inbox/removeShorthands", JSONBody, ResponseOptions{AdditionalCodes: []int{1}}, "POST")
-var GetShorthand = define[TrimmedIDRequest, *Shorthand]("getShorthand", "/api/inbox/getShorthand", JSONBody, ResponseOptions{AdditionalCodes: []int{1}}, "POST")
-var GetShorthands = define[ShorthandsRequest, *ShorthandsData]("getShorthands", "/api/inbox/getShorthands", JSONBody, ResponseOptions{AdditionalCodes: []int{1}}, "POST")
 
 var ReadClipboardFilePaths = define[EmptyRequest, []ClipboardFile]("readFilePaths", "/api/clipboard/readFilePaths", NoBody, ResponseOptions{NonNullable: true}, "POST")
 var WriteClipboardFilePath = define[ClipboardPathRequest, Null]("writeFilePath", "/api/clipboard/writeFilePath", JSONBody, ResponseOptions{}, "POST")
 var PrepareRichText = define[PrepareRichTextRequest, *RichClipboardPrepared]("prepareRichText", "/api/clipboard/prepareRichText", JSONBody, ResponseOptions{}, "POST")
 var PreparePasteAssets = define[PreparePasteAssetsRequest, map[string]string]("preparePasteAssets", "/api/clipboard/preparePasteAssets", JSONBody, ResponseOptions{NonNullable: true}, "POST")
 var CleanupRichText = define[CleanupRichTextRequest, Null]("cleanupRichText", "/api/clipboard/cleanupRichText", JSONBody, ResponseOptions{}, "POST")
-
-var StartFreeTrial = define[EmptyRequest, Null]("startFreeTrial", "/api/account/startFreeTrial", NoBody, ResponseOptions{}, "POST")
-
-var UseActivationCode = define[ActivationCodeRequest, Null]("useActivationcode", "/api/account/useActivationcode", JSONBody, ResponseOptions{}, "POST")
-
-var CheckActivationCode = define[CheckActivationCodeRequest, Null]("checkActivationcode", "/api/account/checkActivationcode", JSONBody, ResponseOptions{AdditionalCodes: []int{1}, DataOnError: true}, "POST")
-
-var DeactivateUser = define[EmptyRequest, Null]("deactivateUser", "/api/account/deactivate", NoBody, ResponseOptions{}, "POST")
-
-var AccountLogin = define[AccountLoginRequest, *AccountLoginData]("login", "/api/account/login", JSONBody, ResponseOptions{AdditionalCodes: []int{1, 10}, DataOnError: true}, "POST")
 
 var GetUniqueFilename = define[FilePathRequest, FilePathData]("getUniqueFilename", "/api/file/getUniqueFilename", JSONBody, ResponseOptions{AdditionalCodes: []int{-3}}, "POST")
 
@@ -890,9 +875,6 @@ var SetKeymap = define[SettingKeymapRequest, Null]("setKeymap", "/api/setting/se
 var SetTheme = define[SettingThemeRequest, Null]("setTheme", "/api/setting/setTheme", JSONBody, ResponseOptions{}, "POST")
 var SetIcon = define[SettingIconRequest, Null]("setIcon", "/api/setting/setIcon", JSONBody, ResponseOptions{}, "POST")
 var GetPublish = define[EmptyRequest, SettingPublishData]("getPublish", "/api/setting/getPublish", NoBody, ResponseOptions{}, "POST")
-var GetCloudUser = define[SettingCloudUserRequest, *SettingUser]("getCloudUser", "/api/setting/getCloudUser", JSONBody, ResponseOptions{AdditionalCodes: []int{1, 255}, DataOnError: true}, "POST")
-var LogoutCloudUser = define[EmptyRequest, Null]("logoutCloudUser", "/api/setting/logoutCloudUser", NoBody, ResponseOptions{}, "POST")
-var Login2faCloudUser = define[SettingLogin2faRequest, Login2faEnvelope]("login2faCloudUser", "/api/setting/login2faCloudUser", JSONBody, ResponseOptions{Output: DirectJSONOutput}, "POST")
 var SetEmoji = define[SettingEmojiRequest, Null]("setEmoji", "/api/setting/setEmoji", JSONBody, ResponseOptions{}, "POST")
 
 var RemoveUnusedAttributeView = define[RemoveUnusedAttributeViewRequest, AVIDData]("removeUnusedAttributeView", "/api/av/removeUnusedAttributeView", JSONBody, ResponseOptions{}, "POST")

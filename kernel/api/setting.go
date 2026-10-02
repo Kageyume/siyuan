@@ -827,45 +827,6 @@ var getPublish = contractHandler(apicontract.GetPublish, func(c *gin.Context, re
 	return apicontract.Success(apicontract.SettingPublishData{Port: port, Publish: settingPublishPayload(model.Conf.Publish)})
 })
 
-var getCloudUser = contractHandler(apicontract.GetCloudUser, func(c *gin.Context, request apicontract.SettingCloudUserRequest) apicontract.Response[*apicontract.SettingUser] {
-	user, err := model.GetCloudUser(request.Token, request.Cached)
-	data := settingUserPayload(user)
-	if err == nil {
-		return apicontract.Success(data)
-	}
-	if model.IsInvalidUserRefresh(err) {
-		return apicontract.GetCloudUser.FailureWithData(255, model.Conf.Language(19), nil)
-	}
-	if model.IsCloudAssetSourceChange(err) {
-		return apicontract.GetCloudUser.FailureWithData(1, err.Error(), data)
-	}
-	return apicontract.GetCloudUser.FailureWithData(1, model.Conf.Language(18), data)
-}, func(c *gin.Context) *apicontract.Response[*apicontract.SettingUser] {
-	if model.IsAdminRoleContext(c) {
-		return nil
-	}
-	ret := apicontract.Success((*apicontract.SettingUser)(nil))
-	return &ret
-})
-
-var logoutCloudUser = contractHandler(apicontract.LogoutCloudUser, func(c *gin.Context, request apicontract.EmptyRequest) apicontract.Response[apicontract.Null] {
-	model.LogoutUser()
-	return apicontract.Success(apicontract.Null{})
-})
-
-var login2faCloudUser = contractHandler(apicontract.Login2faCloudUser, func(c *gin.Context, request apicontract.SettingLogin2faRequest) apicontract.Response[apicontract.Login2faEnvelope] {
-	result := model.Login2fa(request.Token, request.Code)
-	encoded, err := gulu.JSON.MarshalJSON(result)
-	if err != nil {
-		return apicontract.Failure[apicontract.Login2faEnvelope](-1, err.Error())
-	}
-	var envelope apicontract.Login2faEnvelope
-	if err = gulu.JSON.UnmarshalJSON(encoded, &envelope); err != nil {
-		return apicontract.Failure[apicontract.Login2faEnvelope](-1, err.Error())
-	}
-	return apicontract.SuccessDirectJSON(envelope)
-})
-
 var setEmoji = contractHandler(apicontract.SetEmoji, func(c *gin.Context, request apicontract.SettingEmojiRequest) apicontract.Response[apicontract.Null] {
 	model.Conf.Editor.Emoji = util.FilterRecentIconValues(request.Emoji)
 	return apicontract.Success(apicontract.Null{})

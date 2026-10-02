@@ -39,7 +39,6 @@ import {ensureUILayout} from "../util/ensureUILayout";
 import {applyEntryVisibility} from "../config/entryVisibility/runtime";
 import {removeBlockPanelEditors} from "../block/panelRemoval";
 import {updateServerAddresses} from "../config/tabs/accessRuntime";
-import {applyCloudUserState} from "../config/tabs/accountUi";
 import {emitToPlugins} from "../plugin/EventBusCore";
 import {initializeEnglishCommandTranslations} from "../command/english";
 import {loadLanguages} from "../boot/loadLanguages";
@@ -108,9 +107,6 @@ class App {
                             case "setConf":
                                 window.siyuan.config = data.data;
                                 syncGlobalPluginConfig(this, data.data.bazaar.petalDisabled);
-                                break;
-                            case "setCloudUser":
-                                applyCloudUserState(data.data.user, data.data.userName);
                                 break;
                             case "setServerAddrs":
                                 updateServerAddresses(data.data);
@@ -240,15 +236,13 @@ class App {
                         Constants.SIYUAN_VERSION,
                     );
                     window.siyuan.menus = new Menus(this);
-                    fetchPost("/api/setting/getCloudUser", {cached: true}, async userResponse => {
-                        window.siyuan.user = userResponse.data && "userId" in userResponse.data ? userResponse.data : null;
+                    (async () => {
                         await init(this);
                         setTitle("", true);
                         initMessage();
                         window.siyuan.isReady = true;
                         mainWs.flushMainMessages();
-                        fetchPost("/api/setting/getCloudUser", {});
-                    });
+                    })();
                 });
             });
         });

@@ -463,38 +463,6 @@ type SettingBasicAuthAccount struct {
 	Memo     string `json:"memo" api:"optional,nullable"`
 }
 
-type SettingUser struct {
-	UserId                          string              `json:"userId" api:"optional,nullable"`
-	UserName                        string              `json:"userName" api:"optional,nullable"`
-	UserAvatarURL                   string              `json:"userAvatarURL" api:"optional,nullable"`
-	UserHomeBImgURL                 string              `json:"userHomeBImgURL" api:"optional,nullable"`
-	UserTitles                      []*SettingUserTitle `json:"userTitles" api:"optional,nullable"`
-	UserIntro                       string              `json:"userIntro" api:"optional,nullable"`
-	UserNickname                    string              `json:"userNickname" api:"optional,nullable"`
-	UserCreateTime                  string              `json:"userCreateTime" api:"optional,nullable"`
-	UserSiYuanProExpireTime         float64             `json:"userSiYuanProExpireTime" api:"optional,nullable"`
-	UserToken                       string              `json:"userToken" api:"optional,nullable"`
-	UserTokenExpireTime             string              `json:"userTokenExpireTime" api:"optional,nullable"`
-	UserSiYuanRepoSize              float64             `json:"userSiYuanRepoSize" api:"optional,nullable"`
-	UserSiYuanPointExchangeRepoSize float64             `json:"userSiYuanPointExchangeRepoSize" api:"optional,nullable"`
-	UserSiYuanAssetSize             float64             `json:"userSiYuanAssetSize" api:"optional,nullable"`
-	UserTrafficUpload               float64             `json:"userTrafficUpload" api:"optional,nullable"`
-	UserTrafficDownload             float64             `json:"userTrafficDownload" api:"optional,nullable"`
-	UserTrafficAPIGet               float64             `json:"userTrafficAPIGet" api:"optional,nullable"`
-	UserTrafficAPIPut               float64             `json:"userTrafficAPIPut" api:"optional,nullable"`
-	UserTrafficTime                 float64             `json:"userTrafficTime" api:"optional,nullable"`
-	UserSiYuanSubscriptionPlan      float64             `json:"userSiYuanSubscriptionPlan" api:"optional,nullable"`
-	UserSiYuanSubscriptionStatus    float64             `json:"userSiYuanSubscriptionStatus" api:"optional,nullable"`
-	UserSiYuanSubscriptionType      float64             `json:"userSiYuanSubscriptionType" api:"optional,nullable"`
-	UserSiYuanOneTimePayStatus      float64             `json:"userSiYuanOneTimePayStatus" api:"optional,nullable"`
-}
-
-type SettingUserTitle struct {
-	Name string `json:"name" api:"optional,nullable"`
-	Desc string `json:"desc" api:"optional,nullable"`
-	Icon string `json:"icon" api:"optional,nullable"`
-}
-
 type SettingBootAppearance struct {
 	Enabled         bool                             `json:"enabled" api:"optional,nullable"`
 	Provider        string                           `json:"provider,omitempty" api:"optional,nullable"`

@@ -626,8 +626,6 @@ const topBarBuiltinChildren = [
     node("barBack", lang("goBack")),
     node("barForward", lang("goForward")),
     fixed("drag", lang("entryTopBarDrag")),
-    node("toolbarVIP", lang("accountDisplayVIP")),
-    node("toolbarTitle", lang("accountDisplayTitle")),
     node("barPlugins", lang("plugin")),
     node("barCommand", lang("commandPanel")),
     node("barSearch", lang("globalSearch")),
@@ -650,7 +648,6 @@ const dockBuiltinChildren = [
     node("tag", lang("tag")),
     node("backlink", lang("backlinks")),
     node("agentChat", lang("ai")),
-    node("inbox", lang("inbox"), false),
     node("graph", lang("graphView"), false),
     node("globalGraph", lang("globalGraph"), false),
 ];
@@ -662,7 +659,6 @@ const dockBuiltinPositions = new Map<string, TPluginDockPosition>([
     ["tag", "LeftBottom"],
     ["backlink", "RightBottom"],
     ["agentChat", "RightTop"],
-    ["inbox", "LeftTop"],
     ["graph", "RightTop"],
     ["globalGraph", "RightTop"],
 ]);

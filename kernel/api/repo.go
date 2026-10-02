@@ -112,20 +112,6 @@ var diffRepoSnapshots = contractHandler(apicontract.DiffRepoSnapshots, func(c *g
 	return apicontract.Success(apicontract.RepoDiffData{AddsLeft: repoDiffFiles(diff.AddsLeft), UpdatesLeft: repoDiffFiles(diff.UpdatesLeft), UpdatesRight: repoDiffFiles(diff.UpdatesRight), RemovesRight: repoDiffFiles(diff.RemovesRight), Left: (*apicontract.RepoDiffIndex)(diff.LeftIndex), Right: (*apicontract.RepoDiffIndex)(diff.RightIndex)})
 })
 
-var getCloudSpace = contractHandler(apicontract.GetCloudSpace, func(c *gin.Context, request apicontract.EmptyRequest) apicontract.Response[apicontract.CloudSpaceData] {
-	sync, backup, hSize, hAssetSize, hTotalSize, exchangeSize, hTrafficUploadSize, hTrafficDownloadSize, hTrafficAPIGet, hTrafficAPIPut, err := model.GetCloudSpace()
-	if err != nil {
-		util.PushErrMsg(err.Error(), 3000)
-		return apicontract.Failure[apicontract.CloudSpaceData](1, err.Error())
-	}
-	return apicontract.Success(apicontract.CloudSpaceData{
-		Sync: cloudSyncContract(sync), Backup: cloudBackupContract(backup),
-		HAssetSize: hAssetSize, HSize: hSize, HTotalSize: hTotalSize, HExchangeSize: exchangeSize,
-		HTrafficUploadSize: hTrafficUploadSize, HTrafficDownloadSize: hTrafficDownloadSize,
-		HTrafficAPIGet: hTrafficAPIGet, HTrafficAPIPut: hTrafficAPIPut,
-	})
-})
-
 var checkoutRepo = contractHandler(apicontract.CheckoutRepo, func(c *gin.Context, request apicontract.CheckoutRepoRequest) apicontract.Response[apicontract.Null] {
 	ret := gulu.Ret.NewResult()
 

@@ -1417,7 +1417,6 @@ declare namespace Config {
         bookmark?: IKey;
         tag?: IKey;
         dailyNote?: IKey;
-        inbox?: IKey;
         backlinks?: IKey;
         graphView?: IKey;
         globalGraph?: IKey;

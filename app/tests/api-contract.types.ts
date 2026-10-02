@@ -51,19 +51,6 @@ fetchPost("/api/setting/setAI", {mcp: {unknown: true}});
 fetchPost("/api/setting/setAI", {mcp: {servers: [{env: {KEY: false}}]}});
 // @ts-expect-error 主题模式的规范调用使用数字数组。
 fetchPost("/api/setting/setTheme", {theme: "theme", modes: [false]});
-fetchPost("/api/setting/login2faCloudUser", {token: "token", code: "123456"}, response => {
-    const outerCode: number = response.code;
-    if (response.data && "msg" in response.data) {
-        const cloudCode: number = response.data.code;
-        const message: string = response.data.msg;
-        const token: JSONValue = response.data.token;
-        // @ts-expect-error 云端扩展字段在使用前必须检查类型。
-        const tokenString: string = response.data.token;
-        void [cloudCode, message, token, tokenString];
-    }
-    void outerCode;
-});
-
 fetchPost("/api/filetree/getDoc", {id: "document", notebook: "box", querySubTypes: {heading: {h1: true}}}, response => {
     if (response.code === 0) {
         const content: string = response.data.content;

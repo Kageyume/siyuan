@@ -738,53 +738,6 @@ func settingBasicAuthAccountPayload(value *conf.BasicAuthAccount) *apicontract.S
 	return result
 }
 
-func settingUserPayload(value *conf.User) *apicontract.SettingUser {
-	if value == nil {
-		return nil
-	}
-	result := &apicontract.SettingUser{}
-	result.UserId = value.UserId
-	result.UserName = value.UserName
-	result.UserAvatarURL = value.UserAvatarURL
-	result.UserHomeBImgURL = value.UserHomeBImgURL
-	if value.UserTitles != nil {
-		result.UserTitles = make([]*apicontract.SettingUserTitle, len(value.UserTitles))
-		for i, item := range value.UserTitles {
-			result.UserTitles[i] = settingUserTitlePayload(item)
-		}
-	}
-	result.UserIntro = value.UserIntro
-	result.UserNickname = value.UserNickname
-	result.UserCreateTime = value.UserCreateTime
-	result.UserSiYuanProExpireTime = value.UserSiYuanProExpireTime
-	result.UserToken = value.UserToken
-	result.UserTokenExpireTime = value.UserTokenExpireTime
-	result.UserSiYuanRepoSize = value.UserSiYuanRepoSize
-	result.UserSiYuanPointExchangeRepoSize = value.UserSiYuanPointExchangeRepoSize
-	result.UserSiYuanAssetSize = value.UserSiYuanAssetSize
-	result.UserTrafficUpload = value.UserTrafficUpload
-	result.UserTrafficDownload = value.UserTrafficDownload
-	result.UserTrafficAPIGet = value.UserTrafficAPIGet
-	result.UserTrafficAPIPut = value.UserTrafficAPIPut
-	result.UserTrafficTime = value.UserTrafficTime
-	result.UserSiYuanSubscriptionPlan = value.UserSiYuanSubscriptionPlan
-	result.UserSiYuanSubscriptionStatus = value.UserSiYuanSubscriptionStatus
-	result.UserSiYuanSubscriptionType = value.UserSiYuanSubscriptionType
-	result.UserSiYuanOneTimePayStatus = value.UserSiYuanOneTimePayStatus
-	return result
-}
-
-func settingUserTitlePayload(value *conf.UserTitle) *apicontract.SettingUserTitle {
-	if value == nil {
-		return nil
-	}
-	result := &apicontract.SettingUserTitle{}
-	result.Name = value.Name
-	result.Desc = value.Desc
-	result.Icon = value.Icon
-	return result
-}
-
 func settingBootAppearancePayload(value *model.BootAppearance) *apicontract.SettingBootAppearance {
 	if value == nil {
 		return nil

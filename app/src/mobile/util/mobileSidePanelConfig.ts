@@ -1,4 +1,4 @@
-export const MOBILE_SIDE_PANEL_CONFIG_VERSION = 4 as const;
+export const MOBILE_SIDE_PANEL_CONFIG_VERSION = 5 as const;
 export const MOBILE_SIDE_PANEL_CONFIG_CHANGE_EVENT = "siyuan-mobile-side-panel-config-change";
 
 export const MOBILE_SIDE_PANEL_DOCK_IDS = [
@@ -7,7 +7,6 @@ export const MOBILE_SIDE_PANEL_DOCK_IDS = [
     "bookmark",
     "tag",
     "backlink",
-    "inbox",
     "agent",
 ] as const;
 
@@ -51,7 +50,6 @@ export const DEFAULT_MOBILE_SIDE_PANEL_LEFT: readonly MobileSidePanelBuiltInDock
     "file",
     "bookmark",
     "tag",
-    "inbox",
 ];
 
 export const DEFAULT_MOBILE_SIDE_PANEL_RIGHT: readonly MobileSidePanelBuiltInDockId[] = [
@@ -152,16 +150,18 @@ export const normalizeMobileSidePanelConfig = (
     }
 
     const record = value as Record<string, unknown>;
-    if ((record.version !== 1 && record.version !== 2 && record.version !== 3 && record.version !== MOBILE_SIDE_PANEL_CONFIG_VERSION) ||
+    if ((record.version !== 1 && record.version !== 2 && record.version !== 3 && record.version !== 4 &&
+        record.version !== MOBILE_SIDE_PANEL_CONFIG_VERSION) ||
         !Array.isArray(record.left) || !Array.isArray(record.right) ||
-        ((record.version === 3 || record.version === MOBILE_SIDE_PANEL_CONFIG_VERSION) && !Array.isArray(record.pluginDockIds))) {
+        ((record.version === 3 || record.version === 4 || record.version === MOBILE_SIDE_PANEL_CONFIG_VERSION) &&
+            !Array.isArray(record.pluginDockIds))) {
         return createDefaultMobileSidePanelConfig(pluginDocks);
     }
 
     const activePluginDocks = normalizePluginDocks(pluginDocks);
     const activePluginDockIds = new Set(activePluginDocks.map(item => item.id));
     const rememberedPluginDockIds = new Set<string>();
-    if (record.version === 3 || record.version === MOBILE_SIDE_PANEL_CONFIG_VERSION) {
+    if (record.version === 3 || record.version === 4 || record.version === MOBILE_SIDE_PANEL_CONFIG_VERSION) {
         (record.pluginDockIds as unknown[]).forEach((value) => {
             if (typeof value === "string" && value && !isMobileSidePanelBuiltInDockId(value)) {
                 rememberedPluginDockIds.add(value);

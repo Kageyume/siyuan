@@ -356,20 +356,19 @@ test("entry order preserves plugin registration slots", () => {
 });
 
 test("top bar order can move entries across its fixed boundary while preserving an unavailable plugin slot", () => {
-    const defaultOrder = ["barSync", "barBack", "drag", "toolbarVIP", "barPlugins"];
+    const defaultOrder = ["barSync", "barBack", "drag", "barPlugins"];
     const savedOrder = ["barBack", "plugin:missing:item", "drag", "barSync", "toolbarVIP", "barPlugins"];
     assert.deepEqual(mergeEntryOrderPreservingUnknown(defaultOrder, savedOrder, [
         "barBack",
-        "toolbarVIP",
         "drag",
         "barSync",
         "barPlugins",
     ]), [
         "barBack",
         "plugin:missing:item",
-        "toolbarVIP",
         "drag",
         "barSync",
+        "toolbarVIP",
         "barPlugins",
     ]);
 });
