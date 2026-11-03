@@ -150,3 +150,31 @@ func TestS3SyncIgnoresDirectoryValidation(t *testing.T) {
 		Conf.Sync.Load().Provider = conf.ProviderS3
 	}
 }
+
+func TestThirdPartySyncDoesNotRequireCloudUser(t *testing.T) {
+	for _, provider := range []int{conf.ProviderWebDAV, conf.ProviderS3, conf.ProviderLocal} {
+		t.Run(fmt.Sprint(provider), func(t *testing.T) {
+			prepareSyncDirectoryTest(t)
+			Conf.Sync.Load().Enabled = true
+			Conf.Sync.Load().Provider = provider
+			Conf.Sync.Load().CloudName = "main"
+			Conf.SetUser(nil)
+
+			if !checkSync(false, false, true) {
+				t.Fatalf("provider %d sync was rejected without a cloud user", provider)
+			}
+		})
+	}
+
+	t.Run("SiYuan", func(t *testing.T) {
+		prepareSyncDirectoryTest(t)
+		Conf.Sync.Load().Enabled = true
+		Conf.Sync.Load().Provider = conf.ProviderSiYuan
+		Conf.Sync.Load().CloudName = "main"
+		Conf.SetUser(nil)
+
+		if checkSync(false, false, true) {
+			t.Fatal("SiYuan cloud sync was allowed without a cloud user")
+		}
+	})
+}

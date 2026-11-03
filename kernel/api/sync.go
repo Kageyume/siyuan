@@ -409,7 +409,7 @@ func performSyncContract(c *gin.Context, request apicontract.PerformSyncRequest)
 		if !util.IsBooted() {
 			return
 		}
-		if nil == model.Conf.GetUser() || !confSyncSnapshot.Enabled {
+		if !confSyncSnapshot.Enabled {
 			return
 		}
 	}
