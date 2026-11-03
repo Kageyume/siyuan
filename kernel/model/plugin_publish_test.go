@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -9,17 +13,18 @@ import (
 	"testing"
 
 	"github.com/siyuan-note/siyuan/kernel/conf"
+	"github.com/siyuan-note/siyuan/kernel/internal/testutil"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
 
 func setupPluginPublishTest(t *testing.T) func(string) {
 	t.Helper()
 	originalData, originalConfDir, originalConf := util.DataDir, util.ConfDir, Conf
-	root := t.TempDir()
+	root := testutil.PublicDataDir(t)
 	util.DataDir, util.ConfDir = filepath.Join(root, "data"), filepath.Join(root, "conf")
 	Conf = NewAppConf()
-	Conf.Sync = conf.NewSync()
-	Conf.Bazaar = &conf.Bazaar{Trust: true}
+	Conf.Sync.Store(conf.NewSync())
+	Conf.Bazaar.Store(&conf.Bazaar{Trust: true})
 	Conf.Lang = "en"
 	t.Cleanup(func() { util.DataDir, util.ConfDir, Conf = originalData, originalConfDir, originalConf })
 	write := func(declaration string) {
@@ -93,11 +98,11 @@ func TestPluginPublishDataLifecycle(t *testing.T) {
 	if _, err = SetPetalPublishEnabled("example", true); err != nil {
 		t.Fatal(err)
 	}
-	Conf.Bazaar.PetalDisabled = true
+	Conf.Bazaar.Load().PetalDisabled = true
 	if _, err = LoadPluginPublishData("example"); !errors.Is(err, ErrPluginPublishDenied) {
 		t.Fatalf("global disable read: %v", err)
 	}
-	Conf.Bazaar.PetalDisabled = false
+	Conf.Bazaar.Load().PetalDisabled = false
 	if _, err = SetPetalEnabled("example", false); err != nil {
 		t.Fatal(err)
 	}

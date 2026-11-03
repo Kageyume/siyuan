@@ -1,13 +1,18 @@
 import {Constants} from "./constants";
+import {refreshSettingConfig} from "./config/setting/sync";
 import {closeNotebookHistoryDialogs} from "./history/notebookDialogs";
+import {clearDocumentCreationPlans} from "./util/configuredDocument";
+import {closeNotebookLivePhotos} from "./protyle/preview/livePhoto";
 import {systemConfig} from "./config/systemConfig";
 import {openStandaloneDatabaseItemByURI} from "./protyle/render/av/openStandaloneDatabaseItem";
 /// #if BROWSER
 import "./util/iosWindowControls";
+import {registerDesktopBackNavigation} from "./boot/globalEvent/nativeBack";
 /// #endif
 import {Menus} from "./menus";
 import {Model} from "./layout/Model";
 import {loadDesktopHostConnection, onGetConfig} from "./boot/onGetConfig";
+import {exitAfterSettingsReset} from "./config/setting/reset";
 import {initBlockPopover} from "./block/popover";
 import {addScript, addScriptSync} from "./protyle/util/addScript";
 import {genUUID} from "./util/genID";
@@ -28,13 +33,14 @@ import {
     downloadProgress,
     processSync,
     progressBackgroundTask,
-    progressLoading,
     progressStatus,
     processBacklinkIndexCommit,
     setDefRefCount,
     setRefDynamicText,
     transactionError
 } from "./dialog/processSystem";
+import {progressLoading} from "./dialog/progress";
+import {syncCheckoutProgress} from "./sync/checkoutProgress";
 import {initMessage, showMessage} from "./dialog/message";
 import {getAllModels, getAllTabs} from "./layout/getAll";
 import {getLocalStorage, isChromeBrowser, isInMobileApp, isIOSDevice} from "./protyle/util/compatibility";
@@ -50,7 +56,7 @@ import {emitToPlugins} from "./plugin/EventBusCore";
 /// #if !BROWSER
 import {ipcRenderer} from "electron";
 /// #endif
-import {getDockByType} from "./layout/tabUtil";
+import {getDockByType, setTabPosition} from "./layout/tabUtil";
 import {Files} from "./layout/dock/Files";
 import {Tag} from "./layout/dock/Tag";
 import {appearanceConfigApi, refreshAppearance} from "./config/tabs/appearanceRuntime";
@@ -64,6 +70,7 @@ import {removeBlockPanelEditors} from "./block/panelRemoval";
 import {initializeEnglishCommandTranslations} from "./command/english";
 import {loadLanguages} from "./boot/loadLanguages";
 import {installPluginStorageFetchAppId} from "./util/fetchAppId";
+import {initWindowWithLoading} from "./boot/loading";
 
 export class App {
     public plugins: import("./plugin").Plugin[] = [];
@@ -82,6 +89,11 @@ export class App {
         mainWs.connect({
             id: genUUID(),
             type: "main",
+            callback: () => {
+                if (window.siyuan.isReady) {
+                    void refreshSettingConfig().catch(error => console.error("Could not refresh settings", error));
+                }
+            },
             msgCallback: (data) => {
                 emitToPlugins("ws-main", data);
                 if (data) {
@@ -91,6 +103,9 @@ export class App {
                             break;
                         case "setAppearance":
                             appearanceConfigApi.apply(data.data);
+                            break;
+                        case "settingChanged":
+                            void refreshSettingConfig(data.data.namespace, data.data.revision);
                             break;
                         case "refreshAppearance":
                             void refreshAppearance(data.data);
@@ -157,6 +172,9 @@ export class App {
                                 });
                             }
                             break;
+                        case "syncProgress":
+                            syncCheckoutProgress(data);
+                            break;
                         case "progress":
                             progressLoading(data);
                             break;
@@ -194,6 +212,8 @@ export class App {
                         case "closeBox":
                         case "removeBox":
                             closeNotebookHistoryDialogs(data.data.box);
+                            clearDocumentCreationPlans(data.data.box);
+                            closeNotebookLivePhotos(data.data.box);
                             removeBlockPanelEditors({notebookId: data.data.box});
                             getAllTabs().forEach((tab) => {
                                 if (tab.headElement) {
@@ -329,11 +349,14 @@ export class App {
                         Constants.SIYUAN_VERSION,
                     );
                     window.siyuan.menus = new Menus(this);
-                    bootSync();
                     (async () => {
                         await ensureOnboarding();
                         await setNoteBook();
-                        await onGetConfig(response.data.start, this);
+                        await initWindowWithLoading(() => onGetConfig(response.data.start, this), setTabPosition);
+                        /// #if !BROWSER
+                        // 加载遮罩移除后再显示主窗口，避免原生窗口按钮出现在启动界面上。
+                        ipcRenderer.send(Constants.SIYUAN_READY_TO_SHOW);
+                        /// #endif
                         setTitle("", true);
                         initMessage();
                         /// #if BROWSER && !MOBILE
@@ -345,6 +368,8 @@ export class App {
                         /// #endif
                         window.siyuan.isReady = true;
                         mainWs.flushMainMessages();
+                        bootSync();
+                        exitAfterSettingsReset();
                     })();
                 });
             });
@@ -353,7 +378,7 @@ export class App {
     }
 }
 
-installPluginStorageFetchAppId(window, Constants.SIYUAN_APPID, window.location.href);
+installPluginStorageFetchAppId(window, Constants.SIYUAN_APPID, document.baseURI, location.origin);
 const siyuanApp = new App();
 
 window.openFileByURL = (openURL) => {
@@ -388,6 +413,7 @@ window.openFileByURL = (openURL) => {
 };
 
 /// #if BROWSER
+registerDesktopBackNavigation(siyuanApp);
 window.showKeyboardToolbar = () => {
     // 防止 Pad 端报错
 };
@@ -403,6 +429,4 @@ if (window.JSAndroid?.setWebViewFocusable) {
 } else if (window.JSHarmony?.setWebViewFocusable) {
     window.JSHarmony.setWebViewFocusable(true);
 }
-/// #else
-ipcRenderer.send(Constants.SIYUAN_READY_TO_SHOW);
 /// #endif

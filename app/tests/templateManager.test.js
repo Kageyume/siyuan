@@ -6,6 +6,13 @@ const path = require("node:path");
 const runCases = async (sources, css, mobile, legacyMobile) => {
     const assert = require("node:assert/strict");
     const tick = () => new Promise(resolve => setTimeout(resolve, 30));
+    const waitFor = async (predicate, message) => {
+        const deadline = performance.now() + 5000;
+        while (!predicate()) {
+            assert.ok(performance.now() < deadline, message);
+            await tick();
+        }
+    };
     document.body.innerHTML = '<div id="model"><button class="toolbar__icon">Back</button><div id="modelMain"></div></div>';
     new Function(sources.icons)();
     const style = document.createElement("style");
@@ -31,7 +38,7 @@ const runCases = async (sources, css, mobile, legacyMobile) => {
     document.body.append(menuElement);
     const menu = {
         element: menuElement,
-        remove() {menuElement.classList.add("fn__none"); menuElement.replaceChildren();},
+        remove() {this.data = undefined; menuElement.classList.add("fn__none"); menuElement.replaceChildren();},
         append(element) {menuElement.append(element);},
         popup() {menuElement.classList.remove("fn__none");},
     };
@@ -79,7 +86,7 @@ const runCases = async (sources, css, mobile, legacyMobile) => {
             opened.push(id);
             if (openSucceeded) {afterOpen({notebookId: "notebook"});} else {onFailure();}
         }},
-        "mobile/util/backlinkPanels": {closeMobileBacklinkSheets: async () => {}},
+        "mobile/util/MobileEditorDialog": {closeMobileEditorSheets: async () => {}},
         "constants": {Constants: {LOCAL_DOCINFO: "docInfo"}},
         "protyle/util/compatibility": {setStorageVal() {}},
         "util/pathName": {isEncryptedBox: () => false},
@@ -263,8 +270,10 @@ const runCases = async (sources, css, mobile, legacyMobile) => {
 
     for (const width of mobile ? [360, 740] : [1440, 850]) {
         await require("electron").ipcRenderer.invoke("template-manager-size", width, 800);
-        await tick();
         const wide = !mobile && width === 1440;
+        await waitFor(() => window.innerWidth === width && root.classList.contains("template-manager--wide") === wide &&
+            getComputedStyle(root.querySelector(".template-manager__editor")).flexDirection === (wide ? "row" : "column"),
+        `${mobile}/${width}: resized manager layout did not settle`);
         assert.equal(root.classList.contains("template-manager--wide"), wide);
         assert.equal(getComputedStyle(root.querySelector(".template-manager__editor")).flexDirection, wide ? "row" : "column");
         assert.ok(root.scrollWidth <= root.clientWidth + 1, `${mobile}/${width}: manager overflows`);
@@ -286,7 +295,7 @@ const runCases = async (sources, css, mobile, legacyMobile) => {
         source.value = original;
         if (mobile && width === 360) {
             await require("electron").ipcRenderer.invoke("template-manager-size", width, 360);
-            await tick();
+            await waitFor(() => Math.abs(window.innerHeight - 360) <= 1, "mobile keyboard viewport did not resize");
             button("source").scrollIntoView({block: "nearest"});
             assert.ok(button("source").getBoundingClientRect().bottom <= 360, "actions remain reachable above the keyboard");
         }
@@ -324,7 +333,7 @@ if (process.versions.electron && process.type === "browser") {
                     icons: fs.readFileSync(path.join(__dirname, "../appearance/icons/litheness/icon.js"), "utf8"),
                     languages: fs.readFileSync(path.join(__dirname, "../appearance/langs/zh-CN.json"), "utf8"),
                 };
-                for (const name of ["template/manager", "template/actionState", "util/fileTree", "util/escape"]) {
+                for (const name of ["menus/menuToggle", "template/manager", "template/actionState", "util/fileTree", "util/escape"]) {
                     sources[name] = ts.transpileModule(preprocess(fs.readFileSync(path.join(__dirname, "../src", name + ".ts"), "utf8"),
                         {MOBILE: mobile, BROWSER: false}, false, true), {
                         compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020},

@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //go:build fts5
 
 package model
@@ -68,12 +72,12 @@ func TestMindmapSearchFTS(t *testing.T) {
 		check(buildTypeFilter(tc.types, nil), tc.want)
 	}
 	// 引用和嵌入候选搜索共用全局类型过滤。
-	Conf.Search.Mindmap = new(true)
-	Conf.Search.MindmapItem = new(false)
-	check("type IN "+Conf.Search.TypeFilter(), 2)
-	Conf.Search.Mindmap = new(false)
-	Conf.Search.MindmapItem = new(true)
-	check("type IN "+Conf.Search.TypeFilter(), 2)
-	Conf.Search.MindmapItem = new(false)
-	check("type IN "+Conf.Search.TypeFilter(), 1)
+	Conf.Search.Load().Mindmap = new(true)
+	Conf.Search.Load().MindmapItem = new(false)
+	check("type IN "+Conf.Search.Load().TypeFilter(), 2)
+	Conf.Search.Load().Mindmap = new(false)
+	Conf.Search.Load().MindmapItem = new(true)
+	check("type IN "+Conf.Search.Load().TypeFilter(), 2)
+	Conf.Search.Load().MindmapItem = new(false)
+	check("type IN "+Conf.Search.Load().TypeFilter(), 1)
 }

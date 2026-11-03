@@ -1,10 +1,19 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
-// AVCalendarSettings 是 setAttrViewCalendar 事务的完整设置数据，也是日历布局的持久化字段设置。
+// AVCalendarSettings 是 setAttrViewCalendar 事务的完整设置数据，也是日历布局的持久化字段和显示设置。
 // 月周模式和当前浏览日期由各编辑器独立维护，不写入共享设置。
 // 切换布局保留其他布局及分组设置；日历渲染不应用分组。
 type AVCalendarSettings struct {
 	// 绑定一个 date、created 或 updated 字段；后两者不支持通过日历拖动修改。
+	// date 字段有显示模板时，以模板输出的纯文本日期排布，保留原始 date 值，不允许通过日历改期。
+	// 支持 YYYY-MM-DD、字段 dateFormat 指定的数字日期格式，以及当前语言的本地日期格式。
+	// dateFormat 为 lunar 时也接受当前语言的农历显示文本，闰月和日期必须落在离线对照表覆盖范围内。
+	// 可附加 HH:mm[:ss]，以空格或 T 分隔；首尾空白忽略，斜杠日期按字段格式解释，不猜测日月顺序。
+	// 按 CalendarRange 的时区解释，省略区间时使用内核本地时区；空值、无效日期和其他格式不显示，也不进入待安排列表。
 	// 空字符串表示未绑定；字段缺失或类型变化时保留绑定，日历返回空行，不自动改绑或回填日期。
 	DateKeyID string `json:"dateKeyID"`
 	// 可选单选字段，使用已有选项颜色；空字符串表示不使用字段颜色。
@@ -14,6 +23,8 @@ type AVCalendarSettings struct {
 	// 月视图折叠前显示的条目行数，可选 3、5、10；-1 表示全部，省略或 0 按 3 行显示。
 	// 仅控制客户端折叠，不限制查询结果；周视图始终显示全部条目。
 	RowLimit int `json:"rowLimit,omitempty" api:"optional"`
+	// 是否在日历条目中显示非主键字段的名称；省略时关闭，按视图保存，支持撤销和重做。
+	DisplayFieldName bool `json:"displayFieldName,omitempty" api:"optional"`
 }
 
 // AVCalendarRange 是本次渲染的毫秒时间戳半开区间 [start, end)，不持久化。
@@ -30,9 +41,10 @@ type AVCalendarRange struct {
 
 type AVLayoutCalendar struct {
 	*AVBaseLayout
-	Columns  []*AVViewTableColumn `json:"columns" api:"optional,nullable"`
-	RowIDs   []string             `json:"rowIds" api:"optional,nullable"`
-	Settings AVCalendarSettings   `json:"settings"`
+	Columns []*AVViewTableColumn `json:"columns" api:"optional,nullable"`
+	// 兼容旧版行顺序；空列表与底层布局一致省略，非空列表保持原有顺序。
+	RowIDs   []string           `json:"rowIds,omitempty" api:"optional,nullable"`
+	Settings AVCalendarSettings `json:"settings"`
 }
 
 // AVCalendarUndatedData 返回当前日历视图中待安排条目的单页数据。

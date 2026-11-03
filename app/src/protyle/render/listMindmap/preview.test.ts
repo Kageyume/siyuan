@@ -19,22 +19,22 @@ const extract = (file: string, names: string[]) => {
     return compile(declarations.map(declaration => declaration.getText(source)).join("\n"));
 };
 
-const cases = async (source: string) => {
+const cases = async (source: string, css: string, formulas: string[]) => {
     const check = require("node:assert/strict");
     const requests: {url: string, data: Record<string, string>}[] = [];
-    const chartRefreshes: Element[] = [];
     const dependencies = {
+        isFoldedRenderContent: () => false,
         fetchPost: (url: string, data: Record<string, string>) => requests.push({url, data}),
         fetchSyncPost: () => check.fail("Preview requested database data"),
-        genRenderFrame: () => {},
+        genEmbedRenderFrame: () => {},
         isEncryptedBox: () => false,
         hasClosestByClassName: (element: HTMLElement, name: string) => element.closest(`.${name}`),
-        chartRender: (element: Element) => chartRefreshes.push(element),
+        mathRender: (): undefined => undefined,
     };
     const api = new Function(...Object.keys(dependencies), source + "; return {customBlockRender, " +
         "registerCustomBlockRoot, setCustomBlockRootReady, unregisterCustomBlockRoot, activateCustomBlockPlugin, " +
         "deactivateCustomBlockPlugin, htmlRender, blockRender, avRender, getAVElements, getCell, getTableNode, " +
-        "TablePreviewControl, refreshChartTheme, getAVRichTextUnsupportedPasteBlocks};")(...Object.values(dependencies));
+        "TablePreviewControl, MindmapPreviewView, refreshChartTheme, getAVRichTextUnsupportedPasteBlocks};")(...Object.values(dependencies));
     const root = document.createElement("div");
     root.className = "protyle-wysiwyg";
     document.body.append(root);
@@ -59,7 +59,7 @@ const cases = async (source: string) => {
     const updates: string[] = [];
     window.siyuan = {
         languages: new Proxy({}, {get: (_target, key) => String(key)}),
-        config: {editor: {embedBlockBreadcrumb: false, headingEmbedMode: 0}},
+        config: {editor: {embedBlockBreadcrumb: false, headingEmbedMode: 0}, appearance: {mode: 1}},
         ws: {app: {plugins: [{name: "preview-test", customBlockRenders: {test: {
             render: (options: {element: HTMLElement, setContent: (content: string) => boolean}) => {
                 renders++;
@@ -125,10 +125,19 @@ const cases = async (source: string) => {
     chart.dataset.subtype = "echarts";
     preview(chart);
     const disposedCharts: Element[] = [];
-    window.echarts = {dispose: (element: Element) => disposedCharts.push(element)} as unknown as typeof window.echarts;
+    const chartThemes: string[] = [];
+    const chartIDs: string[] = [];
+    window.echarts = {
+        dispose: (element: Element) => disposedCharts.push(element),
+        getInstanceById: (id: string) => {
+            chartIDs.push(id);
+            return {setTheme: (theme: string) => chartThemes.push(theme)};
+        },
+    } as unknown as typeof window.echarts;
     api.refreshChartTheme(root);
-    check.deepEqual(disposedCharts, [chart.firstElementChild], "theme changes never dispose the source through a preview copy");
-    check.deepEqual(chartRefreshes, [chart]);
+    check.deepEqual(disposedCharts, [], "theme changes preserve the source instance");
+    check.deepEqual(chartIDs, ["source-instance"], "theme changes exclude preview copies");
+    check.deepEqual(chartThemes, ["dark"]);
 
     const table = block("NodeTable", "<table><tbody><tr><td>Cell</td></tr></tbody></table>" +
         '<div class="protyle-action__table"></div>');
@@ -147,6 +156,132 @@ const cases = async (source: string) => {
     check.equal(controls.getEdgeHover(0, 0), undefined);
     controls.renderPinnedTableFrames();
     check.equal(controls.pinnedTableActions.size, 0);
+
+    // 表格单元格的列表标记属于只读内容，预览保留序号、圆点和任务状态。
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.head.append(style);
+    const richTable = block("NodeTable", '<table><tbody><tr><td><div class="table__cell-rich">' +
+        '<div class="list" data-type="NodeList" data-table-cell-node>' +
+        ["o", "u", "t"].map((type, index) => `<div class="li" data-type="NodeListItem" data-subtype="${type}" data-table-cell-node>` +
+            `<div class="protyle-action${type === "o" ? " protyle-action--order" : type === "t" ? " protyle-action--task" : ""}" draggable="true">` +
+            (type === "o" ? "1." : `<svg><use href="#${type === "u" ? "iconDot" : "iconCheck"}"></use></svg>`) +
+            `</div><div class="p" data-type="NodeParagraph" data-table-cell-node><div data-table-cell-content>Item ${index}</div>` +
+            '<div class="protyle-attr"></div></div><div class="protyle-attr"></div></div>').join("") +
+        '</div><span data-type="img" class="img img--select img--drag"><span class="protyle-image-container protyle-image-container--compact" style="width: 180px;">' +
+        '<img src="assets/image.png" alt="description"><span class="protyle-image-resize" style="width: 0px; height: 0px;">' +
+        '<span class="protyle-block-resize touch-resize-active" data-resize-axis="both"></span></span></span>' +
+        '<span class="protyle-action">Image controls</span></span>' +
+        '</div></td></tr></tbody></table><div class="protyle-action__table"></div>');
+    const originalTable = richTable.outerHTML;
+    const map = document.createElement("div");
+    map.className = "mindmap-view";
+    map.innerHTML = '<div class="mindmap-view__node"><div class="mindmap-view__content"></div>' +
+        '<button class="mindmap-view__fold"><span></span></button></div>';
+    root.append(map);
+    const nodeElement = map.firstElementChild;
+    const node = {id: "table-node", children: [] as unknown[], contentBlocks: [richTable], virtual: false};
+    const model = {root: node, nodes: new Map([[node.id, node]]), metadata: {
+        nodes: {} as Record<string, {width?: number}>, relations: [] as {id: string}[],
+    }};
+    const view = Object.assign(new api.MindmapPreviewView(), {
+        options: {host: map}, viewport: document.createElement("div"), persistedLocked: false,
+        nodeElements: new Map([[node.id, nodeElement]]), folded: new Map(), selectedIds: new Set(),
+        renderTask: () => {}, destroyContentViews: () => {},
+        label: (key: string) => key, updateRelations: () => {}, updateSummaries: () => {},
+        updateSelection: () => {}, renderInspector: () => {}, refreshLayout: () => {},
+    });
+    view.update(model);
+    const richPreview = map.querySelector(".table__cell-rich");
+    check.equal(richPreview.querySelectorAll(".li > .protyle-action").length, 3);
+    check.equal(richPreview.querySelector(".protyle-action--order").textContent, "1.");
+    check.equal(richPreview.querySelector(".protyle-action--task use").getAttribute("href"), "#iconCheck");
+    check.equal(map.querySelector(".img .protyle-action, .protyle-attr, .protyle-action__table"), null);
+    check.equal(map.querySelector(".protyle-image-resize, .protyle-block-resize, .img--select, .img--drag, .protyle-image-container--compact"), null,
+        "image previews never retain hidden-source handles or selection states");
+    check.equal(map.querySelector(".img img").getAttribute("src"), "assets/image.png");
+    check.equal((map.querySelector(".img img").parentElement as HTMLElement).style.width, "180px");
+    check.equal(map.querySelector("[data-node-id], [draggable], [contenteditable]"), null);
+    check.equal(richTable.outerHTML, originalTable, "preview rendering leaves the source table intact");
+    for (const size of [16, 32]) {
+        map.style.fontSize = `${size}px`;
+        for (const item of richPreview.querySelectorAll<HTMLElement>(".li")) {
+            const action = item.querySelector(".protyle-action");
+            const text = item.querySelector("[data-table-cell-content]");
+            check.equal(getComputedStyle(action).position, "absolute");
+            check.ok(action.getBoundingClientRect().left >= item.getBoundingClientRect().left - 1);
+            check.ok(action.getBoundingClientRect().right <= text.getBoundingClientRect().left + 1,
+                "list markers keep their shared indentation at large editor fonts");
+        }
+    }
+    // 使用真实 KaTeX 排版，检查占位换行、分式、长公式和节点宽度恢复。
+    const paragraph = document.createElement("div");
+    paragraph.className = "p";
+    paragraph.dataset.type = "NodeParagraph";
+    paragraph.dataset.nodeId = "formula";
+    node.contentBlocks = [paragraph];
+    for (const formula of formulas) {
+        paragraph.innerHTML = '<div spellcheck="false"><span data-type="inline-math" data-subtype="math" ' +
+            'data-render="true">' + formula + "</span>\n</div>";
+        const original = paragraph.outerHTML;
+        view.update(model);
+        const text = map.querySelector<HTMLElement>(".mindmap-view__text");
+        check.equal(text.classList.contains("mindmap-view__text--trailing-newline"), false);
+        check.equal(text.lastChild.nodeType, Node.ELEMENT_NODE);
+        const math = text.querySelector<HTMLElement>('[data-type="inline-math"]');
+        check.ok(math.getBoundingClientRect().right <= nodeElement.getBoundingClientRect().right);
+        const narrowHeight = nodeElement.getBoundingClientRect().height;
+        const naturalWidth = math.scrollWidth;
+        model.metadata.nodes[node.id] = {width: 1000};
+        view.update(model);
+        const wideMath = map.querySelector<HTMLElement>('[data-type="inline-math"]');
+        check.equal(nodeElement.getBoundingClientRect().width, 1000);
+        check.ok(wideMath.scrollWidth <= wideMath.clientWidth + 1, "widening removes formula scrolling");
+        check.ok(nodeElement.getBoundingClientRect().height <= narrowHeight + 1, "formula never splits into separate lines");
+        check.ok(wideMath.getBoundingClientRect().width <= naturalWidth + 1,
+            `formula keeps its natural width: ${wideMath.getBoundingClientRect().width} / ${naturalWidth}`);
+        check.equal(paragraph.outerHTML, original, "formula preview leaves source and caret marker intact");
+        model.metadata.nodes[node.id] = {width: 0};
+        view.update(model);
+        check.ok(nodeElement.getBoundingClientRect().width <= 300, "reset restores automatic sizing");
+    }
+    for (const html of ["Plain text\n", '<span data-type="inline-math">x</span>\n\n',
+        '<span data-type="inline-math">x</span>\nNext line']) {
+        paragraph.innerHTML = `<div spellcheck="false">${html}</div>`;
+        view.update(model);
+        check.equal(map.querySelector(".mindmap-view__text").innerHTML, html, "real line breaks survive the preview");
+    }
+    // 高亮代码末尾保留换行，切换到编辑器后不应增加或减少一行。
+    const code = document.createElement("div");
+    code.className = "code-block";
+    code.dataset.type = "NodeCodeBlock";
+    code.dataset.nodeId = "code";
+    node.contentBlocks = [code];
+    for (const mobile of [false, true]) {
+        document.body.className = mobile ? "body--android" : "body--windows";
+        for (const fontSize of [16, 32]) {
+            map.style.fontSize = `${fontSize}px`;
+            for (const text of ["line\n", "line\nsecond\n", "line\n\n"]) {
+                code.innerHTML = '<div class="protyle-action"><span>text</span></div>' +
+                    '<div class="hljs" style="display:block"><div class="fn__none"></div>' +
+                    `<div contenteditable="true" spellcheck="false" style="white-space:pre">${text}</div></div>`;
+                const original = code.outerHTML;
+                view.update(model);
+                const content = view.getContentHost(node.id);
+                const preview = content.innerHTML;
+                const previewHeight = nodeElement.getBoundingClientRect().height;
+                content.classList.add("mindmap-view__editor", "protyle");
+                content.innerHTML = '<div class="protyle-content"><div class="protyle-wysiwyg" spellcheck="false">' +
+                    code.outerHTML + "</div></div>";
+                check.ok(Math.abs(nodeElement.getBoundingClientRect().height - previewHeight) < 0.1,
+                    `code preview and editor keep equal heights: ${JSON.stringify({mobile, fontSize, text})}`);
+                content.classList.remove("mindmap-view__editor", "protyle");
+                content.innerHTML = preview;
+                check.equal(code.outerHTML, original, "code sizing never rewrites source content");
+            }
+        }
+    }
+    style.remove();
 
     // 脑图预览保留复杂块，数据库和表格单元格仍按原有规则拒绝这些块。
     const types = ["NodeTable", "NodeAttributeView", "NodeBlockQueryEmbed", "NodeCustomBlock", "NodeHTMLBlock",
@@ -181,13 +316,29 @@ test("special block previews cannot acquire document writes or lose unsupported 
     const methods = tableClass.members.filter(member => ["getEdgeHover", "renderPinnedTableFrames"]
         .includes(member.name?.getText(tableSource)));
     assert.equal(methods.length, 2);
+    const viewSource = createSourceFile("view.ts", readFileSync(path.join(__dirname, "view.ts"), "utf8"), ScriptTarget.Latest, true);
+    const viewClass = viewSource.statements.find(isClassDeclaration);
+    const viewMethods = viewClass.members.filter(member => ["update", "updateColors", "getContentHost"].includes(member.name?.getText(viewSource)));
+    assert.equal(viewMethods.length, 3);
+    const katexDirectory = path.resolve(__dirname, "../../../../stage/protyle/js/katex");
+    const katex = require(path.join(katexDirectory, "katex.min.js"));
+    const formulas = ["x", "\\frac{y}{x}", "AAA=" + "A".repeat(40)].map(value =>
+        katex.renderToString(value, {output: "html"}));
+    const css = readFileSync(path.join(katexDirectory, "katex.min.css"), "utf8") + require("sass").compile(path.resolve(__dirname, "../../../assets/scss/base.scss"), {
+        logger: require("sass").Logger.silent,
+    }).css;
     const source = compile(readFileSync(path.join(__dirname, "../../../plugin/customBlockRender.ts"), "utf8")) +
-        extract("../htmlRender.ts", ["htmlRender"]) + extract("../blockRender.ts", ["blockRender"]) +
+        extract("../htmlRender.ts", ["htmlRender"]) + compile(readFileSync(path.join(__dirname, "../embedBreadcrumb.ts"), "utf8")) +
+        extract("../blockRender.ts", ["blockRender"]) +
         extract("../chartRender.ts", ["refreshChartTheme"]) +
         extract("../av/render.ts", ["avRender", "getAVElements"]) +
         extract("../../util/tableVirtualizationDOM.ts", ["TABLE_VIRTUAL_ID", "TABLE_VIRTUAL_ROWS"]) +
+        extract("../../util/tableResize.ts", ["TABLE_ADD_CONTROL_GAP", "TABLE_ADD_CONTROL_THICKNESS"]) +
         extract("../../util/tableControl.ts", ["getCell", "getTableNode"]) +
         compile(`class TablePreviewControl {${methods.map(method => method.getText(tableSource)).join("\n")}}`) +
+        compile(readFileSync(path.join(__dirname, "appearance.ts"), "utf8")
+            .replace(/^import [\s\S]*?;\r?\n/gm, "").replace(/^export /gm, "")) +
+        compile(`class MindmapPreviewView {${viewMethods.map(method => method.getText(viewSource)).join("\n")}}`) +
         extract("../av/richText.ts", ["ALLOWED_BLOCK_TYPES", "isSupportedAVRichTextBlock", "getAVRichTextUnsupportedPasteBlocks"]) +
         extract("../av/richTextValue.ts", ["EXECUTABLE_CODE_LANGUAGES", "isAVRichTextExecutableCodeLanguage"]);
     const temporary = mkdtempSync(path.join(tmpdir(), "siyuan-mindmap-preview-"));
@@ -201,7 +352,7 @@ app.whenReady().then(async () => {
         await win.loadURL("data:text/html,<html><body></body></html>");
         await win.webContents.executeJavaScript("window.Lute = {UnEscapeHTMLStr: value => value}; void 0;");
         console.log(await win.webContents.executeJavaScript(${JSON.stringify(
-        `const __name = value => value; (${cases.toString()})(${JSON.stringify(source)})`)}));
+        `const __name = value => value; (${cases.toString()})(${JSON.stringify(source)}, ${JSON.stringify(css)}, ${JSON.stringify(formulas)})`)}));
         win.destroy();
         app.exit(0);
     } catch (error) {
@@ -217,6 +368,8 @@ app.whenReady().then(async () => {
         const result = await promisify(execFile)(executable, [script], {env, timeout: 15000, windowsHide: true});
         assert.match(result.stdout, /Special block previews passed/);
     } finally {
-        rmSync(temporary, {recursive: true, force: true});
+        if (path.dirname(path.resolve(temporary)) === path.resolve(tmpdir()) && path.basename(temporary).startsWith("siyuan-mindmap-preview-")) {
+            rmSync(temporary, {recursive: true, force: true, maxRetries: 20, retryDelay: 100});
+        }
     }
 });

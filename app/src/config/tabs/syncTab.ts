@@ -8,7 +8,7 @@ import {processSync} from "../../dialog/processSystem";
 import {writeText} from "../../protyle/util/compatibility";
 import {setKey} from "../../sync/syncGuide";
 import {genConfigItemName} from "../render/fragments";
-import {getLANSyncSearchAvailability, getSyncProviderConfigKeywords} from "./syncUi";
+import {getLANSyncSearchAvailability, getSyncProviderConfigKeywords, getSyncProviderConfigRowKeywords} from "./syncUi";
 import {mountLANSyncStatus, mountSyncAssetDownloadMode, mountSyncProvider} from "./syncRuntime";
 
 const registerSyncGroup = (tab: SettingTabBuilder) => {
@@ -29,6 +29,12 @@ const registerSyncGroup = (tab: SettingTabBuilder) => {
         key: "syncProviderConfig",
         keywords: getSyncProviderConfigKeywords(),
         html: () => '<div id="syncProviderConfig" class="b3-label config-item"></div>',
+    });
+    group.slot({
+        key: "syncProviderConfigRow",
+        keywords: getSyncProviderConfigRowKeywords(),
+        // 初始隐藏：渲染时按与配置区相同的条件决定是否显示，避免首帧闪烁
+        html: () => '<div id="syncProviderConfigRow" class="b3-label config-item fn__none"></div>',
     });
     group.switch("sync.enabled", {
         title: window.siyuan.languages.cloudSync,
@@ -76,7 +82,7 @@ const registerSyncGroup = (tab: SettingTabBuilder) => {
 };
 
 const registerRepoGroup = (tab: SettingTabBuilder) => {
-    const group = tab.group("repo", window.siyuan.languages.configGroupLocalDataRepo);
+    const group = tab.group("repo", window.siyuan.languages.dataRepo);
 
     group.slot({
         key: "repoKey",
@@ -102,7 +108,7 @@ const registerRepoGroup = (tab: SettingTabBuilder) => {
     </div>
     <div class="fn__space"></div>
     <div class="fn__size200 fn__flex-center fn__none" id="repoKeyActionsEmpty">
-        <button class="b3-button b3-button--outline fn__block" id="importKey"><svg><use xlink:href="#iconDownload"></use></svg>${window.siyuan.languages.importKey}</button>
+        <button class="b3-button b3-button--outline fn__block" id="importKey"><svg><use xlink:href="#iconUpload"></use></svg>${window.siyuan.languages.importKey}</button>
         <div class="fn__hr"></div>
         <button class="b3-button b3-button--outline fn__block" id="initKey"><svg><use xlink:href="#iconLock"></use></svg>${window.siyuan.languages.genKey}</button>
         <div class="fn__hr"></div>

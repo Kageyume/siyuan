@@ -1,4 +1,6 @@
+import {toggleMenu} from "../../menus/menuToggle";
 import {Divider} from "./Divider";
+import {BlockType, updateBlockTypeButton} from "./BlockType";
 import {prepareInlineElementBoundaryMutation} from "../util/inlineElementBoundary";
 import {renderMultiSelectToolbar, updateMultiSelectToolbar} from "../../mobile/util/multiSelectToolbar";
 import {selectAllLoadedBlocks} from "../wysiwyg/blockSelection";
@@ -14,17 +16,16 @@ import {ToolbarItem} from "./ToolbarItem";
 import {
     fixTableRange,
     focusBlock,
-    focusByRange,
     focusByOffset,
     focusByWbr,
     getBlockRanges,
     getEditorRange,
-    getSelectionOffset,
     getSelectionPosition,
     getUndoFocusContext,
     IBlockRange,
     selectAll
 } from "../util/selection";
+import {focusByRange, getSelectionOffset} from "../util/selectionOffsets";
 import {
     hasClosestBlock,
     hasClosestByAttribute,
@@ -54,7 +55,7 @@ import {blockRender} from "../render/blockRender";
 /// #endif
 import {fetchPost} from "../../util/fetch";
 import {isMobile} from "../../util/functions";
-import * as dayjs from "dayjs";
+import dayjs from "dayjs";
 import {insertEmptyBlock} from "../../block/util";
 import {matchHotKey} from "../util/hotKey";
 import {hideElements} from "../ui/hideElements";
@@ -65,11 +66,12 @@ import {hideMessage, showMessage} from "../../dialog/message";
 import {getPlantumlImageBlob} from "../render/plantumlImage";
 import {InlineMath} from "./InlineMath";
 import {InlineMemo} from "./InlineMemo";
+import {decodeInlineMemoContent, encodeInlineMemoContent} from "../util/inlineMemo";
 import {mathRender} from "../render/mathRender";
 import {linkMenu} from "../../menus/protyle";
 import {addScript} from "../util/addScript";
 import {paste, pasteAsPlainText, pasteEscaped} from "../util/paste";
-import {escapeAttr, escapeHtml} from "../../util/escape";
+import {escapeAttr, escapeHtml, escapeHtmlTextAndAttr} from "../../util/escape";
 import {resizeSide} from "../../history/resizeSide";
 import {activeBlur, updateMobilePluginToolbar} from "../../mobile/util/keyboardToolbar";
 import {FormatPainter} from "./FormatPainter";
@@ -101,7 +103,8 @@ import {
     canExpandInlineRangeToParent,
     canRemoveEmptyInlineElement,
     getInlineRangeElement,
-    normalizeCalloutTitleRange
+    normalizeCalloutTitleRange,
+    normalizeInlineMarkRange
 } from "./inlineRangeBoundary";
 import {resolvePluginToolbar} from "../../plugin/toolbarItem";
 import {FontControl, updateFontControls} from "./fontControls";
@@ -141,7 +144,7 @@ const applyPluginToolbar = (toolbar: Array<string | IMenuItem>, protyle: IProtyl
         });
         result = filterPluginToolbar(result, protyle.lite);
         result.forEach((toolbarItem) => {
-            if (typeof toolbarItem === "string" || Constants.INLINE_TYPE.concat("|", "font-family", "font-size").includes(toolbarItem.name)) {
+            if (typeof toolbarItem === "string" || Constants.INLINE_TYPE.concat("|", "font-family", "font-size", "block-type").includes(toolbarItem.name)) {
                 return;
             }
             if (typeof toolbarItem.hotkey !== "string") {
@@ -296,6 +299,8 @@ export class Toolbar {
             return;
         }
         this.range = range;
+        updateBlockTypeButton(protyle, this.element.querySelector('[data-type="block-type"]'), range);
+        applyToolbarEntryVisibility(this.element);
         this.rangePosition = undefined;
         this.isMultipleClick = (position?.detail || 0) > 1;
         const nodeElement = hasClosestBlock(range.startContainer);
@@ -740,7 +745,7 @@ export class Toolbar {
             return;
         }
 
-        const toolbarElement = isMobile() ? document.querySelector("#keyboardToolbar .keyboard__dynamic").nextElementSibling : this.element;
+        const toolbarElement = isMobile() ? document.querySelector("#keyboardToolbar .keyboard__dynamic") : this.element;
         const actionBtn = action === "toolbar" ? toolbarElement.querySelector(`[data-type="${type}"]`) : undefined;
         const remove = INLINE_FORMAT_TYPES.includes(type) && !textObj ?
             getRangesInlineFormats(ranges).includes(type) :
@@ -843,6 +848,7 @@ export class Toolbar {
         }
         const editableElement = normalizeCalloutTitleRange(this.range, nodeElement,
             getContenteditableElement(nodeElement, this.range.startContainer));
+        normalizeInlineMarkRange(this.range, editableElement);
         const isBatch = remove !== undefined;
         // 在提取选区内容之前确定格式操作，空选区继续使用光标处的输入格式。
         const removeFormat = !isBatch && !this.range.collapsed && INLINE_FORMAT_TYPES.includes(type) && !textObj ?
@@ -1012,7 +1018,7 @@ export class Toolbar {
                 }
             });
         }
-        const toolbarElement = isMobile() ? document.querySelector("#keyboardToolbar .keyboard__dynamic").nextElementSibling : this.element;
+        const toolbarElement = isMobile() ? document.querySelector("#keyboardToolbar .keyboard__dynamic") : this.element;
         const actionBtn = action === "toolbar" ? toolbarElement.querySelector(`[data-type="${type}"]`) : undefined;
         const newNodes: Node[] = [];
         let startContainer: Node;
@@ -1570,8 +1576,8 @@ export class Toolbar {
     <span class="fn__space${protyle.disabled ? " fn__none" : ""}"></span>
     <button data-type="after" class="block__icon block__icon--show b3-tooltips b3-tooltips__n${protyle.disabled ? " fn__none" : ""}" aria-label="${window.siyuan.languages.insertAfter}"><svg><use xlink:href="#iconAfter"></use></svg></button>
     <span class="fn__space${protyle.disabled ? " fn__none" : ""}"></span>
-    <button data-type="export" class="block__icon block__icon--show b3-tooltips b3-tooltips__n${getHostCapabilities().importExport ? "" : " fn__none"}" aria-label="${window.siyuan.languages.export} ${window.siyuan.languages.image}"><svg><use xlink:href="#iconImage"></use></svg></button>
-    <span class="fn__space${getHostCapabilities().importExport ? "" : " fn__none"}"></span>
+    <button data-type="export" class="block__icon block__icon--show b3-tooltips b3-tooltips__n${getHostCapabilities().documentImportExport ? "" : " fn__none"}" aria-label="${window.siyuan.languages.export} ${window.siyuan.languages.image}"><svg><use xlink:href="#iconDownload"></use></svg></button>
+    <span class="fn__space${getHostCapabilities().documentImportExport ? "" : " fn__none"}"></span>
     <button data-type="pin" class="block__icon block__icon--show b3-tooltips b3-tooltips__n" aria-label="${window.siyuan.languages.pin}"><svg><use xlink:href="#iconPin"></use></svg></button>
     <span class="fn__space"></span>
     <button data-type="close" class="block__icon block__icon--show b3-tooltips b3-tooltips__n" aria-label="${window.siyuan.languages.close}"><svg><use xlink:href="#iconClose"></use></svg></button>
@@ -1689,7 +1695,7 @@ export class Toolbar {
             }
         });
         const exportImg = () => {
-            if (!getHostCapabilities().importExport) {
+            if (!getHostCapabilities().documentImportExport) {
                 return;
             }
             const msgId = showMessage(window.siyuan.languages.exporting, 0);
@@ -1726,7 +1732,7 @@ export class Toolbar {
         if (types.includes("NodeHTMLBlock")) {
             textElement.value = renderElement.querySelector("protyle-html").getAttribute("data-content") || "";
         } else if (isInlineMemo) {
-            textElement.value = Lute.UnEscapeHTMLStr(renderElement.getAttribute("data-inline-memo-content") || "");
+            textElement.value = decodeInlineMemoContent(renderElement.getAttribute("data-inline-memo-content") || "");
         } else {
             textElement.value = Lute.UnEscapeHTMLStr(renderElement.getAttribute("data-content") || "");
         }
@@ -1751,11 +1757,11 @@ export class Toolbar {
                 }
                 inlineMemoElements.forEach((item) => {
                     if (item.nodeType !== 3) {
-                        item.setAttribute("data-inline-memo-content", window.DOMPurify.sanitize(textElement.value));
+                        item.setAttribute("data-inline-memo-content", encodeInlineMemoContent(textElement.value));
                     }
                 });
             } else {
-                renderElement.setAttribute("data-content", Lute.EscapeHTMLStr(textElement.value));
+                renderElement.setAttribute("data-content", escapeHtmlTextAndAttr(textElement.value));
                 renderElement.removeAttribute("data-render");
             }
             if (!types.includes("NodeBlockQueryEmbed") || !types.includes("NodeHTMLBlock") || !isInlineMemo) {
@@ -1839,14 +1845,13 @@ export class Toolbar {
                             inlineLastNode = item;
                         }
                     } else if (item.nodeType !== 3) {
-                        // 行级备注自动移除换行  https://ld246.com/article/1664205917326
-                        item.setAttribute("data-inline-memo-content", window.DOMPurify.sanitize(textElement.value));
+                        item.setAttribute("data-inline-memo-content", encodeInlineMemoContent(textElement.value));
                     }
                 });
             } else if (types.includes("inline-math") && !noChange) {
                 // 行内数学公式不允许换行 https://github.com/siyuan-note/siyuan/issues/2187
                 if (textElement.value) {
-                    renderElement.setAttribute("data-content", Lute.EscapeHTMLStr(textElement.value));
+                    renderElement.setAttribute("data-content", escapeHtmlTextAndAttr(textElement.value));
                     renderElement.removeAttribute("data-render");
                     processRender(renderElement);
                 } else {
@@ -1855,7 +1860,7 @@ export class Toolbar {
                     renderElement.outerHTML = "<wbr>";
                 }
             } else if (!noChange) {
-                renderElement.setAttribute("data-content", Lute.EscapeHTMLStr(textElement.value));
+                renderElement.setAttribute("data-content", escapeHtmlTextAndAttr(textElement.value));
                 renderElement.removeAttribute("data-render");
                 if (types.includes("NodeBlockQueryEmbed")) {
                     blockRender(protyle, renderElement);
@@ -2023,7 +2028,7 @@ export class Toolbar {
 
         inputElement.addEventListener("input", (event) => {
             const value = inputElement.value.trim();
-            let matchLanguages;
+            let matchLanguages = hljsLanguages;
             let html = `<div data-id="clearLanguage" class="b3-list-item">${window.siyuan.languages.clear}</div>`;
             let isMatchLanguages = false;
             // Sort
@@ -2052,7 +2057,7 @@ export class Toolbar {
             }
 
             if (areProtylePluginExtensionsEnabled(protyle) && hasPluginSubscriber("code-language-update")) {
-                const eventDetail = {languages: value ? matchLanguages : hljsLanguages, type: "match", value, listElement};
+                const eventDetail = {languages: matchLanguages, type: "match", value, listElement};
                 emitToPlugins("code-language-update", eventDetail);
                 matchLanguages = eventDetail.languages;
             }
@@ -2151,7 +2156,7 @@ export class Toolbar {
         <span class="fn__space"></span>
         <span data-type="next" class="block__icon block__icon--show"><svg><use xlink:href="#iconRight"></use></svg></span>
     </div>
-    <div class="b3-list fn__flex-1 b3-list--background" style="position: relative"><img style="margin: 0 auto;display: block;width: 64px;height: 64px" src="/stage/loading-pure.svg"></div>
+    <div class="b3-list fn__flex-1 b3-list--background" style="position: relative"><div class="fn__flex" style="height:64px;align-items:center;justify-content:center"><span class="b3-loading" aria-hidden="true"></span></div></div>
 </div>
 <div class="toolbarResize" style="    cursor: col-resize;
     box-shadow: 2px 0 0 0 var(--b3-theme-surface) inset, 3px 0 0 0 var(--b3-border-color) inset;
@@ -2313,7 +2318,7 @@ export class Toolbar {
         window.siyuan.menus.menu.remove();
         this.subElement.innerHTML = `<div class="fn__flex-column" style="max-height:50vh">
     <input spellcheck="false" style="margin: 0 8px 4px 8px" class="b3-text-field"/>
-    <div class="b3-list fn__flex-1 b3-list--background" style="position: relative"><img style="margin: 0 auto;display: block;width: 64px;height:64px" src="/stage/loading-pure.svg"></div>
+    <div class="b3-list fn__flex-1 b3-list--background" style="position: relative"><div class="fn__flex" style="height:64px;align-items:center;justify-content:center"><span class="b3-loading" aria-hidden="true"></span></div></div>
 </div>`;
         const listElement = this.subElement.lastElementChild.lastElementChild as HTMLElement;
         const inputElement = this.subElement.querySelector("input");
@@ -2458,6 +2463,7 @@ export class Toolbar {
                 } else {
                     try {
                         const text = await readClipboard();
+
                         paste(protyle, Object.assign(text, {target: nodeElement as HTMLElement}));
                     } catch (e) {
                         console.log(e);
@@ -2491,16 +2497,21 @@ export class Toolbar {
                 this.subElement.lastElementChild.innerHTML = html;
                 setContentPosition();
             } else if (action === "plugin") {
-                window.siyuan.menus.menu.remove();
-                pluginMenus.forEach(item => window.siyuan.menus.menu.addItem({...item, index: undefined}));
-                const triggerRect = btnElemen.getBoundingClientRect();
-                const selectionRect = this.range.getBoundingClientRect();
-                window.siyuan.menus.menu.popup({
-                    x: triggerRect.left,
-                    y: selectionRect.bottom + 8,
-                    h: selectionRect.height + 8,
+                await toggleMenu({
+                    target: btnElemen,
+                    build: (_menu, session) => {
+                        pluginMenus.forEach(item => window.siyuan.menus.menu.addItem({...item, index: undefined}));
+                        const triggerRect = btnElemen.getBoundingClientRect();
+                        const selectionRect = this.range.getBoundingClientRect();
+                        session.show(() => window.siyuan.menus.menu.popup({
+                            x: triggerRect.left,
+                            y: selectionRect.bottom + 8,
+                            h: selectionRect.height + 8,
+                        }));
+                        this.subElement.classList.add("fn__none");
+
+                    },
                 });
-                this.subElement.classList.add("fn__none");
             } else if (action === "more") {
                 this.subElement.lastElementChild.innerHTML = `<button class="keyboard__action${hasCopy ? "" : " fn__none"}" data-action="copyPlainText"><span>${window.siyuan.languages.copyPlainText}</span></button>
 <div class="keyboard__split${hasCopy ? "" : " fn__none"}"></div>
@@ -2530,6 +2541,9 @@ export class Toolbar {
     private genItem(protyle: IProtyle, menuItem: IMenuItem) {
         let menuItemObj;
         switch (menuItem.name) {
+            case "block-type":
+                menuItemObj = new BlockType(protyle, menuItem);
+                break;
             case "strong":
             case "em":
             case "s":

@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -44,7 +48,7 @@ func cloudAccountAuthFailureHandler(token string) func() {
 // 调用方在来源锁或同步锁内捕获凭据，第三方存储错误不影响思源账号。
 func cloudRepoErrorHandler() func(error) {
 	user := Conf.GetUser()
-	if Conf.Sync.Provider != conf.ProviderSiYuan || user == nil {
+	if Conf.Sync.Load().Provider != conf.ProviderSiYuan || user == nil {
 		return func(error) {}
 	}
 	invalid := cloudAccountAuthFailureHandler(user.UserToken)

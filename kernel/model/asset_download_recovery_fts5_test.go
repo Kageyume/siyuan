@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //go:build fts5
 
 package model
@@ -113,7 +117,7 @@ func TestAssetDownloadRecoveryUpdatesDocumentCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	scope, err := dejavu.ReadAssetDownloadScope(assetDownloadStatePath(), Conf.Repo.Key)
+	scope, err := dejavu.ReadAssetDownloadScope(assetDownloadStatePath(), Conf.Repo.Load().Key)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +131,7 @@ func TestAssetDownloadRecoveryUpdatesDocumentCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := dejavu.NewStore(t.TempDir(), Conf.Repo.Key)
+	store, err := dejavu.NewStore(t.TempDir(), Conf.Repo.Load().Key)
 	if err != nil {
 		t.Fatal(err)
 	}

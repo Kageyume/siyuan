@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package plugin
 
 import (
@@ -29,7 +33,7 @@ func newRPCCancellationTestPlugin(t *testing.T) *KernelPlugin {
 	GetManager().plugins.Store(p.Name, p)
 	t.Cleanup(func() {
 		cancel()
-		p.runtime.Terminate()
+		p.close()
 		GetManager().plugins.Delete(p.Name)
 	})
 	return p
@@ -71,48 +75,47 @@ func rpcCancellationTestHandler(c *gin.Context) {
 }
 
 func TestRPCHTTPWaitCancellation(t *testing.T) {
-	for _, legacy := range []bool{false, true} {
-		for _, path := range []string{"/api/plugin/rpc?name=rpc-cancellation", "/api/plugin/rpc/rpc-cancellation"} {
-			t.Run(path+map[bool]string{false: "/contract", true: "/legacy"}[legacy], func(t *testing.T) {
-				p := newRPCCancellationTestPlugin(t)
-				started := make(chan struct{})
-				var resolve func(interface{}) error
-				rpcCancellationTestRun(t, p, func(rt *goja.Runtime) (any, error) {
-					p.rpcMethods.Store("pending", &RpcMethod{Method: func(goja.Value, ...goja.Value) (goja.Value, error) {
-						promise, resolvePromise, _ := rt.NewPromise()
-						resolve = resolvePromise
-						close(started)
-						return rt.ToValue(promise), nil
-					}})
-					return nil, nil
-				})
-				ctx, cancel := context.WithCancel(context.Background())
-				defer cancel()
-				engine := gin.New()
-				handler := rpcCancellationTestHandler
-				if legacy {
-					handler = HandleRpcHttp
-				}
-				engine.POST("/api/plugin/rpc", handler)
-				engine.POST("/api/plugin/rpc/:name", handler)
-				recorder := httptest.NewRecorder()
-				request := httptest.NewRequest("POST", path, strings.NewReader(`{"jsonrpc":"2.0","method":"pending","id":"cancelled"}`)).WithContext(ctx)
-				done := make(chan struct{})
-				go func() {
-					engine.ServeHTTP(recorder, request)
-					close(done)
-				}()
-				rpcCancellationTestWait(t, started, "RPC invocation")
-				// 即使断言失败，也完成 Promise，避免测试自身遗留等待者。
-				defer rpcCancellationTestRun(t, p, func(*goja.Runtime) (any, error) { return nil, resolve("late") })
-				cancel()
-				rpcCancellationTestWait(t, done, "HTTP cancellation")
-				var reply JsonRpcErrorResponse
-				if err := json.Unmarshal(recorder.Body.Bytes(), &reply); err != nil || reply.ID != "cancelled" || reply.Error == nil || reply.Error.Code != JsonRpcErrorCodeInternalError {
-					t.Fatalf("unexpected cancellation reply: %s, %v", recorder.Body, err)
-				}
+	for _, path := range []string{"/api/plugin/rpc?name=rpc-cancellation", "/api/plugin/rpc/rpc-cancellation"} {
+		t.Run(path, func(t *testing.T) {
+			p := newRPCCancellationTestPlugin(t)
+			started := make(chan struct{})
+			var resolve func(any) error
+			rpcCancellationTestRun(t, p, func(rt *goja.Runtime) (any, error) {
+				p.rpcMethods.Store("pending", &RpcMethod{Method: func(goja.Value, ...goja.Value) (goja.Value, error) {
+					promise, resolvePromise, _ := rt.NewPromise()
+					resolve = resolvePromise
+					close(started)
+					return rt.ToValue(promise), nil
+				}})
+				return nil, nil
 			})
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			engine := gin.New()
+			engine.POST("/api/plugin/rpc", rpcCancellationTestHandler)
+			engine.POST("/api/plugin/rpc/:name", rpcCancellationTestHandler)
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest("POST", path, strings.NewReader(`{"jsonrpc":"2.0","method":"pending","id":"cancelled"}`)).WithContext(ctx)
+			done := make(chan struct{})
+			go func() {
+				engine.ServeHTTP(recorder, request)
+				close(done)
+			}()
+			rpcCancellationTestWait(t, started, "RPC invocation")
+			// 即使断言失败，也完成 Promise，避免测试自身遗留等待者。
+			defer rpcCancellationTestRun(t, p, func(*goja.Runtime) (any, error) { return nil, resolve("late") })
+			cancel()
+			rpcCancellationTestWait(t, done, "HTTP cancellation")
+			leases := 0
+			p.rpcWriteLeases.Range(func(_, _ any) bool { leases++; return true })
+			if leases != 1 {
+				t.Fatalf("HTTP cancellation released an unfinished RPC write lease: %d", leases)
+			}
+			var reply JsonRpcErrorResponse
+			if err := json.Unmarshal(recorder.Body.Bytes(), &reply); err != nil || reply.ID != "cancelled" || reply.Error == nil || reply.Error.Code != JsonRpcErrorCodeInternalError {
+				t.Fatalf("unexpected cancellation reply: %s, %v", recorder.Body, err)
+			}
+		})
 	}
 }
 

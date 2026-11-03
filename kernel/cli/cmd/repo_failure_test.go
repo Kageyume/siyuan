@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package cmd
 
 import (
@@ -10,11 +14,11 @@ import (
 
 func TestRepoAndSyncCommandsReportUnavailableOperations(t *testing.T) {
 	previousConf, previousDryRun := model.Conf, dryRun
-	model.Conf = &model.AppConf{Lang: "en", Repo: conf.NewRepo(), Sync: conf.NewSync()}
-	model.Conf.Sync.Enabled = false
+	model.Conf = &model.AppConf{Lang: "en", Repo: model.NewConfSection(conf.NewRepo()), Sync: model.NewConfSection(conf.NewSync())}
+	model.Conf.Sync.Load().Enabled = false
 	dryRun = false
 	t.Cleanup(func() { model.Conf, dryRun = previousConf, previousDryRun })
-	for _, command := range []*cobra.Command{repoCheckoutCmd, syncPushCmd, syncPullCmd} {
+	for _, command := range []*cobra.Command{repoCheckoutCmd, syncCmd, syncPushCmd, syncPullCmd} {
 		t.Run(command.Name(), func(t *testing.T) {
 			input := &cobra.Command{}
 			input.Flags().String("id", "missing", "")

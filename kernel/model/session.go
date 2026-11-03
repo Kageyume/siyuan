@@ -1,24 +1,13 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
 import (
 	"bytes"
 	"image/color"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -27,7 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/88250/gulu"
 	ginSessions "github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -66,7 +54,6 @@ func LogoutAuth(c *gin.Context, request apicontract.EmptyRequest) (ret apicontra
 func LoginAuth(c *gin.Context, request apicontract.SystemLoginAuthRequest) (ret apicontract.Response[apicontract.Null]) {
 	ret = apicontract.Success(apicontract.Null{})
 
-	var inputCaptcha string
 	session := util.GetSession(c)
 	workspaceSession := util.GetWorkspaceSession(session)
 	if util.NeedCaptcha() {
@@ -78,13 +65,14 @@ func LoginAuth(c *gin.Context, request apicontract.SystemLoginAuthRequest) (ret 
 			logging.LogWarnf("invalid captcha")
 			return
 		}
-		inputCaptcha = request.Captcha
 
-		if strings.ToLower(workspaceSession.Captcha) != strings.ToLower(inputCaptcha) {
+		// 挑战在服务端一次性消费，旧签名 Cookie 重放时挑战已不存在
+		// https://github.com/siyuan-note/siyuan/security/advisories/GHSA-23g4-vqq8-5764
+		if !util.ConsumeCaptchaChallenge(workspaceSession.CaptchaID, request.Captcha) {
 			ret = apicontract.Failure[apicontract.Null](1, Conf.Language(22))
 			logging.LogWarnf("invalid captcha")
 
-			workspaceSession.Captcha = gulu.Rand.String(7) // https://github.com/siyuan-note/siyuan/issues/13147
+			workspaceSession.CaptchaID = ""
 			if err := session.Save(c); err != nil {
 				logging.LogError("save session failed: " + err.Error())
 				session.Clear(c)
@@ -93,6 +81,7 @@ func LoginAuth(c *gin.Context, request apicontract.SystemLoginAuthRequest) (ret 
 			}
 			return
 		}
+		workspaceSession.CaptchaID = ""
 	}
 
 	if request.AuthCodeError() != nil {
@@ -107,7 +96,7 @@ func LoginAuth(c *gin.Context, request apicontract.SystemLoginAuthRequest) (ret 
 		logging.LogWarnf("invalid auth code [ip=%s]", util.GetRemoteAddr(c.Request))
 
 		util.WrongAuthCount++
-		workspaceSession.Captcha = gulu.Rand.String(7)
+		workspaceSession.CaptchaID = ""
 		if util.NeedCaptcha() {
 			code = 1 // 需要渲染验证码
 		}
@@ -123,9 +112,10 @@ func LoginAuth(c *gin.Context, request apicontract.SystemLoginAuthRequest) (ret 
 
 	workspaceSession.AccessAuthCode = authCode
 	workspaceSession.OIDCSessionVersion = ""
+	BindDesktopSession(c, workspaceSession, request.RememberMe)
 	util.WrongAuthCount = 0
 	util.AuthThrottleReset(c.ClientIP())
-	workspaceSession.Captcha = gulu.Rand.String(7)
+	workspaceSession.CaptchaID = ""
 
 	maxAge := 0 // Default session expiration (browser session)
 	if request.RememberMe {
@@ -133,8 +123,11 @@ func LoginAuth(c *gin.Context, request apicontract.SystemLoginAuthRequest) (ret 
 		maxAge = 60 * 60 * 24 * 30 // 30 days
 	}
 	ginSessions.Default(c).Options(ginSessions.Options{
-		Path:     "/",
-		Secure:   util.SSL,
+		Path: "/",
+		// 按当前连接是否为 TLS 标记 Secure；固定端口反代的明文连接不得标记，
+		// 否则浏览器不会在明文的 6806 端口上回传该 Cookie。
+		// https://github.com/siyuan-note/siyuan/security/advisories/GHSA-hpj5-f7cj-vvwr
+		Secure:   util.SSL || util.IsTLSRequest(c.Request),
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
@@ -166,7 +159,12 @@ func GetCaptcha(c *gin.Context, request apicontract.EmptyRequest) apicontract.Re
 
 	session := util.GetSession(c)
 	workspaceSession := util.GetWorkspaceSession(session)
-	workspaceSession.Captcha = img.Text
+	captchaID := util.NewCaptchaChallenge(img.Text)
+	if "" == captchaID {
+		logging.LogError("generates captcha challenge failed")
+		return apicontract.EmptyHTTPResponse[apicontract.BinaryContent](http.StatusInternalServerError)
+	}
+	workspaceSession.CaptchaID = captchaID
 	if err = session.Save(c); err != nil {
 		logging.LogError("save session failed: " + err.Error())
 		return apicontract.EmptyHTTPResponse[apicontract.BinaryContent](http.StatusInternalServerError)
@@ -189,6 +187,45 @@ func CheckReadonly(c *gin.Context) {
 		c.JSON(http.StatusOK, result)
 		c.Abort()
 		return
+	}
+	// 导入提交期间暂停其他写接口，避免已确认的磁盘快照被并发请求修改。
+	if c.Request.URL.Path != "/api/import/commitDataImport" && c.Request.URL.Path != "/api/import/prepareDataImport" {
+		if !dataImportAccess.TryRLock() {
+			if IsSyncCheckoutApplying() {
+				result := util.NewResult()
+				result.Code, result.Msg = -1, Conf.Language(436)
+				result.Data = map[string]any{"closeTimeout": 5000}
+				c.JSON(http.StatusOK, result)
+				c.Abort()
+				return
+			}
+			dataImportAccess.RLock()
+		}
+		released := false
+		defer func() {
+			if !released {
+				dataImportAccess.RUnlock()
+			}
+		}()
+		if err := checkDataImportRecovery(); err != nil {
+			result := util.NewResult()
+			result.Code, result.Msg = -1, err.Error()
+			c.JSON(http.StatusOK, result)
+			c.Abort()
+			return
+		}
+		// 同步控制接口会在实际应用阶段取得写租约，不跨整轮网络请求持有读租约。
+		switch c.Request.URL.Path {
+		case "/api/sync/performSync", "/api/sync/performBootSync", "/api/notebook/enableEncryptedNotebooks":
+			dataImportAccess.RUnlock()
+			released = true
+		}
+		// RPC 握手仍做只读及恢复检查，实际方法单独持有写入准入租约。
+		if c.FullPath() == "/ws/plugin/rpc" || c.FullPath() == "/ws/plugin/rpc/:name" {
+			dataImportAccess.RUnlock()
+			released = true
+		}
+		c.Next()
 	}
 }
 
@@ -338,6 +375,15 @@ func CheckAuth(c *gin.Context) {
 				return
 			}
 			if util.WorkspaceName == username && util.AuthCodeEquals(Conf.AccessAuthCode, password) {
+				// 浏览器可能自动附带缓存的 HTTP Basic 凭据，仍须校验请求来源。
+				// 不携带 Origin 和 Fetch Metadata 的普通接口客户端保持兼容。
+				if !util.IsSessionOriginAllowedRequest(c.Request) {
+					logging.LogWarnf("invalid Basic auth request origin [origin=%s, fetch-site=%s, ip=%s]",
+						c.GetHeader("Origin"), c.GetHeader("Sec-Fetch-Site"), c.ClientIP())
+					c.JSON(http.StatusUnauthorized, map[string]any{"code": -1, "msg": "Auth failed: invalid request origin"})
+					c.Abort()
+					return
+				}
 				util.AuthThrottleReset(ip)
 				c.Set(RoleContextKey, RoleAdministrator)
 				c.Next()
@@ -408,7 +454,7 @@ func authByAPIToken(c *gin.Context, source, token string) (handled bool) {
 		c.Abort()
 		return true
 	}
-	if util.AuthCodeEquals(Conf.Api.Token, token) {
+	if util.AuthCodeEquals(Conf.Api.Load().Token, token) {
 		util.AuthThrottleReset(ip)
 		c.Set(RoleContextKey, RoleAdministrator)
 		c.Next()
@@ -444,29 +490,6 @@ func isLocalHostRequestAllowed(c *gin.Context) bool {
 
 func CheckAdminRole(c *gin.Context) {
 	if IsAdminRoleContext(c) {
-		c.Next()
-	} else {
-		c.AbortWithStatus(http.StatusForbidden)
-	}
-}
-
-func CheckEditRole(c *gin.Context) {
-	if IsValidRole(GetGinContextRole(c), []Role{
-		RoleAdministrator,
-		RoleEditor,
-	}) {
-		c.Next()
-	} else {
-		c.AbortWithStatus(http.StatusForbidden)
-	}
-}
-
-func CheckReadRole(c *gin.Context) {
-	if IsValidRole(GetGinContextRole(c), []Role{
-		RoleAdministrator,
-		RoleEditor,
-		RoleReader,
-	}) {
 		c.Next()
 	} else {
 		c.AbortWithStatus(http.StatusForbidden)
@@ -518,9 +541,49 @@ func Activity(c *gin.Context) {
 }
 
 var (
-	requestingLock = sync.Mutex{}
-	requesting     = map[string]*sync.Mutex{}
+	requestingLock    = sync.Mutex{}
+	requesting        = map[string]*sync.Mutex{}
+	jsonRequestRoutes = func() map[string]bool {
+		routes := map[string]bool{}
+		for _, definition := range apicontract.Definitions() {
+			switch definition.Body {
+			case apicontract.JSONBody, apicontract.StructJSONBody, apicontract.LegacyOptionalBody:
+				for _, method := range definition.Methods {
+					routes[method+" "+definition.Path] = true
+				}
+			}
+		}
+		return routes
+	}()
 )
+
+const requestConcurrencyKey = "siyuan-request-concurrency"
+
+type requestConcurrency struct {
+	mutex  *sync.Mutex
+	locked bool
+}
+
+// LockRequestAfterDecode 接收剩余请求体后串行执行业务，避免排队请求占满 HTTP/2 连接接收窗口。
+// JSON 尾部数据沿用解码器的忽略语义；锁由外层中间件在响应和租约清理完成后释放。
+func LockRequestAfterDecode(c *gin.Context) error {
+	value, ok := c.Get(requestConcurrencyKey)
+	if !ok {
+		return nil
+	}
+	state := value.(*requestConcurrency)
+	if c.Request.Body != nil {
+		if _, err := io.Copy(io.Discard, c.Request.Body); err != nil {
+			return err
+		}
+	}
+	if err := c.Request.Context().Err(); err != nil {
+		return err
+	}
+	state.mutex.Lock()
+	state.locked = true
+	return c.Request.Context().Err()
+}
 
 func ControlConcurrency(c *gin.Context) {
 	if websocket.IsWebSocketUpgrade(c.Request) {
@@ -592,6 +655,19 @@ func ControlConcurrency(c *gin.Context) {
 		requesting[reqPath] = mutex
 	}
 	requestingLock.Unlock()
+
+	if jsonRequestRoutes[c.Request.Method+" "+c.FullPath()] || jsonRequestRoutes["ANY "+c.FullPath()] {
+		// 契约入口先完成鉴权和 JSON 解码，再申请本接口的写入锁。
+		state := &requestConcurrency{mutex: mutex}
+		c.Set(requestConcurrencyKey, state)
+		defer func() {
+			if state.locked {
+				mutex.Unlock()
+			}
+		}()
+		c.Next()
+		return
+	}
 
 	mutex.Lock()
 	defer mutex.Unlock()

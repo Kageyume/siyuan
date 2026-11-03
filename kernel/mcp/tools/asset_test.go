@@ -1,10 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package tools
 
@@ -51,9 +47,10 @@ func TestHTMLAssetIFrameBlockDOM(t *testing.T) {
 }
 
 func TestValidateAssetUploadPaths(t *testing.T) {
-	origWorkspace := util.WorkspaceDir
+	origWorkspace, origHome := util.WorkspaceDir, util.HomeDir
 	util.WorkspaceDir = filepath.Join(t.TempDir(), "workspace")
-	t.Cleanup(func() { util.WorkspaceDir = origWorkspace })
+	util.HomeDir = filepath.Join(t.TempDir(), "home")
+	t.Cleanup(func() { util.WorkspaceDir, util.HomeDir = origWorkspace, origHome })
 
 	inside := filepath.Join(util.WorkspaceDir, "data", "assets", "foo.png")
 	normalized, err := validateAssetUploadPaths([]string{inside})
@@ -80,6 +77,13 @@ func TestValidateAssetUploadPaths(t *testing.T) {
 	sshKey := filepath.Join(util.HomeDir, ".ssh", "id_rsa")
 	if _, err = validateAssetUploadPaths([]string{sshKey}); err == nil {
 		t.Fatal("credential path must be rejected")
+	}
+
+	// GHSA-q768-4j87-gf3w：家目录 dotenv 配置文件同样必须拒绝
+	for _, envFile := range []string{".env", ".env.local", ".env.production"} {
+		if _, err = validateAssetUploadPaths([]string{filepath.Join(util.HomeDir, envFile)}); err == nil {
+			t.Fatalf("dotenv credential path must be rejected: %s", envFile)
+		}
 	}
 }
 

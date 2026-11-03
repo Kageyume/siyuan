@@ -1,30 +1,21 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/88250/gulu"
 	"github.com/gin-gonic/gin"
 	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/apicontract"
+	"github.com/siyuan-note/siyuan/kernel/chatgpt"
 	"github.com/siyuan-note/siyuan/kernel/conf"
 	mcpclient "github.com/siyuan-note/siyuan/kernel/mcp/client"
 	"github.com/siyuan-note/siyuan/kernel/model"
@@ -80,7 +71,7 @@ func resolveAIProvider(request apicontract.AIProviderRequest) (*conf.Provider, e
 	}
 
 	providerID := request.Provider
-	for _, provider := range model.Conf.AI.Providers {
+	for _, provider := range model.Conf.AI.Load().Providers {
 		if provider != nil && provider.ID == providerID {
 			return provider, nil
 		}
@@ -108,10 +99,7 @@ func aiEditorChatContract(c *gin.Context, request apicontract.AIEditorChatReques
 	req := aiEditorRequest(request)
 	stream, err := model.NewAIEditorChatStream(c.Request.Context(), req.IDs, req.Input, req.Action, req.History)
 	if nil != err {
-		ret := gulu.Ret.NewResult()
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return contractFailure[apicontract.Null](ret)
+		return apicontract.Failure[apicontract.Null](-1, err.Error())
 	}
 	return apicontract.StreamSSE[apicontract.Null](func(_ http.ResponseWriter, _ *http.Request) {
 		defer stream.Close()
@@ -178,13 +166,10 @@ func aiEditorChatContract(c *gin.Context, request apicontract.AIEditorChatReques
 var lsAIEditorActions = contractHandler(apicontract.AIListEditorActions, lsAIEditorActionsContract)
 
 func lsAIEditorActionsContract(c *gin.Context, req apicontract.EmptyRequest) apicontract.Response[[]*apicontract.AIEditorAction] {
-	ret := gulu.Ret.NewResult()
 
 	actions, err := model.GetAIEditorActions()
 	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return contractFailure[[]*apicontract.AIEditorAction](ret)
+		return apicontract.Failure[[]*apicontract.AIEditorAction](-1, err.Error())
 	}
 	return apicontract.Success(aiEditorActionsContract(actions))
 }
@@ -192,7 +177,6 @@ func lsAIEditorActionsContract(c *gin.Context, req apicontract.EmptyRequest) api
 var saveAIEditorAction = contractHandler(apicontract.AISaveEditorAction, saveAIEditorActionContract)
 
 func saveAIEditorActionContract(c *gin.Context, req apicontract.AIEditorActionSaveRequest) apicontract.Response[*apicontract.AIEditorAction] {
-	ret := gulu.Ret.NewResult()
 
 	saved, err := model.SaveAIEditorAction(&model.AIEditorAction{
 		ID:     req.ID,
@@ -200,9 +184,7 @@ func saveAIEditorActionContract(c *gin.Context, req apicontract.AIEditorActionSa
 		Action: req.Action,
 	})
 	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return contractFailure[*apicontract.AIEditorAction](ret)
+		return apicontract.Failure[*apicontract.AIEditorAction](-1, err.Error())
 	}
 	return apicontract.Success((*apicontract.AIEditorAction)(saved))
 }
@@ -210,13 +192,10 @@ func saveAIEditorActionContract(c *gin.Context, req apicontract.AIEditorActionSa
 var removeAIEditorAction = contractHandler(apicontract.AIRemoveEditorAction, removeAIEditorActionContract)
 
 func removeAIEditorActionContract(c *gin.Context, req apicontract.AIEditorActionIDRequest) apicontract.Response[apicontract.Null] {
-	ret := gulu.Ret.NewResult()
-
 	if err := model.RemoveAIEditorAction(req.ID); err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
+		return apicontract.Failure[apicontract.Null](-1, err.Error())
 	}
-	return contractFailure[apicontract.Null](ret)
+	return apicontract.Success(apicontract.Null{})
 }
 
 // testModel 测试 AI 模型可用性。使用已保存的 Provider 或详情页草稿中的 baseURL/APIKey/超时，
@@ -224,18 +203,21 @@ func removeAIEditorActionContract(c *gin.Context, req apicontract.AIEditorAction
 var testModel = contractHandler(apicontract.AITestModel, testModelContract)
 
 func testModelContract(c *gin.Context, req apicontract.AIModelRequest) apicontract.Response[apicontract.AIModelTestData] {
-	ret := gulu.Ret.NewResult()
 
 	// 支持已保存的 Provider ID 和详情页尚未保存的草稿配置。
 	provider, err := resolveAIProvider(req.AIProviderRequest)
 	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return contractFailure[apicontract.AIModelTestData](ret)
+		return apicontract.Failure[apicontract.AIModelTestData](-1, err.Error())
 	}
 
-	available, matched, err := util.TestModel(
-		provider.APIKey, provider.BaseURL, provider.Protocol, req.Model, provider.RequestTimeout, model.ResolveAIProviderHeaders(provider))
+	var available []string
+	var matched bool
+	if provider.AuthType == "chatgpt" {
+		available, matched, err = testChatGPTModel(c.Request.Context(), provider, req.Model)
+	} else {
+		available, matched, err = util.TestModel(
+			provider.APIKey, provider.BaseURL, provider.Protocol, req.Model, provider.RequestTimeout, model.ResolveAIProviderHeaders(provider))
+	}
 	// 可用模型清单裁剪到前 50 条，避免响应体过大
 	if 50 < len(available) {
 		available = available[:50]
@@ -260,7 +242,7 @@ var testEmbeddingModel = contractHandler(apicontract.AITestEmbeddingModel, testE
 
 func testEmbeddingModelContract(c *gin.Context, req apicontract.EmptyRequest) apicontract.Response[apicontract.AIEmbeddingTestData] {
 
-	embedding := model.Conf.AI.Embedding
+	embedding := model.Conf.AI.Load().Embedding
 	if nil == embedding || "" == embedding.APIKey || "" == embedding.BaseURL || "" == embedding.Name {
 		// 配置不完整时统一以 code=0 返回，把信息放在 data 中由前端控制展示，
 		// 避免返回 code=-1 触发统一错误提示且令前端按钮无法恢复
@@ -286,7 +268,7 @@ var testRerankModel = contractHandler(apicontract.AITestRerankModel, testRerankM
 
 func testRerankModelContract(c *gin.Context, req apicontract.EmptyRequest) apicontract.Response[apicontract.AIRerankTestData] {
 
-	rerank := model.Conf.AI.Rerank
+	rerank := model.Conf.AI.Load().Rerank
 	if nil == rerank || "" == rerank.APIKey || "" == rerank.Endpoint || "" == rerank.Name {
 		// 配置不完整时统一以 code=0 返回，把信息放在 data 中由前端控制展示，
 		// 避免返回 code=-1 触发统一错误提示且令前端按钮无法恢复
@@ -316,16 +298,26 @@ func testRerankModelContract(c *gin.Context, req apicontract.EmptyRequest) apico
 var listModels = contractHandler(apicontract.AIListModels, listModelsContract)
 
 func listModelsContract(c *gin.Context, req apicontract.AIProviderRequest) apicontract.Response[apicontract.AIModelsData] {
-	ret := gulu.Ret.NewResult()
 
 	provider, err := resolveAIProvider(req)
 	if err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
-		return contractFailure[apicontract.AIModelsData](ret)
+		return apicontract.Failure[apicontract.AIModelsData](-1, err.Error())
 	}
 
-	metadata, err := util.ListProviderModels(provider.APIKey, provider.BaseURL, provider.Protocol, provider.RequestTimeout, model.ResolveAIProviderHeaders(provider))
+	var metadata []util.AvailableModel
+	displayNames := map[string]string{}
+	if provider.AuthType == "chatgpt" {
+		var catalog []chatgpt.Model
+		ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(provider.RequestTimeout)*time.Second)
+		defer cancel()
+		catalog, err = util.ChatGPTService().Models(ctx, provider.AccountID)
+		for _, item := range catalog {
+			metadata = append(metadata, util.AvailableModel{ID: item.ID})
+			displayNames[item.ID] = item.DisplayName
+		}
+	} else {
+		metadata, err = util.ListProviderModels(provider.APIKey, provider.BaseURL, provider.Protocol, provider.RequestTimeout, model.ResolveAIProviderHeaders(provider))
+	}
 	models := make([]string, 0, len(metadata))
 	contextLengths := map[string]int{}
 	for _, item := range metadata {
@@ -336,7 +328,7 @@ func listModelsContract(c *gin.Context, req apicontract.AIProviderRequest) apico
 			}
 		}
 	}
-	result := apicontract.AIModelsData{Models: models, ContextLengths: contextLengths}
+	result := apicontract.AIModelsData{Models: models, ContextLengths: contextLengths, DisplayNames: displayNames}
 	if nil != err {
 		message := err.Error()
 		result.Msg = &message
@@ -369,39 +361,36 @@ func mcpEnvironmentVariablesContract(c *gin.Context, req apicontract.EmptyReques
 var mcpOAuthAuthorize = contractHandler(apicontract.AIMCPOAuthAuthorize, mcpOAuthAuthorizeContract)
 
 func mcpOAuthAuthorizeContract(c *gin.Context, req apicontract.AIMCPIDRequest) apicontract.Response[apicontract.Null] {
-	ret := gulu.Ret.NewResult()
+	confAISnapshot := model.Conf.LoadAI()
 
 	serverID := req.ID
-	if model.Conf.AI == nil || model.Conf.AI.MCP == nil {
-		ret.Code = -1
-		ret.Msg = "MCP server not found"
-		return contractFailure[apicontract.Null](ret)
+	if confAISnapshot == nil || confAISnapshot.MCP == nil {
+		return apicontract.Failure[apicontract.Null](-1, "MCP server not found")
 	}
-	for _, server := range model.Conf.AI.MCP.Servers {
+	for _, server := range confAISnapshot.MCP.Servers {
 		if server.ID == serverID && server.Enabled && server.Type == "http" {
-			mcpclient.ReconnectMCPAsync(model.Conf.AI.MCP.Servers, []string{serverID}, []string{serverID})
-			return contractFailure[apicontract.Null](ret)
+			mcpclient.ReconnectMCPAsync(confAISnapshot.MCP.Servers, []string{serverID}, []string{serverID})
+			return apicontract.SuccessWithoutData[apicontract.Null]()
 		}
 	}
-	ret.Code = -1
-	ret.Msg = "MCP server not found"
-	return contractFailure[apicontract.Null](ret)
+	return apicontract.Failure[apicontract.Null](-1, "MCP server not found")
 }
 
 var mcpOAuthDisconnect = contractHandler(apicontract.AIMCPOAuthDisconnect, mcpOAuthDisconnectContract)
 
 func mcpOAuthDisconnectContract(c *gin.Context, req apicontract.AIMCPIDRequest) apicontract.Response[apicontract.Null] {
-	ret := gulu.Ret.NewResult()
+	confAISnapshot := model.Conf.LoadAI()
 
 	serverID := req.ID
-	if err := mcpclient.DisconnectMCPOAuth(serverID); err != nil {
-		ret.Code = -1
-		ret.Msg = err.Error()
+	// 断开失败不阻止重连，但要在重连后把错误报给调用方。
+	disconnectErr := mcpclient.DisconnectMCPOAuth(serverID)
+	if confAISnapshot != nil && confAISnapshot.MCP != nil {
+		mcpclient.ReconnectMCPAsync(confAISnapshot.MCP.Servers, []string{serverID}, nil)
 	}
-	if model.Conf.AI != nil && model.Conf.AI.MCP != nil {
-		mcpclient.ReconnectMCPAsync(model.Conf.AI.MCP.Servers, []string{serverID}, nil)
+	if disconnectErr != nil {
+		return apicontract.Failure[apicontract.Null](-1, disconnectErr.Error())
 	}
-	return contractFailure[apicontract.Null](ret)
+	return apicontract.SuccessWithoutData[apicontract.Null]()
 }
 
 var mcpOAuthCallback = contractHandler(apicontract.AIMCPOAuthCallback, mcpOAuthCallbackContract)
@@ -430,16 +419,14 @@ func mcpOAuthCallbackContract(c *gin.Context, request apicontract.EmptyRequest) 
 var reindexEmbedding = contractHandler(apicontract.AIReindexEmbedding, reindexEmbeddingContract)
 
 func reindexEmbeddingContract(c *gin.Context, req apicontract.EmptyRequest) apicontract.Response[apicontract.Null] {
-	ret := gulu.Ret.NewResult()
 	model.ReindexEmbedding()
-	return contractFailure[apicontract.Null](ret)
+	return apicontract.SuccessWithoutData[apicontract.Null]()
 }
 
 // retryFailedEmbedding 删除失败块的行，使其立即回到主循环重嵌，已成功向量不动，异步执行。
 var retryFailedEmbedding = contractHandler(apicontract.AIRetryFailedEmbedding, retryFailedEmbeddingContract)
 
 func retryFailedEmbeddingContract(c *gin.Context, req apicontract.EmptyRequest) apicontract.Response[apicontract.Null] {
-	ret := gulu.Ret.NewResult()
 	model.RetryFailedEmbedding()
-	return contractFailure[apicontract.Null](ret)
+	return apicontract.SuccessWithoutData[apicontract.Null]()
 }

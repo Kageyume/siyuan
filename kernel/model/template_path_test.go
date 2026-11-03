@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -42,6 +46,28 @@ func TestTemplatePathOperations(t *testing.T) {
 	}
 	if err := RemoveTemplate("missing"); err != nil {
 		t.Fatalf("missing removal: %v", err)
+	}
+}
+
+func TestResolveTemplatePath(t *testing.T) {
+	previous := util.DataDir
+	util.DataDir = filepath.Join(t.TempDir(), "data")
+	t.Cleanup(func() { util.DataDir = previous })
+	base := filepath.Join(util.DataDir, "templates")
+	for _, name := range []string{"..foo.md", "nested/..foo.md", "nested/../..foo.md"} {
+		want := filepath.Join(base, name)
+		for _, path := range []string{name, want} {
+			got, err := ResolveTemplatePath(path)
+			if err != nil || got != want {
+				t.Fatalf("resolve %q: %q, %v; want %q", path, got, err, want)
+			}
+		}
+	}
+	for _, path := range []string{"", ".", "..", "../outside.md", "nested/../../outside.md", base,
+		filepath.Join(util.DataDir, "templates-sibling", "outside.md")} {
+		if _, err := ResolveTemplatePath(path); err == nil {
+			t.Fatalf("accepted escaped or root path %q", path)
+		}
 	}
 }
 

@@ -8,14 +8,17 @@ import {afterExport} from "./util";
 /// #endif
 import {confirmDialog} from "../../dialog/confirmDialog";
 import {getThemeMode, setInlineStyle} from "../../util/assets";
+import {getCustomFontStyle} from "../../util/customFont";
 import {fetchPost, fetchSyncPost} from "../../util/fetch";
 import {Dialog} from "../../dialog";
 import {replaceLocalPath} from "../../editor/rename";
 import {getScreenWidth, isInMobileApp, saveExportFile, setStorageVal} from "../util/compatibility";
-import {getFrontend} from "../../util/functions";
+import {getFrontend, isBrowser} from "../../util/functions";
 import {isEncryptedBox} from "../../util/pathName";
 import {getHostCapabilities} from "../../util/hostCapabilities";
 import {getLastExportPath, setLastExportPath} from "./path";
+import {normalizeHeadingPageBreakLevels} from "./headingPageBreaks";
+import {headingPageBreakControls} from "./headingPageBreaksUI";
 import type {APICallbackResponse, APIPOSTRoutes} from "../../types/api";
 
 const getExportLanguages = () => {
@@ -49,30 +52,28 @@ const getIconScript = (servePath: string) => {
 };
 
 export const saveExport = (option: IExportOptions) => {
-    if (!getHostCapabilities().importExport) {
+    if (!getHostCapabilities().documentImportExport) {
         return;
     }
-    /// #if BROWSER
-    if (["html", "htmlmd"].includes(option.type)) {
+    if ((isBrowser() || getHostCapabilities().remoteKernel) && ["html", "htmlmd"].includes(option.type)) {
         const startExport = () => {
-        const msgId = showMessage(window.siyuan.languages.exporting, -1);
-        // 浏览器环境：先调用 API 生成资源文件，再在前端生成完整的 HTML
-        const onExportHTML = async (exportResponse: APICallbackResponse<APIPOSTRoutes["/api/export/exportHTML"]["response"]>) => {
-            const html = await onExport(exportResponse, undefined, "", option);
-            fetchPost("/api/export/exportBrowserHTML", {
-                folder: exportResponse.data.folder,
-                html: html,
-                name: exportResponse.data.name
-            }, zipResponse => {
-                // 与导出 .sy.zip/markdown.zip/图片一致，统一走 saveExportFile，以便移动端原生 App 调用 JSAndroid.saveExportFile 等接口保存到本地
-                saveExportFile(zipResponse.data.zip, msgId);
-            });
-        };
-        if (option.type === "htmlmd") {
-            fetchPost("/api/export/exportMdHTML", {id: option.id, savePath: ""}, onExportHTML);
-        } else {
-            fetchPost("/api/export/exportHTML", {id: option.id, pdf: false, merge: true, savePath: ""}, onExportHTML);
-        }
+            const msgId = showMessage(window.siyuan.languages.exporting, -1);
+            // 浏览器和远程连接先生成资源与完整 HTML，再下载服务器打包的导出物。
+            const onExportHTML = async (exportResponse: APICallbackResponse<APIPOSTRoutes["/api/export/exportHTML"]["response"]>) => {
+                const html = await onExport(exportResponse, undefined, "", option);
+                fetchPost("/api/export/exportBrowserHTML", {
+                    folder: exportResponse.data.folder,
+                    html: html,
+                    name: exportResponse.data.name
+                }, zipResponse => {
+                    saveExportFile(zipResponse.data.zip, msgId);
+                });
+            };
+            if (option.type === "htmlmd") {
+                fetchPost("/api/export/exportMdHTML", {id: option.id, savePath: ""}, onExportHTML);
+            } else {
+                fetchPost("/api/export/exportHTML", {id: option.id, pdf: false, merge: true, savePath: ""}, onExportHTML);
+            }
         };
         fetchPost("/api/block/getBlockInfo", {id: option.id}, (response) => {
             if (response.code === 0 && isEncryptedBox(response.data.box)) {
@@ -83,7 +84,10 @@ export const saveExport = (option: IExportOptions) => {
         });
         return;
     }
-    /// #else
+    if (!getHostCapabilities().importExport) {
+        return;
+    }
+    /// #if !BROWSER
     if (option.type === "pdf") {
         if (window.siyuan.config.appearance.mode === 1) {
             confirmDialog(window.siyuan.languages.pdfTip, window.siyuan.languages.pdfConfirm, () => {
@@ -211,7 +215,7 @@ const renderPDF = async (id: string) => {
     // 导出预览临时页可能由不同于主窗口的内核端口提供，使用相对路径可确保资源和接口保持同源。
     const servePathWithoutTrailingSlash = "";
     const servePath = "/";
-    const isDefault = (window.siyuan.config.appearance.mode === 1 && window.siyuan.config.appearance.themeDark === "midnight") || (window.siyuan.config.appearance.mode === 0 && window.siyuan.config.appearance.themeLight === "daylight");
+    const isDefault = window.siyuan.config.appearance.themeLight === "daylight";
     let themeStyle = "";
     if (!isDefault) {
         themeStyle = `<link rel="stylesheet" type="text/css" id="themeStyle" href="${servePath}appearance/themes/${window.siyuan.config.appearance.themeLight}/theme.css?${Constants.SIYUAN_VERSION}"/>`;
@@ -220,6 +224,9 @@ const renderPDF = async (id: string) => {
         cmd: "getContentsId",
     });
     const defaultExportPath = await getAvailableExportPath();
+    // 开发编译不会改变版本号，预览页需刷新导出样式和渲染脚本，避免沿用编译前的缓存。
+    const exportResourceVersion = Constants.NODE_ENV === "development" ?
+        `${Constants.SIYUAN_VERSION}-${Date.now()}` : Constants.SIYUAN_VERSION;
     // data-theme-mode="light" https://github.com/siyuan-note/siyuan/issues/7379
     const html = `<!DOCTYPE html>
 <html lang="${window.siyuan.config.appearance.lang}" data-theme-mode="light" data-light-theme="${window.siyuan.config.appearance.themeLight}" data-dark-theme="${window.siyuan.config.appearance.themeDark}">
@@ -230,7 +237,7 @@ const renderPDF = async (id: string) => {
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
     <meta name="mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <link rel="stylesheet" type="text/css" id="baseStyle" href="${servePath}stage/build/export/base.css?v=${Constants.SIYUAN_VERSION}"/>
+    <link rel="stylesheet" type="text/css" id="baseStyle" href="${servePath}stage/build/export/base.css?v=${exportResourceVersion}"/>
     <link rel="stylesheet" type="text/css" id="themeDefaultStyle" href="${servePath}appearance/themes/daylight/theme.css?v=${Constants.SIYUAN_VERSION}"/>
     <script src="${servePath}stage/protyle/js/protyle-html.js?v=${Constants.SIYUAN_VERSION}"></script>
     ${themeStyle}
@@ -260,6 +267,10 @@ const renderPDF = async (id: string) => {
         
         .b3-switch {
             margin-left: 14px;
+        }
+
+        #action .b3-select:focus {
+            outline: none;
         }
         
         #previewContainer {
@@ -355,6 +366,7 @@ const renderPDF = async (id: string) => {
             visibility: hidden;
         }
         ${await setInlineStyle(false, servePath)}
+        ${getHostCapabilities().customAppearance ? await getCustomFontStyle() : ""}
         ${await getPluginStyle()}
     </style>
     ${getSnippetCSS()}
@@ -458,6 +470,13 @@ const renderPDF = async (id: string) => {
             <span class="fn__hr"></span>
             <input id="addTitle" class="b3-switch" type="checkbox" ${window.siyuan.config.export.addTitle ? "checked" : ""}>
         </label>
+        <label class="b3-label">
+            <div>
+                ${window.siyuan.languages.exportTitleImage}
+            </div>
+            <span class="fn__hr"></span>
+            <input id="titleImage" class="b3-switch" type="checkbox" ${localData.titleImage !== false ? "checked" : ""}>
+        </label>
         <label id="customTitlePanel" class="b3-label${window.siyuan.config.export.addTitle ? "" : " fn__none"}">
             <div>
                 ${window.siyuan.languages.title}
@@ -508,6 +527,12 @@ const renderPDF = async (id: string) => {
             <span class="fn__hr"></span>
             <input id="paged" class="b3-switch" type="checkbox" ${localData.paged ? "checked" : ""}>
         </label>
+        <div id="headingPageBreakOptions" class="b3-label${localData.paged ? "" : " fn__none"}">
+            <div>${window.siyuan.languages.pdfHeadingPageBreaks}</div>
+            <div class="ft__smaller ft__on-surface">${window.siyuan.languages.pdfHeadingPageBreaksTip}</div>
+            <div class="fn__hr"></div>
+            <div id="headingPageBreaks">${headingPageBreakControls(localData.headingPageBreakLevels)}</div>
+        </div>
     </div>
     <div class="fn__flex" style="padding: 0 12px">
       <div class="fn__flex-1"></div>
@@ -518,14 +543,27 @@ const renderPDF = async (id: string) => {
 </div>
 <div id="previewContainer">
     <div style="zoom:${localData.scale || 1}" id="preview">
-        <div class="fn__loading" style="left:0;height:100vh"><img width="48px" src="${servePath}stage/loading-pure.svg"></div>
+        <div class="fn__loading" style="left:0;height:100vh"><span class="b3-loading b3-loading--large" aria-hidden="true"></span></div>
     </div>
 </div>
 ${getIconScript(servePath)}
-<script src="${servePath}stage/build/export/protyle-method.js?${Constants.SIYUAN_VERSION}"></script>
+<script src="${servePath}stage/build/export/protyle-method.js?${exportResourceVersion}"></script>
 <script src="${servePath}stage/protyle/js/lute/lute.min.js?${Constants.SIYUAN_VERSION}"></script>    
 <script>
     const previewElement = document.getElementById('preview');
+    const getHeadingPageBreakLevels = () => Array.from(document.querySelectorAll("#headingPageBreaks input:checked"))
+        .map(input => Number(input.value));
+    const updateHeadingPageBreaks = () => {
+        const enabled = document.getElementById("paged").checked;
+        document.getElementById("headingPageBreakOptions").classList.toggle("fn__none", !enabled);
+        document.querySelectorAll("#headingPageBreaks input").forEach(input => {
+            input.disabled = !enabled;
+        });
+        Protyle.applyExportHeadingPageBreaks(previewElement, getHeadingPageBreakLevels(), enabled);
+    };
+    document.getElementById("headingPageBreaks").addEventListener("change", updateHeadingPageBreaks);
+    document.getElementById("paged").addEventListener("change", updateHeadingPageBreaks);
+    updateHeadingPageBreaks();
     const fixBlockWidth = async (printableWidth = false) => {
         const isLandscape = document.querySelector("#landscape").checked;
         let width = 800
@@ -591,6 +629,30 @@ ${getIconScript(servePath)}
                 item.parentElement.style.overflow = "hidden";
             }
         })
+        const images = Array.from(previewElement.querySelectorAll(".img img"));
+        // 先恢复用户设置的尺寸，再按当前纸张、边距和缩放计算，避免重复调整时只能缩小。
+        images.forEach(image => image.removeAttribute("data-export-image-fit"));
+        if (document.querySelector("#paged").checked) {
+            images.forEach(image => {
+                const block = image.closest("[data-node-id]") || image.parentElement;
+                const style = getComputedStyle(block);
+                const blockSpacing = [style.paddingTop, style.paddingBottom, style.marginTop, style.marginBottom]
+                    .reduce((sum, value) => sum + (parseFloat(value) || 0), 0);
+                let maxHeight = height;
+                // 图片缩窄后说明文字可能增加行数，逐步收紧高度以保留说明、段落间距和行盒的空间。
+                while (true) {
+                    const extraHeight = Math.max(0, image.parentElement.offsetHeight - image.offsetHeight) +
+                        (parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.625) + blockSpacing;
+                    const nextHeight = Math.max(1, Math.floor(height - extraHeight - 1));
+                    if (image.clientHeight <= nextHeight || nextHeight >= maxHeight) {
+                        break;
+                    }
+                    maxHeight = nextHeight;
+                    image.style.setProperty("--export-image-max-height", maxHeight + "px");
+                    image.setAttribute("data-export-image-fit", "true");
+                }
+            });
+        }
     }
     const setPadding = () => {
         const isLandscape = document.querySelector("#landscape").checked;
@@ -656,6 +718,23 @@ ${getIconScript(servePath)}
             }
         })
     }
+    const waitForImages = () => Promise.all(Array.from(previewElement.querySelectorAll("img")).map((image) => {
+        image.loading = "eager";
+        if (image.complete) {
+            return Promise.resolve();
+        }
+        return new Promise((resolve) => {
+            const finish = () => {
+                clearTimeout(timeout);
+                image.removeEventListener("load", finish);
+                image.removeEventListener("error", finish);
+                resolve();
+            };
+            const timeout = setTimeout(finish, 30000);
+            image.addEventListener("load", finish, {once: true});
+            image.addEventListener("error", finish, {once: true});
+        });
+    }));
     let previewReady = Promise.resolve();
     let previewRevision = 0;
     const renderPreview = async (data) => {
@@ -694,11 +773,15 @@ ${getIconScript(servePath)}
         Protyle.abcRender(wysElement, "${servePath}stage/protyle");
         Protyle.htmlRender(wysElement);
         Protyle.plantumlRender(wysElement, "${servePath}stage/protyle");
+        updateHeadingPageBreaks();
+        await waitForImages();
     }
     fetchPost("/api/export/exportPreviewHTML", {
         id: "${id}",
         keepJSEmbed: true,
         keepFold: ${localData.keepFold},
+        pdf: true,
+        excludeTitleImage: ${localData.titleImage === false},
         addTitle: ${window.siyuan.config.export.addTitle},
         customTitle: "",
         merge: ${localData.mergeSubdocs},
@@ -754,6 +837,10 @@ ${getIconScript(servePath)}
             refreshPreview();
         });
         const addTitleElement = actionElement.querySelector('#addTitle');
+        const titleImageElement = actionElement.querySelector('#titleImage');
+        titleImageElement.addEventListener('change', () => {
+            refreshPreview();
+        });
         const customTitleElement = actionElement.querySelector('#customTitle');
         const customTitlePanelElement = actionElement.querySelector('#customTitlePanel');
         let titleRefreshTimer;
@@ -798,11 +885,13 @@ ${getIconScript(servePath)}
         const refreshPreview = () => {
             const revision = ++previewRevision;
             actionElement.querySelector('.b3-button--text').disabled = true;
-            previewElement.innerHTML = '<div class="fn__loading" style="left:0;height: 100vh"><img width="48px" src="${servePath}stage/loading-pure.svg"></div>'
+            previewElement.innerHTML = '<div class="fn__loading" style="left:0;height: 100vh"><span class="b3-loading b3-loading--large" aria-hidden="true"></span></div>'
             fetchPost("/api/export/exportPreviewHTML", {
                 id: "${id}",
                 keepJSEmbed: true,
                 keepFold: keepFoldElement.checked,
+                pdf: true,
+                excludeTitleImage: !titleImageElement.checked,
                 addTitle: addTitleElement.checked,
                 customTitle: customTitleElement.value,
                 merge: mergeSubdocsElement.checked,
@@ -860,6 +949,9 @@ ${getIconScript(servePath)}
         actionElement.querySelector("#landscape").addEventListener('change', (e) => {
             setPadding();
         });
+        actionElement.querySelector("#paged").addEventListener('change', () => {
+            fixBlockWidth();
+        });
         actionElement.querySelector('.b3-button--cancel').addEventListener('click', () => {
             const {ipcRenderer}  = require("electron");
             ipcRenderer.send("${Constants.SIYUAN_CMD}", "destroy")
@@ -884,6 +976,7 @@ ${getIconScript(servePath)}
                     pageSize: unPagedPageSize || pageSize,
                 },
                 pageSize,
+                titleImage: titleImageElement.checked,
                 keepFold: keepFoldElement.checked,
                 addTitle: addTitleElement.checked,
                 customTitle: customTitleElement.value,
@@ -893,6 +986,7 @@ ${getIconScript(servePath)}
                 watermark: watermarkElement.checked,
                 removeAssets: removeAssetsElement.checked,
                 paged: !unPagedPageSize,
+                headingPageBreakLevels: getHeadingPageBreakLevels(),
                 rootId: "${id}",
                 rootTitle: response.data.name,
                 parentWindowId: ${currentWindowId},
@@ -915,23 +1009,6 @@ ${getIconScript(servePath)}
         removeAssetsElement.addEventListener("change", () => {
             reserveEmbeddedAssetSpace(removeAssetsElement.checked);
         });
-        const waitForImages = () => Promise.all(Array.from(previewElement.querySelectorAll("img")).map((image) => {
-            image.loading = "eager";
-            if (image.complete) {
-                return Promise.resolve();
-            }
-            return new Promise((resolve) => {
-                const finish = () => {
-                    clearTimeout(timeout);
-                    image.removeEventListener("load", finish);
-                    image.removeEventListener("error", finish);
-                    resolve();
-                };
-                const timeout = setTimeout(finish, 30000);
-                image.addEventListener("load", finish, {once: true});
-                image.addEventListener("error", finish, {once: true});
-            });
-        }));
         actionElement.querySelector('.b3-button--text').addEventListener('click', async () => {
             await previewReady;
             const {ipcRenderer}  = require("electron");
@@ -952,6 +1029,7 @@ ${getIconScript(servePath)}
             reserveEmbeddedAssetSpace(removeAssetsElement.checked);
             await waitForImages();
             const isPaged = actionElement.querySelector("#paged").checked;
+            updateHeadingPageBreaks();
             document.body.classList.add("exporting");
             previewElement.style.zoom = "";
             previewElement.style.padding = "6px 0 0 0";
@@ -960,7 +1038,7 @@ ${getIconScript(servePath)}
                 previewElement.style.margin = "0";
                 previewElement.style.minHeight = "0";
             }
-            await fixBlockWidth(!isPaged);
+            await fixBlockWidth(true);
             await document.fonts.ready;
             await waitForImages();
             let exportConfig;
@@ -1118,11 +1196,15 @@ export const onExport = async (data: IWebSocketData, filePath: string, servePath
     if (!isDefault) {
         themeStyle = `<link rel="stylesheet" type="text/css" id="themeStyle" href="${servePath}appearance/themes/${themeName}/theme.css?${Constants.SIYUAN_VERSION}"/>`;
     }
-    const screenWidth = getScreenWidth();
     const isInMobile = isInMobileApp();
     const mobileHtml = isInMobile ? {
-        js: `document.body.style.minWidth = "${screenWidth}px";`,
-        css: `@page { size: A4; margin: 10mm 0 10mm 0; background-color: var(--b3-theme-background); }
+        js: exportOption.type === "pdf" ? "" : `document.body.style.minWidth = "${getScreenWidth()}px";`,
+        css: `@page { size: A4; margin: 10mm; background-color: var(--b3-theme-background); }
+@media print {
+    body { margin: 0; }
+    .protyle-wysiwyg { display: block; }
+    #preview .img img { max-height: calc(277mm - 32px); object-fit: contain; }
+}
 .protyle-wysiwyg {padding: 0; margin: 0;}`
     } : {js: "", css: ""};
     const html = `<!DOCTYPE html>
@@ -1142,7 +1224,7 @@ export const onExport = async (data: IWebSocketData, filePath: string, servePath
     <!-- Exported by SiYuan v${Constants.SIYUAN_VERSION} -->
     <style>
         body {font-family: var(--b3-font-family);background-color: var(--b3-theme-background);color: var(--b3-theme-on-background)}
-        ${await setInlineStyle(false, servePath)}
+        ${await setInlineStyle(false, servePath, data.data.content)}
         ${await getPluginStyle()}
         ${mobileHtml.css}
     </style>
@@ -1185,6 +1267,8 @@ ${getIconScript(servePath)}
         Protyle.tabsRender(previewElement);
     }
     Protyle.plantumlRender(previewElement, "stage/protyle");
+    ${exportOption.type === "pdf" ? `Protyle.applyExportHeadingPageBreaks(previewElement, ${JSON.stringify(
+        normalizeHeadingPageBreakLevels(window.siyuan.storage[Constants.LOCAL_EXPORTPDF].headingPageBreakLevels))});` : ""}
     document.querySelectorAll(".protyle-action__copy").forEach((item) => {
       item.addEventListener("click", (event) => {
             navigator.clipboard.writeText(item.parentElement.nextElementSibling.textContent.trimEnd().replace(/\u00A0/g, " ").replace(/\u200D\`\`\`/g, "\`\`\`"));

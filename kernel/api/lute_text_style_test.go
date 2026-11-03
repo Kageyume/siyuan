@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
@@ -33,7 +21,7 @@ import (
 func TestHTML2BlockDOMQuotedFontFamily(t *testing.T) {
 	originalConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.System = &conf.System{}
+	model.Conf.System.Store(&conf.System{})
 	t.Cleanup(func() { model.Conf = originalConf })
 	gin.SetMode(gin.TestMode)
 	for _, tag := range []string{"p", "h2", "td"} {
@@ -61,7 +49,7 @@ func TestHTML2BlockDOMQuotedFontFamily(t *testing.T) {
 				t.Fatalf("conversion failed: %s, %v", recorder.Body.String(), err)
 			}
 			engine := util.NewLute()
-			for round := 0; round < 3; round++ {
+			for round := range 3 {
 				if strings.Contains(response.Data, "{: style=") {
 					t.Fatalf("round %d leaked attributes: %s", round, response.Data)
 				}
@@ -95,7 +83,7 @@ func TestHTML2BlockDOMQuotedFontFamily(t *testing.T) {
 func TestHTML2BlockDOMMatchesElementsByDefault(t *testing.T) {
 	originalConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.System = &conf.System{}
+	model.Conf.System.Store(&conf.System{})
 	t.Cleanup(func() { model.Conf = originalConf })
 	gin.SetMode(gin.TestMode)
 	input := `<h2 style="color:gray;font-family:Arial;font-size:20px"><span style="font-weight:bold">heading</span></h2>` +
@@ -131,7 +119,7 @@ func TestHTML2BlockDOMMatchesElementsByDefault(t *testing.T) {
 func TestHTML2BlockDOMDoesNotLeakWhitespaceTextMarkStyles(t *testing.T) {
 	originalConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.System = &conf.System{}
+	model.Conf.System.Store(&conf.System{})
 	t.Cleanup(func() { model.Conf = originalConf })
 	gin.SetMode(gin.TestMode)
 	input := `<h3 style="color: rgb(31, 35, 40); font-family: Arial; font-size: 20px; font-weight: 600">` +

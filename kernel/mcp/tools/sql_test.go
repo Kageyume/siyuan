@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package tools
 
@@ -50,5 +38,39 @@ func TestFormatSQLRowsReportsPossibleTruncation(t *testing.T) {
 		"Use an explicit LIMIT with OFFSET to paginate):\n\n"
 	if !strings.HasPrefix(got, wantPrefix) {
 		t.Fatalf("missing SQL result truncation warning:\n%s", got)
+	}
+}
+
+func TestSQLSchemaActionAndEmptyStructuredResult(t *testing.T) {
+	validator, err := CompileToolValidator(SQLTool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = validator.ValidateInput(map[string]any{"action": "schema"}); err != nil {
+		t.Fatalf("schema must not require stmt: %v", err)
+	}
+	result, err := sqlHandler(map[string]any{"action": "schema"})
+	if err != nil || result.IsError || len(result.Content) != 1 {
+		t.Fatalf("schema result: %+v, %v", result, err)
+	}
+	for _, text := range []string{"spans", "parent_id", "textmark code", "WITH RECURSIVE", "SELECT b.*", "LIMIT/OFFSET"} {
+		if !strings.Contains(result.Content[0].Text, text) {
+			t.Fatalf("schema missing %q", text)
+		}
+	}
+	empty := sqlQueryResult(nil, false, "")
+	output := empty.StructuredContent.(map[string]any)
+	if empty.Content[0].Text != "no results" || output["rows"] == nil || output["rowCount"] != 0 {
+		t.Fatalf("empty SQL result: %+v", empty)
+	}
+}
+
+func TestSQLResultPreservesRawValuesAndEscapesTable(t *testing.T) {
+	rows := []map[string]any{{"text": "a|b\nc", "total": int64(4)}}
+	result := sqlQueryResult(rows, false, "")
+	output := result.StructuredContent.(map[string]any)
+	if output["rows"].([]map[string]any)[0]["text"] != "a|b\nc" ||
+		!strings.Contains(result.Content[0].Text, "a\\|b<br>c") {
+		t.Fatalf("SQL values were corrupted: %+v", result)
 	}
 }

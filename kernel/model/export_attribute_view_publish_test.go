@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as
-// published by the Free Software Foundation, either version 3 of the
-// License, or (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //go:build fts5
 
@@ -193,7 +181,15 @@ func TestExportAttributeViewFilteredByPublishAccess(t *testing.T) {
 	fixture := setupExportAVPublishTest(t)
 	filter := newExportAVPublishReaderFilter(t, fixture.privateID)
 
-	markdown := ExportStdMarkdown(fixture.hostDocID, false, false, false, false, filter)
+	markdown := ExportStdMarkdown(fixture.hostDocID, &ExportOptions{
+		Render: ExportRenderOptions{
+			AssetsDestSpace2Underscore: false,
+			FillCSSVar:                 false,
+			AdjustHeadingLevel:         false,
+			ImgTag:                     false,
+			AVPublishFilter:            filter,
+		},
+	})
 	if strings.Contains(markdown, "PRIVATE") {
 		t.Fatalf("publish reader received private attribute view content in markdown: %s", markdown)
 	}
@@ -209,7 +205,15 @@ func TestExportAttributeViewFilteredByPublishAccess(t *testing.T) {
 		t.Fatalf("publish reader lost the accessible row in preview: %s", stdHTML)
 	}
 
-	adminMarkdown := ExportStdMarkdown(fixture.hostDocID, false, false, false, false, nil)
+	adminMarkdown := ExportStdMarkdown(fixture.hostDocID, &ExportOptions{
+		Render: ExportRenderOptions{
+			AssetsDestSpace2Underscore: false,
+			FillCSSVar:                 false,
+			AdjustHeadingLevel:         false,
+			ImgTag:                     false,
+			AVPublishFilter:            nil,
+		},
+	})
 	if !strings.Contains(adminMarkdown, "PRIVATE") {
 		t.Fatalf("administrator export should include private attribute view content: %s", adminMarkdown)
 	}
@@ -231,7 +235,15 @@ func TestExportAttributeViewRowPublishAccessSemantics(t *testing.T) {
 	fixture := setupExportAVPublishTest(t)
 	filter := newExportAVPublishReaderFilter(t, fixture.privateID)
 
-	markdown := ExportStdMarkdown(fixture.hostDocID, false, false, false, false, filter)
+	markdown := ExportStdMarkdown(fixture.hostDocID, &ExportOptions{
+		Render: ExportRenderOptions{
+			AssetsDestSpace2Underscore: false,
+			FillCSSVar:                 false,
+			AdjustHeadingLevel:         false,
+			ImgTag:                     false,
+			AVPublishFilter:            filter,
+		},
+	})
 	if !strings.Contains(markdown, "DETACHED") {
 		t.Fatalf("detached row should stay visible to publish readers: %s", markdown)
 	}

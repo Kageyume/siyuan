@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //go:build fts5
 
 package model
@@ -17,7 +21,7 @@ func TestMarkdownImportTargetAndHPath(t *testing.T) {
 	const boxID = "20260910000000-box0001"
 	const parentID = "20260910000001-doc0001"
 	setupExportRelatedTest(t, boxID)
-	Conf.Editor = conf.NewEditor()
+	Conf.Editor.Store(conf.NewEditor())
 	setupNotebookDocumentImportDatabase(t)
 	parentPath := "/" + parentID + ".sy"
 	writeExportRelatedTestTree(t, treenode.NewTree(boxID, parentPath, "/Parent", "Parent"))

@@ -1,4 +1,5 @@
-import {normalizeAssetOpenConfig} from "../../editor/assetOpen";
+import {config as configApi} from "../../config/util/configApi";
+import {toggleMenu} from "../../menus/menuToggle";
 import {GlobalBacklinkList} from "./GlobalBacklinkList";
 import {bindPanelSearch} from "./panelSearch";
 import type {Tab} from "../Tab";
@@ -50,6 +51,7 @@ import {
 import {escapeHtml} from "../../util/escape";
 import {ViewStateService} from "../../util/viewState";
 import {loadBacklinkRefFilterMenu} from "./backlinkRefFilterMenu";
+import {loadBacklinkDatabaseFilterMenu} from "./backlinkDatabaseFilter";
 import {BacklinkMentionCache, getBacklinkMentionQueryKey} from "./backlinkMentionCache";
 import {BottomBacklinkScroll} from "./bottomBacklinkScroll";
 import {
@@ -158,6 +160,7 @@ export class BacklinkContent extends Model {
     private listQueryKey = "";
     private renderedQueryKey = "";
     private indexChangeVersion = 0;
+    private indexRefreshTimer?: number;
     private pendingRootIDs = new Set<string>();
     private pendingFull = false;
     private ownerFocusoutListener?: (event: FocusEvent) => void;
@@ -490,10 +493,16 @@ export class BacklinkContent extends Model {
                             break;
                         case "sort":
                         case "mSort": {
-                            this.showSortMenu(type, target.getAttribute("data-sort"));
-                            const rect = target.getBoundingClientRect();
-                            window.siyuan.menus.menu.popup({x: rect.left, y: rect.bottom, h: rect.height});
-                            event.stopPropagation();
+                            toggleMenu({
+                                target: target,
+                                build: (_menu, session) => {
+                                    this.showSortMenu(type, target.getAttribute("data-sort"));
+                                    const rect = target.getBoundingClientRect();
+                                    session.show(() => window.siyuan.menus.menu.popup({x: rect.left, y: rect.bottom, h: rect.height}));
+
+                                },
+                            });
+                        event.stopPropagation();
                             break;
                         }
                         case "sourceFilter":
@@ -789,9 +798,8 @@ export class BacklinkContent extends Model {
             } else {
                 window.siyuan.config.editor.backmentionSort = sortValue;
             }
-            fetchPost("/api/setting/setEditor", window.siyuan.config.editor, (response) => {
-                window.siyuan.config.editor = {...response.data, assetOpen: normalizeAssetOpenConfig(response.data.assetOpen)};
-            });
+            configApi.set("editor", type === "sort" ?
+                {backlinkSort: sortValue, backlinkGlobalSort: 0} : {backmentionSort: sortValue});
             this.searchBacklinks();
         };
         window.siyuan.menus.menu.remove();
@@ -883,9 +891,7 @@ export class BacklinkContent extends Model {
                     click: () => {
                         window.siyuan.config.editor.backlinkBlockSort = mode;
                         window.siyuan.config.editor.backlinkGlobalSort = 0;
-                        fetchPost("/api/setting/setEditor", window.siyuan.config.editor, (response) => {
-                            window.siyuan.config.editor = {...response.data, assetOpen: normalizeAssetOpenConfig(response.data.assetOpen)};
-                        });
+                        configApi.set("editor", {backlinkBlockSort: mode, backlinkGlobalSort: 0});
                         this.cancelContextRequests(this.tree.element, false);
                         if (this.globalList) {
                             this.searchBacklinks(true);
@@ -904,7 +910,7 @@ export class BacklinkContent extends Model {
                     label, iconHTML: "", checked: globalSort === index + 1,
                     click: () => {
                         window.siyuan.config.editor.backlinkGlobalSort = index + 1;
-                        fetchPost("/api/setting/setEditor", window.siyuan.config.editor);
+                        configApi.set("editor", {backlinkGlobalSort: index + 1});
                         this.searchBacklinks();
                     },
                 }).element);
@@ -958,7 +964,8 @@ export class BacklinkContent extends Model {
                     countElement.textContent = total.toString();
                     countElement.classList.toggle("fn__none", total === 0 && this.type !== "bottom");
                     if (this.type === "bottom") {
-                        const hideBacklinks = total === 0 && !this.inputsElement[0].value && !this.globalList?.hasError;
+                        const hideBacklinks = total === 0 && !this.inputsElement[0].value &&
+                            !getBacklinkSourceFilterParam(this.sourceFilter) && !this.globalList?.hasError;
                         this.element.classList.toggle("sy__backlink--backlinks-empty", hideBacklinks);
                         const empty = hideBacklinks &&
                             this.element.classList.contains("sy__backlink--mentions-empty");
@@ -986,165 +993,190 @@ export class BacklinkContent extends Model {
     }
 
     private showSourceFilterMenu(target: HTMLElement) {
-        let foldedTypes = normalizeBacklinkFoldTypes(this.viewState?.get("foldedBlockTypes"));
-        const foldItems = new Map<string, HTMLElement>();
-        let foldResetElement: HTMLElement;
-        let resetElement: HTMLElement;
-        const applyFoldTypes = (types: string[]) => {
-            this.viewState?.set("foldedBlockTypes", types);
-            this.updateSourceFilterButton();
-            BACKLINK_BLOCK_TYPES.forEach(([type]) => {
-                if (foldedTypes.includes(type) !== types.includes(type)) {
-                    const field = `type-fold-generation:${type}`;
-                    this.viewState?.set(field, (this.viewState.get<number>(field) || 0) + 1);
-                }
-            });
-            foldedTypes = types;
-            foldItems.forEach((element, type) => {
-                element.querySelector(".b3-menu__checked")?.remove();
-                if (foldedTypes.includes(type)) {
-                    element.insertAdjacentHTML("beforeend", '<svg class="b3-menu__checked"><use xlink:href="#iconSelect"></use></svg>');
-                }
-            });
-            if (foldedTypes.length === 0) {
-                foldResetElement?.setAttribute("disabled", "disabled");
-            } else {
-                foldResetElement?.removeAttribute("disabled");
-            }
-            if (!getBacklinkSourceFilterParam(this.sourceFilter) && foldedTypes.length === 0) {
-                resetElement?.setAttribute("disabled", "disabled");
-            } else {
-                resetElement?.removeAttribute("disabled");
-            }
-            this.itemRecords[0].forEach(record => {
-                if (record.editor && this.viewState) {
-                    configureBacklinkTypeFold(record.editor.protyle, types, this.viewState);
-                }
-            });
-            this.globalList?.updateFoldTypes();
-        };
-        const blockTypeFoldSubmenu: IMenu[] = [{
-            label: window.siyuan.languages.reset,
-            icon: "iconUndo",
-            disabled: foldedTypes.length === 0,
-            bind: element => { foldResetElement = element; },
-            click: () => {
-                applyFoldTypes([]);
-                return true;
-            },
-        }, {type: "separator"}, ...BACKLINK_BLOCK_TYPES.map(([type, label]) => ({
-            label: window.siyuan.languages[label] || label,
-            checked: foldedTypes.includes(type),
-            iconHTML: "",
-            bind: (element: HTMLElement) => { foldItems.set(type, element); },
-            click: () => {
-                applyFoldTypes(foldedTypes.includes(type) ?
-                    foldedTypes.filter(item => item !== type) : [...foldedTypes, type]);
-                return true;
-            },
-        }))];
-        const dailyNoteSubmenu = ([
-            ["all", window.siyuan.languages.all],
-            ["only", window.siyuan.languages.dailyNote],
-            ["exclude", window.siyuan.languages.nonDailyNote],
-        ] as Array<[TBacklinkDailyNoteFilter, string]>).map(([value, label]) => ({
-            checked: this.sourceFilter.dailyNote === value,
-            iconHTML: "",
-            label,
-            click: () => {
-                this.applySourceFilter({...this.sourceFilter, dailyNote: value});
-            }
-        }));
-        const notebookSubmenu: IMenu[] = [{
-            checked: this.sourceFilter.excludedNotebookIDs.length === 0,
-            iconHTML: "",
-            label: window.siyuan.languages.allNotebooks,
-            click: () => {
-                this.applySourceFilter({...this.sourceFilter, excludedNotebookIDs: []});
-            }
-        }, {type: "separator"}];
-        (window.siyuan.notebooks || []).filter(item => !item.closed).forEach(item => {
-            notebookSubmenu.push({
-                checked: !this.sourceFilter.excludedNotebookIDs.includes(item.id),
-                iconHTML: "",
-                label: escapeHtml(item.name),
-                click: () => {
-                    const excludedNotebookIDs = new Set(this.sourceFilter.excludedNotebookIDs);
-                    if (excludedNotebookIDs.has(item.id)) {
-                        excludedNotebookIDs.delete(item.id);
-                    } else {
-                        excludedNotebookIDs.add(item.id);
-                    }
-                    this.applySourceFilter({...this.sourceFilter, excludedNotebookIDs: Array.from(excludedNotebookIDs)});
-                }
-            });
-        });
-
-        window.siyuan.menus.menu.remove();
-        window.siyuan.menus.menu.append(new MenuItem({
-            icon: "iconContract",
-            label: window.siyuan.languages.backlinkFoldByType,
-            type: "submenu",
-            disabled: !this.viewStateLoaded || !this.viewState,
-            submenu: blockTypeFoldSubmenu,
-        }).element);
-        window.siyuan.menus.menu.append(new MenuItem({
-            icon: "iconCalendar",
-            label: window.siyuan.languages.dailyNote,
-            type: "submenu",
-            submenu: dailyNoteSubmenu,
-        }).element);
-        window.siyuan.menus.menu.append(new MenuItem({
-            icon: "iconFiles",
-            label: window.siyuan.languages.agentCatNotebook,
-            type: "submenu",
-            submenu: notebookSubmenu,
-        }).element);
-        window.siyuan.menus.menu.append(new MenuItem({
-            checked: this.sourceFilter.excludeSelf,
-            iconHTML: "",
-            label: window.siyuan.languages.excludeSelfBacklink,
-            click: () => {
-                this.applySourceFilter({...this.sourceFilter, excludeSelf: !this.sourceFilter.excludeSelf});
-            }
-        }).element);
-        const refFilterGeneration = this.viewStateGeneration;
-        let refFilterMenuElement: HTMLElement;
-        window.siyuan.menus.menu.append(new MenuItem({
-            iconHTML: "",
-            label: `${window.siyuan.languages.backlinkExcludeRefDefs} (${this.sourceFilter.excludedRefDefIDs.length})`,
-            disabled: !this.blockId,
-            bind: element => { refFilterMenuElement = element; },
-            loadSubmenu: () => {
-                return loadBacklinkRefFilterMenu({
-                    id: this.blockId,
-                    notebook: isEncryptedBox(this.notebookId) ? this.notebookId : "",
-                    keyword: this.inputsElement[0].value,
-                    filter: this.sourceFilter,
-                    getSelected: () => this.sourceFilter.excludedRefDefIDs,
-                    isCurrent: () => !this.destroyed && refFilterGeneration === this.viewStateGeneration,
-                    apply: ids => {
-                        this.applySourceFilter({...this.sourceFilter, excludedRefDefIDs: ids});
-                        refFilterMenuElement.querySelector(":scope > .b3-menu__label").textContent =
-                            `${window.siyuan.languages.backlinkExcludeRefDefs} (${this.sourceFilter.excludedRefDefIDs.length})`;
-                        resetElement?.toggleAttribute("disabled", !getBacklinkSourceFilterParam(this.sourceFilter) && foldedTypes.length === 0);
-                    },
-                });
-            },
-        }).element);
-        window.siyuan.menus.menu.append(new MenuItem({type: "separator"}).element);
-        window.siyuan.menus.menu.append(new MenuItem({
-            disabled: !getBacklinkSourceFilterParam(this.sourceFilter) && foldedTypes.length === 0,
-            bind: element => { resetElement = element; },
-            icon: "iconUndo",
-            label: window.siyuan.languages.reset,
-            click: () => {
-                this.applySourceFilter(createBacklinkSourceFilter());
-                applyFoldTypes([]);
-            }
-        }).element);
+        // 工具栏离开悬停后会隐藏按钮，在打开菜单前保留其位置。
         const rect = target.getBoundingClientRect();
-        window.siyuan.menus.menu.popup({x: rect.left, y: rect.bottom, h: rect.height});
+        toggleMenu({
+            target: target,
+            build: (_menu, session) => {
+                let foldedTypes = normalizeBacklinkFoldTypes(this.viewState?.get("foldedBlockTypes"));
+                const foldItems = new Map<string, HTMLElement>();
+                let foldResetElement: HTMLElement;
+                let resetElement: HTMLElement;
+                const applyFoldTypes = (types: string[]) => {
+                    this.viewState?.set("foldedBlockTypes", types);
+                    this.updateSourceFilterButton();
+                    BACKLINK_BLOCK_TYPES.forEach(([type]) => {
+                        if (foldedTypes.includes(type) !== types.includes(type)) {
+                            const field = `type-fold-generation:${type}`;
+                            this.viewState?.set(field, (this.viewState.get<number>(field) || 0) + 1);
+                        }
+                    });
+                    foldedTypes = types;
+                    foldItems.forEach((element, type) => {
+                        element.querySelector(".b3-menu__checked")?.remove();
+                        if (foldedTypes.includes(type)) {
+                            element.insertAdjacentHTML("beforeend", '<svg class="b3-menu__checked"><use xlink:href="#iconSelect"></use></svg>');
+                        }
+                    });
+                    if (foldedTypes.length === 0) {
+                        foldResetElement?.setAttribute("disabled", "disabled");
+                    } else {
+                        foldResetElement?.removeAttribute("disabled");
+                    }
+                    if (!getBacklinkSourceFilterParam(this.sourceFilter) && foldedTypes.length === 0) {
+                        resetElement?.setAttribute("disabled", "disabled");
+                    } else {
+                        resetElement?.removeAttribute("disabled");
+                    }
+                    this.itemRecords[0].forEach(record => {
+                        if (record.editor && this.viewState) {
+                            configureBacklinkTypeFold(record.editor.protyle, types, this.viewState);
+                        }
+                    });
+                    this.globalList?.updateFoldTypes();
+                };
+                const blockTypeFoldSubmenu: IMenu[] = [{
+                    label: window.siyuan.languages.reset,
+                    icon: "iconUndo",
+                    disabled: foldedTypes.length === 0,
+                    bind: element => {foldResetElement = element;},
+                    click: () => {
+                        applyFoldTypes([]);
+                        return true;
+                    },
+                }, {type: "separator"}, ...BACKLINK_BLOCK_TYPES.map(([type, label]) => ({
+                    label: window.siyuan.languages[label] || label,
+                    checked: foldedTypes.includes(type),
+                    iconHTML: "",
+                    bind: (element: HTMLElement) => {foldItems.set(type, element);},
+                    click: () => {
+                        applyFoldTypes(foldedTypes.includes(type) ?
+                            foldedTypes.filter(item => item !== type) : [...foldedTypes, type]);
+                        return true;
+                    },
+                }))];
+                const dailyNoteSubmenu = ([
+                    ["all", window.siyuan.languages.all],
+                    ["only", window.siyuan.languages.dailyNote],
+                    ["exclude", window.siyuan.languages.nonDailyNote],
+                ] as Array<[TBacklinkDailyNoteFilter, string]>).map(([value, label]) => ({
+                    checked: this.sourceFilter.dailyNote === value,
+                    iconHTML: "",
+                    label,
+                    click: () => {
+                        this.applySourceFilter({...this.sourceFilter, dailyNote: value});
+                    }
+                }));
+                const notebookSubmenu: IMenu[] = [{
+                    checked: this.sourceFilter.excludedNotebookIDs.length === 0,
+                    iconHTML: "",
+                    label: window.siyuan.languages.allNotebooks,
+                    click: () => {
+                        this.applySourceFilter({...this.sourceFilter, excludedNotebookIDs: []});
+                    }
+                }, {type: "separator"}];
+                (window.siyuan.notebooks || []).filter(item => !item.closed).forEach(item => {
+                    notebookSubmenu.push({
+                        checked: !this.sourceFilter.excludedNotebookIDs.includes(item.id),
+                        iconHTML: "",
+                        label: escapeHtml(item.name),
+                        click: () => {
+                            const excludedNotebookIDs = new Set(this.sourceFilter.excludedNotebookIDs);
+                            if (excludedNotebookIDs.has(item.id)) {
+                                excludedNotebookIDs.delete(item.id);
+                            } else {
+                                excludedNotebookIDs.add(item.id);
+                            }
+                            this.applySourceFilter({...this.sourceFilter, excludedNotebookIDs: Array.from(excludedNotebookIDs)});
+                        }
+                    });
+                });
+
+
+                window.siyuan.menus.menu.append(new MenuItem({
+                    icon: "iconContract",
+                    label: window.siyuan.languages.backlinkFoldByType,
+                    type: "submenu",
+                    disabled: !this.viewStateLoaded || !this.viewState,
+                    submenu: blockTypeFoldSubmenu,
+                }).element);
+                window.siyuan.menus.menu.append(new MenuItem({
+                    icon: "iconCalendar",
+                    label: window.siyuan.languages.dailyNote,
+                    type: "submenu",
+                    submenu: dailyNoteSubmenu,
+                }).element);
+                window.siyuan.menus.menu.append(new MenuItem({
+                    icon: "iconFiles",
+                    label: window.siyuan.languages.agentCatNotebook,
+                    type: "submenu",
+                    submenu: notebookSubmenu,
+                }).element);
+                window.siyuan.menus.menu.append(new MenuItem({
+                    checked: this.sourceFilter.excludeSelf,
+                    iconHTML: "",
+                    label: window.siyuan.languages.excludeSelfBacklink,
+                    click: () => {
+                        this.applySourceFilter({...this.sourceFilter, excludeSelf: !this.sourceFilter.excludeSelf});
+                    }
+                }).element);
+                const refFilterGeneration = this.viewStateGeneration;
+                window.siyuan.menus.menu.append(new MenuItem({
+                    label: window.siyuan.languages.backlinkDatabaseFields,
+                    icon: "iconDatabase",
+                    checked: Boolean(this.sourceFilter.database),
+                    disabled: !this.blockId || window.siyuan.isPublish,
+                    loadSubmenu: () => loadBacklinkDatabaseFilterMenu({
+                        id: this.blockId,
+                        notebook: isEncryptedBox(this.notebookId) ? this.notebookId : "",
+                        keyword: this.inputsElement[0].value,
+                        filter: this.sourceFilter,
+                        target,
+                        anchorRect: rect,
+                        protyle: this.ownerProtyle || this.editors[0]?.protyle,
+                        getSelected: () => this.sourceFilter.database,
+                        isCurrent: () => !this.destroyed && refFilterGeneration === this.viewStateGeneration,
+                        apply: database => this.applySourceFilter({...this.sourceFilter, database}),
+                    }),
+                }).element);
+                let refFilterMenuElement: HTMLElement;
+                window.siyuan.menus.menu.append(new MenuItem({
+                    iconHTML: "",
+                    label: `${window.siyuan.languages.backlinkExcludeRefDefs} (${this.sourceFilter.excludedRefDefIDs.length})`,
+                    disabled: !this.blockId,
+                    bind: element => {refFilterMenuElement = element;},
+                    loadSubmenu: () => {
+                        return loadBacklinkRefFilterMenu({
+                            id: this.blockId,
+                            notebook: isEncryptedBox(this.notebookId) ? this.notebookId : "",
+                            keyword: this.inputsElement[0].value,
+                            filter: this.sourceFilter,
+                            getSelected: () => this.sourceFilter.excludedRefDefIDs,
+                            isCurrent: () => !this.destroyed && refFilterGeneration === this.viewStateGeneration,
+                            apply: ids => {
+                                this.applySourceFilter({...this.sourceFilter, excludedRefDefIDs: ids});
+                                refFilterMenuElement.querySelector(":scope > .b3-menu__label").textContent =
+                                    `${window.siyuan.languages.backlinkExcludeRefDefs} (${this.sourceFilter.excludedRefDefIDs.length})`;
+                                resetElement?.toggleAttribute("disabled", !getBacklinkSourceFilterParam(this.sourceFilter) && foldedTypes.length === 0);
+                            },
+                        });
+                    },
+                }).element);
+                window.siyuan.menus.menu.append(new MenuItem({type: "separator"}).element);
+                window.siyuan.menus.menu.append(new MenuItem({
+                    disabled: !getBacklinkSourceFilterParam(this.sourceFilter) && foldedTypes.length === 0,
+                    bind: element => {resetElement = element;},
+                    icon: "iconUndo",
+                    label: window.siyuan.languages.reset,
+                    click: () => {
+                        this.applySourceFilter(createBacklinkSourceFilter());
+                        applyFoldTypes([]);
+                    }
+                }).element);
+                session.show(() => window.siyuan.menus.menu.popup({x: rect.left, y: rect.bottom, h: rect.height}));
+
+            },
+        });
     }
 
     private toggleItem(liElement: HTMLElement, isMention: boolean, persist = true) {
@@ -1420,7 +1452,7 @@ export class BacklinkContent extends Model {
                 promises.push(applyViewFoldStates(editor.protyle));
             }
         });
-        return Promise.all(promises).then(() => undefined);
+        return Promise.all(promises).then((): undefined => undefined);
     }
 
     private syncViewFoldVisibility() {
@@ -1816,7 +1848,7 @@ export class BacklinkContent extends Model {
         this.showingLoading = true;
         this.resetRenderedData(false);
         this.element.classList.remove("sy__backlink--backlinks-empty", "sy__backlink--mentions-empty");
-        const loadingHTML = '<div class="backlinkList__loading"><img width="32px" height="32px" src="/stage/loading-pure.svg"></div>';
+        const loadingHTML = '<div class="backlinkList__loading"><span class="b3-loading" aria-hidden="true"></span></div>';
         this.tree.element.innerHTML = loadingHTML;
         this.mTree.element.innerHTML = loadingHTML;
         this.element.querySelector(".listCount").textContent = "";
@@ -1850,6 +1882,7 @@ export class BacklinkContent extends Model {
     }
 
     public prepareForBlock(blockId: string, rootId: string) {
+        this.clearIndexRefresh();
         if (!this.showingLoading) {
             this.saveStatus();
         }
@@ -1869,6 +1902,7 @@ export class BacklinkContent extends Model {
     }
 
     public switchBlock(blockId: string, rootId: string, notebookId: string) {
+        this.clearIndexRefresh();
         if (this.blockId) {
             this.saveStatus();
         }
@@ -1936,6 +1970,7 @@ export class BacklinkContent extends Model {
     }
 
     public refresh() {
+        this.clearIndexRefresh();
         if (!this.blockId) {
             return;
         }
@@ -1997,6 +2032,7 @@ export class BacklinkContent extends Model {
             return;
         }
         this.searchQueued = false;
+        this.clearIndexRefresh();
         this.setRequesting(true);
         // 解析当前反链面板所属 box：优先用已记录的 notebookId，首次为空时按 rootId 在已打开的编辑器里查找
         let notebookId = this.notebookId;
@@ -2109,15 +2145,15 @@ export class BacklinkContent extends Model {
                 this.pendingFull = false;
                 this.dirty = false;
             }
-            if (this.type === "bottom" && this.dirty) {
-                this.refreshIfVisible();
+            if (this.dirty) {
+                this.refreshAfterIndex();
             }
         }).finally(() => {
             if (responseHandled || !this.finishRequest(requestID) || blockId !== this.blockId) {
                 return;
             }
-            if (!this.runQueuedRequest() && this.type === "bottom" && this.dirty) {
-                this.refreshIfVisible();
+            if (!this.runQueuedRequest() && indexChangeVersion !== this.indexChangeVersion && this.dirty) {
+                this.refreshAfterIndex();
             }
         });
     }
@@ -2214,7 +2250,8 @@ export class BacklinkContent extends Model {
             });
         }
         const bottomVisibility = this.type === "bottom" ?
-            getBottomBacklinkVisibility(data.linkRefsCount, data.mentionsCount, data.k, data.mk) : undefined;
+            getBottomBacklinkVisibility(data.linkRefsCount, data.mentionsCount, data.k, data.mk,
+                Boolean(getBacklinkSourceFilterParam(this.sourceFilter))) : undefined;
         if (bottomVisibility) {
             if (this.globalList?.hasError) {
                 bottomVisibility.hideBacklinks = false;
@@ -2407,7 +2444,7 @@ export class BacklinkContent extends Model {
         this.globalList?.markDirty();
         this.indexChangeVersion++;
         this.dirty = true;
-        this.pendingFull = this.pendingFull || Boolean(change.backlinkFull);
+        this.pendingFull = this.pendingFull || Boolean(change.backlinkFull) || Boolean(this.sourceFilter.database);
         change.rootIDs?.forEach(rootID => this.pendingRootIDs.add(rootID));
         this.itemRecords.forEach(records => records.forEach((record, rootID) => {
             if (this.pendingFull || this.pendingRootIDs.has(rootID)) {
@@ -2416,20 +2453,34 @@ export class BacklinkContent extends Model {
         }));
     }
 
+    private clearIndexRefresh() {
+        window.clearTimeout(this.indexRefreshTimer);
+        this.indexRefreshTimer = undefined;
+    }
+
     public refreshAfterIndex() {
-        if (this.destroyed || !this.blockId || !this.dirty || this.element.contains(document.activeElement) ||
-            hasAVEditorSession(this.element)) {
+        this.clearIndexRefresh();
+        if (this.destroyed || !this.blockId || !this.dirty) {
             return;
         }
-        if (this.type === "bottom") {
-            this.refreshIfVisible();
-        } else if (this.element.isConnected && this.element.getClientRects().length > 0) {
-            this.searchBacklinks();
-        }
+        // 连续索引更新合并到空闲时处理；请求期间只保留脏标记，完成后再安排下一次刷新。
+        this.indexRefreshTimer = window.setTimeout(() => {
+            this.indexRefreshTimer = undefined;
+            if (this.destroyed || this.requesting || !this.dirty || this.element.contains(document.activeElement) ||
+                hasAVEditorSession(this.element)) {
+                return;
+            }
+            if (this.type === "bottom") {
+                this.refreshIfVisible();
+            } else if (this.element.isConnected && this.element.getClientRects().length > 0) {
+                this.searchBacklinks();
+            }
+        }, 1000);
     }
 
     public refreshIfVisible(ignoreFocus = false) {
-        if (this.type !== "bottom" || !this.dirty) {
+        if (this.destroyed || this.type !== "bottom" || !this.dirty || this.requesting ||
+            (!ignoreFocus && this.indexRefreshTimer !== undefined)) {
             return;
         }
         if (!this.element.isConnected || this.ownerProtyle.element.getClientRects().length === 0) {
@@ -2473,6 +2524,7 @@ export class BacklinkContent extends Model {
         this.globalList?.destroy();
         this.globalList = undefined;
         this.destroyed = true;
+        this.clearIndexRefresh();
         this.viewStateGeneration++;
         this.clearReadingAnchorTimers();
         cancelHeightAnimation(this.tree.element);

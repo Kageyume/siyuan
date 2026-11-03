@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -33,6 +37,7 @@ func legacyJSONValue[T any](raw []byte) (value T, err error) {
 	data, err := json.Marshal(normalized)
 	if err == nil {
 		err = json.Unmarshal(data, &value)
+		err = legacyJSONObjectError(err)
 	}
 	return
 }

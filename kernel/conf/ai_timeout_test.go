@@ -1,10 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package conf
 
@@ -58,7 +54,9 @@ func TestAINormalizeAgentTimeoutsAndRetries(t *testing.T) {
 
 func TestNewAIReadsAgentStreamIdleTimeoutFromEnvironment(t *testing.T) {
 	t.Setenv("SIYUAN_OPENAI_AGENT_STREAM_IDLE_TIMEOUT", "240")
-	if got := NewAI().Agent.StreamIdleTimeout; got != 240 {
+	ai := NewAI()
+	ApplyAIEnvironment(ai)
+	if got := ai.Agent.StreamIdleTimeout; got != 240 {
 		t.Fatalf("stream idle timeout = %d, want 240", got)
 	}
 }
@@ -79,6 +77,7 @@ func TestNewAIDefaultProviderRequestTimeout(t *testing.T) {
 	t.Setenv("SIYUAN_OPENAI_API_MODEL", "test-model")
 	t.Setenv("SIYUAN_OPENAI_API_BASE_URL", "https://example.com/v1")
 	ai := NewAI()
+	ApplyAIEnvironment(ai)
 	if len(ai.Providers) != 1 || ai.Providers[0].RequestTimeout != 120 {
 		t.Fatalf("unexpected default provider request timeout: %#v", ai.Providers)
 	}

@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -52,7 +56,7 @@ func refreshAppearancePackages(themes, icons []string) {
 	}
 	refreshAppearanceConfig()
 	util.BroadcastByType("main", "refreshAppearance", 0, "", map[string]any{
-		"appearance": Conf.Appearance, "themes": themes, "icons": icons,
+		"appearance": Conf.Appearance.Load(), "themes": themes, "icons": icons,
 		"revision": time.Now().UTC().Format("20060102150405.000000000"),
 	})
 }

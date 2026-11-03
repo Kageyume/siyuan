@@ -1,18 +1,18 @@
+import {escapeHtmlTextAndAttr} from "../../util/escape";
 import type {BlockQueryRequestInput} from "../../types/api";
 import {
     focusByOffset,
-    focusByRange,
     getEditorRange,
-    getSelectionOffset,
 } from "../util/selection";
+import {focusByRange, getSelectionOffset} from "../util/selectionOffsets";
 import {fetchPost} from "../../util/fetch";
-import {replaceFileName, validateName} from "../../editor/rename";
+import {normalizeDocumentTitle, truncateDocumentTitle, validateName} from "../../editor/rename";
 import {MenuItem} from "../../menus/Menu";
 import {openFileAttr,} from "../../menus/commonMenuItem";
 import {Constants} from "../../constants";
 import {matchHotKey} from "../util/hotKey";
 import {isMac, readText} from "../util/compatibility";
-import * as dayjs from "dayjs";
+import dayjs from "dayjs";
 /// #if !MOBILE
 import {openFileById} from "../../editor/util";
 /// #endif
@@ -31,13 +31,16 @@ import {scheduleCaretScroll} from "../wysiwyg/caretScroll";
 import {getParentDocumentID} from "../util/parentDocument";
 import {getTextSiyuanFromClipboardData} from "../util/clipboardData";
 import {enterDocumentFromTitle} from "./titleEnter";
+import {setTitleAutoDirection} from "../render/autoDirection";
 
 export class Title {
     public element: HTMLElement;
     public editElement: HTMLElement;
     private timeout: number;
+    private pendingRename?: () => void;
+    private composing = false;
 
-    constructor(protyle: IProtyle) {
+    constructor(private protyle: IProtyle) {
         this.element = document.createElement("div");
         this.element.className = "protyle-title";
         if (window.siyuan.config.editor.displayBookmarkIcon) {
@@ -50,6 +53,7 @@ export class Title {
             this.element.innerHTML = `<span aria-label="${isMac() ? window.siyuan.languages.gutterTip2 : window.siyuan.languages.gutterTip2.replace("⇧", "Shift+")}" data-position="west" class="protyle-title__icon ariaLabel"><svg><use xlink:href="#iconFile"></use></svg></span>
 <div contenteditable="true" spellcheck="${window.siyuan.config.editor.spellcheck}" class="protyle-title__input" data-tip="${window.siyuan.languages._kernel[16]}"> </div><div class="protyle-attr"></div>`;
             this.editElement = this.element.querySelector(".protyle-title__input");
+            setTitleAutoDirection(this.editElement, window.siyuan.config.editor.autoDirection);
             this.editElement.addEventListener("paste", (event: ClipboardEvent) => {
                 event.stopPropagation();
                 event.preventDefault();
@@ -68,7 +72,7 @@ export class Title {
                 }
                 // 阻止右键复制菜单报错
                 setTimeout(function () {
-                    document.execCommand("insertText", false, replaceFileName(text));
+                    document.execCommand("insertText", false, normalizeDocumentTitle(text));
                 }, 0);
                 this.rename(protyle);
             });
@@ -77,6 +81,7 @@ export class Title {
             });
             this.editElement.addEventListener("input", (event: InputEvent) => {
                 if (event.isComposing) {
+                    this.composing = true;
                     return;
                 }
                 if (this.editElement.textContent === "") {
@@ -87,6 +92,7 @@ export class Title {
                 this.rename(protyle);
             });
             this.editElement.addEventListener("compositionend", () => {
+                this.composing = false;
                 this.rename(protyle);
             });
             this.editElement.addEventListener("drop", (event: DragEvent) => {
@@ -118,7 +124,7 @@ export class Title {
                         restoreLuteMarkdownSyntax(protyle);
                         // 移除 ;;;lt;;; 和 ;;;gt;;; 转义及其包裹的内容
                         content = content.replace(/;;;lt;;;[^;]+;;;gt;;;/g, "");
-                        document.execCommand("insertText", false, replaceFileName(content));
+                        document.execCommand("insertText", false, normalizeDocumentTitle(content));
                         this.rename(protyle);
                     }
                     return;
@@ -198,7 +204,7 @@ export class Title {
                     });
                 } else {
                     const iconRect = iconElement.getBoundingClientRect();
-                    openTitleMenu(protyle, {x: iconRect.left, y: iconRect.bottom, h: iconRect.height}, Constants.MENU_FROM_TITLE_PROTYLE);
+                    openTitleMenu(protyle, {target: iconElement, x: iconRect.left, y: iconRect.bottom, h: iconRect.height}, Constants.MENU_FROM_TITLE_PROTYLE);
                 }
             });
             this.element.addEventListener("contextmenu", async (event) => {
@@ -278,7 +284,7 @@ export class Title {
                         } else {
                             try {
                                 const text = await readText() || "";
-                                document.execCommand("insertText", false, replaceFileName(text));
+                                document.execCommand("insertText", false, normalizeDocumentTitle(text));
                                 this.rename(protyle);
                             } catch (e) {
                                 console.log(e);
@@ -300,7 +306,7 @@ export class Title {
                         restoreLuteMarkdownSyntax(protyle);
                         // 移除 ;;;lt;;; 和 ;;;gt;;; 转义及其包裹的内容
                         content = content.replace(/;;;lt;;;[^;]+;;;gt;;;/g, "");
-                        document.execCommand("insertText", false, replaceFileName(content));
+                        document.execCommand("insertText", false, normalizeDocumentTitle(content));
                         this.rename(protyle);
                     }
                 }).element);
@@ -340,16 +346,23 @@ export class Title {
 
     private rename(protyle: IProtyle) {
         clearTimeout(this.timeout);
-        if (!validateName(this.editElement.textContent, this.editElement)) {
+        this.pendingRename = undefined;
+        if (!validateName(this.editElement.textContent, this.editElement, true)) {
+            const original = this.editElement.textContent;
             // 字数过长会导致滚动
             const offset = getSelectionOffset(this.editElement);
-            this.setTitle(this.editElement.textContent.substring(0, Constants.SIZE_TITLE));
+            this.setTitle(truncateDocumentTitle(this.editElement.textContent));
             focusByOffset(this.editElement, offset.start, offset.end);
-            return false;
+            if (this.editElement.textContent === original ||
+                !validateName(this.editElement.textContent, this.editElement, true)) {
+                return false;
+            }
         }
         hideTooltip();
-        this.timeout = window.setTimeout(() => {
-            const fileName = replaceFileName(this.editElement.textContent);
+        this.pendingRename = () => {
+            this.pendingRename = undefined;
+            this.timeout = undefined;
+            const fileName = normalizeDocumentTitle(this.editElement.textContent);
             fetchPost("/api/filetree/renameDoc", {
                 notebook: protyle.notebookId,
                 path: protyle.path,
@@ -360,7 +373,24 @@ export class Title {
                 this.setTitle(fileName);
                 focusByOffset(this.editElement, offset.start, offset.end);
             }
-        }, Constants.TIMEOUT_INPUT);
+        };
+        this.timeout = window.setTimeout(this.pendingRename, Constants.TIMEOUT_INPUT);
+    }
+
+    public flushPendingInput() {
+        if (this.composing) {
+            this.rename(this.protyle);
+        }
+        const rename = this.pendingRename;
+        this.cancelPendingInput();
+        rename?.();
+    }
+
+    public cancelPendingInput() {
+        clearTimeout(this.timeout);
+        this.timeout = undefined;
+        this.pendingRename = undefined;
+        this.composing = false;
     }
 
     public setTitle(title: string, empty = false) {
@@ -407,21 +437,21 @@ export class Title {
         }
         let nodeAttrHTML = "";
         if (response.data.ial.bookmark) {
-            nodeAttrHTML += `<div class="protyle-attr--bookmark">${Lute.EscapeHTMLStr(response.data.ial.bookmark)}</div>`;
+            nodeAttrHTML += `<div class="protyle-attr--bookmark">${escapeHtmlTextAndAttr(response.data.ial.bookmark)}</div>`;
         }
         if (response.data.ial.name) {
-            nodeAttrHTML += `<div class="protyle-attr--name"><svg><use xlink:href="#iconN"></use></svg>${Lute.EscapeHTMLStr(response.data.ial.name)}</div>`;
+            nodeAttrHTML += `<div class="protyle-attr--name"><svg><use xlink:href="#iconN"></use></svg>${escapeHtmlTextAndAttr(response.data.ial.name)}</div>`;
         }
         if (response.data.ial.alias) {
-            nodeAttrHTML += `<div class="protyle-attr--alias"><svg><use xlink:href="#iconA"></use></svg>${Lute.EscapeHTMLStr(response.data.ial.alias)}</div>`;
+            nodeAttrHTML += `<div class="protyle-attr--alias"><svg><use xlink:href="#iconA"></use></svg>${escapeHtmlTextAndAttr(response.data.ial.alias)}</div>`;
         }
         if (response.data.ial.memo) {
-            nodeAttrHTML += `<div class="protyle-attr--memo ariaLabel" aria-label="${Lute.EscapeHTMLStr(response.data.ial.memo)}" data-position="north"><svg><use xlink:href="#iconM"></use></svg></div>`;
+            nodeAttrHTML += `<div class="protyle-attr--memo ariaLabel" aria-label="${escapeHtmlTextAndAttr(response.data.ial.memo)}" data-position="north"><svg><use xlink:href="#iconM"></use></svg></div>`;
         }
         if (response.data.ial["custom-avs"]) {
             let avTitle = "";
             response.data.attrViews.forEach((item: { id: string, name: string }) => {
-                avTitle += `<span data-av-id="${item.id}" data-popover-url="/api/av/getMirrorDatabaseBlocks" class="popover__block">${Lute.EscapeHTMLStr(item.name)}</span>&nbsp;`;
+                avTitle += `<span data-av-id="${item.id}" data-popover-url="/api/av/getMirrorDatabaseBlocks" class="popover__block">${escapeHtmlTextAndAttr(item.name)}</span>&nbsp;`;
             });
             if (avTitle) {
                 avTitle = avTitle.substring(0, avTitle.length - 6);

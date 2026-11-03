@@ -1,23 +1,10 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/fs"
@@ -31,7 +18,6 @@ import (
 	"github.com/88250/go-humanize"
 	"github.com/88250/gulu"
 	"github.com/88250/lute/ast"
-	"github.com/88250/lute/editor"
 	"github.com/88250/lute/html"
 	"github.com/88250/lute/parse"
 	"github.com/panjf2000/ants/v2"
@@ -125,6 +111,11 @@ func unindex(boxID string) {
 }
 
 func (box *Box) Index() {
+	// 排队时即撤销就绪状态，避免创建请求在后台重建开始前通过检查。
+	if err := treenode.SetDocumentMetadataState(box.ID, "building"); err != nil {
+		logging.LogErrorf("prepare queued document metadata [%s] failed: %s", box.ID, err)
+		return
+	}
 	task.AppendTask(task.DatabaseIndexRef, removeBoxRefs, box.ID)
 	task.AppendTask(task.DatabaseIndex, indexBox, box.ID)
 	task.AppendTask(task.DatabaseIndexRef, IndexRefs)
@@ -164,11 +155,26 @@ func indexBox(boxID string) {
 	if nil == box {
 		return
 	}
+	if err := treenode.SetDocumentMetadataState(boxID, "building"); err != nil {
+		logging.LogErrorf("prepare document metadata [%s] failed: %s", boxID, err)
+		return
+	}
+	metadataReady := false
+	defer func() {
+		if !metadataReady {
+			_ = treenode.SetDocumentMetadataState(boxID, "error")
+		}
+	}()
 	// 全量索引使用纯 INSERT，开始前必须清理该笔记本的旧数据，避免重复任务叠加相同行。
 	sql.DeleteBoxQueue(boxID)
+	recoveringSources := hasDocumentSourceRecovery(boxID)
 
 	util.SetBootDetails(Conf.Language(303))
-	files := box.ListFiles("/")
+	files, scanErr := box.listFilesForIndex("/")
+	if scanErr != nil {
+		logging.LogErrorf("enumerate notebook [%s] failed: %s", boxID, scanErr)
+		return
+	}
 	boxLen := max(1, len(Conf.GetOpenedBoxes()))
 	bootProgressPart := int32(30.0 / float64(boxLen) / float64(len(files)))
 
@@ -177,6 +183,7 @@ func indexBox(boxID string) {
 	var treeCount int
 	var treeSize int64
 	lock := sync.Mutex{}
+	var sourceFailed bool
 	util.PushStatusBar(fmt.Sprintf("["+html.EscapeString(box.Name)+"] "+Conf.Language(64), len(files)))
 
 	poolSize := min(runtime.NumCPU(), 4)
@@ -193,6 +200,9 @@ func indexBox(boxID string) {
 		lock.Unlock()
 		tree, err := filesys.LoadTree(box.ID, file.path, luteEngine)
 		if err != nil {
+			lock.Lock()
+			sourceFailed = true
+			lock.Unlock()
 			logging.LogErrorf("read box [%s] tree [%s] failed: %s", box.ID, file.path, err)
 			return
 		}
@@ -204,6 +214,10 @@ func indexBox(boxID string) {
 			docIAL["updated"] = updated
 			if _, writeErr := filesys.WriteTree(tree); nil != writeErr {
 				logging.LogErrorf("write tree [%s] failed: %s", tree.Path, writeErr)
+				lock.Lock()
+				sourceFailed = true
+				lock.Unlock()
+				return
 			}
 		}
 
@@ -215,7 +229,20 @@ func indexBox(boxID string) {
 		lock.Unlock()
 
 		cache.PutDocIALInBox(file.path, tree.Box, docIAL)
-		treenode.IndexBlockTree(tree)
+		if recoveringSources {
+			for _, block := range treenode.GetBlockTreesByRootIDInBox(tree.ID, tree.Box) {
+				cache.RemoveBlockIALInBox(block.ID, tree.Box)
+			}
+			if err := treenode.ReplaceBlockTree(tree); err != nil {
+				lock.Lock()
+				sourceFailed = true
+				lock.Unlock()
+				logging.LogErrorf("rebuild recovered block identities [%s]: %s", tree.ID, err)
+				return
+			}
+		} else {
+			treenode.IndexBlockTree(tree)
+		}
 		sql.IndexTreeQueue(tree)
 		util.IncBootProgress(bootProgressPart, fmt.Sprintf(Conf.Language(92), util.ShortPathForBootingDisplay(tree.Path)))
 		if 1 < i && 0 == i%64 {
@@ -253,6 +280,9 @@ func indexBox(boxID string) {
 		invokeErr := p.Invoke(file)
 		if nil != invokeErr {
 			waitGroup.Done()
+			lock.Lock()
+			sourceFailed = true
+			lock.Unlock()
 			logging.LogErrorf("invoke [%s] failed: %s", file.path, invokeErr)
 			continue
 		}
@@ -260,9 +290,36 @@ func indexBox(boxID string) {
 		batchBytes += file.size
 	}
 	flushBatch()
+	if !sourceFailed {
+		if recoveringSources {
+			paths := make([]string, 0, len(files))
+			for _, file := range files {
+				paths = append(paths, file.path)
+			}
+			treenode.ClearRedundantBlockTrees(boxID, paths)
+		}
+		pending, pendingErr := treenode.PendingDocumentMetadata(boxID)
+		for _, doc := range pending {
+			if pendingErr = filesys.RecoverDocumentMetadataWrite(doc); pendingErr != nil {
+				break
+			}
+		}
+		if pendingErr != nil {
+			logging.LogErrorf("recover document metadata [%s] failed: %s", boxID, pendingErr)
+		} else if err := treenode.SetDocumentMetadataState(boxID, "ready"); err != nil {
+			logging.LogErrorf("complete document metadata [%s] failed: %s", boxID, err)
+		} else {
+			metadataReady = true
+		}
+	}
 
 	// 关联数据库和块
 	av.BatchUpsertBlockRel(avNodes)
+	if metadataReady {
+		if err := finishDocumentSourceRecovery(box.ID); err != nil {
+			logging.LogErrorf("complete document source recovery [%s] failed: %s", box.ID, err)
+		}
+	}
 
 	box.UpdateHistoryGenerated() // 初始化历史生成时间为当前时间
 	end := time.Now()
@@ -302,7 +359,7 @@ func IndexRefs() {
 			for _, treeAbsPath := range paths {
 				p := filepath.ToSlash(strings.TrimPrefix(treeAbsPath, filepath.Join(util.DataDir, box.ID)))
 
-				// 加密笔记本的 .sy 是密文，必须走 filesys.LoadTree 透明解密；无法用 bytes.Contains 预检
+				// Encrypted documents must be authenticated by filesys.LoadTree.
 				var tree *parse.Tree
 				if encryptedBox {
 					loadTree, loadErr := filesys.LoadTree(box.ID, p, luteEngine)
@@ -318,10 +375,6 @@ func IndexRefs() {
 						continue
 					}
 
-					if !bytes.Contains(data, []byte("TextMarkBlockRefID")) && !bytes.Contains(data, []byte("TextMarkFileAnnotationRefID")) {
-						continue
-					}
-
 					parseTree, parseErr := filesys.LoadTreeByData(data, box.ID, p, luteEngine)
 					if nil != parseErr {
 						logging.LogWarnf("parse json to tree [%s] failed: %s", treeAbsPath, parseErr)
@@ -330,17 +383,10 @@ func IndexRefs() {
 					tree = parseTree
 				}
 
-				ast.Walk(tree.Root, func(n *ast.Node, entering bool) ast.WalkStatus {
-					if !entering {
-						return ast.WalkContinue
-					}
-
-					if treenode.IsBlockRef(n) || treenode.IsFileAnnotationRef(n) {
-						defBlockIDs = append(defBlockIDs, tree.Root.ID)
-						defBlockBoxes[tree.Root.ID] = box.ID
-					}
-					return ast.WalkContinue
-				})
+				if sql.TreeHasRefs(tree) {
+					defBlockIDs = append(defBlockIDs, tree.Root.ID)
+					defBlockBoxes[tree.Root.ID] = box.ID
+				}
 			}
 		}
 	}
@@ -393,44 +439,11 @@ func autoIndexEmbedBlock() {
 		embedBlocks = append(embedBlocks, sql.QueryEmptyContentEmbedBlocksInBox(boxID)...)
 	}
 	for i, embedBlock := range embedBlocks {
-		markdown := strings.TrimSpace(embedBlock.Markdown)
-		markdown = strings.TrimPrefix(markdown, "{{")
-		stmt := strings.TrimSuffix(markdown, "}}")
-
-		// 嵌入块的 Markdown 内容需要反转义
-		stmt = html.UnescapeString(stmt)
-		stmt = strings.ReplaceAll(stmt, editor.IALValEscNewLine, "\n")
-
-		// 需要移除首尾的空白字符以判断是否具有 //!js 标记
-		stmt = strings.TrimSpace(stmt)
-		if "" == stmt {
+		content, supported := sql.CalculateEmbedBlockContent(embedBlock)
+		if !supported {
 			continue
 		}
-		if strings.HasPrefix(stmt, "//!js") {
-			// https://github.com/siyuan-note/siyuan/issues/9648
-			// js 嵌入块不支持自动索引，由前端主动调用 /api/search/updateEmbedBlock 接口更新内容 https://github.com/siyuan-note/siyuan/issues/9736
-			continue
-		}
-
-		// 嵌入块脚本来自文档内容，属于不可信输入：执行前必须校验为单条只读查询，
-		// 不能用「是否包含 select 子串」代替，注释或子查询即可绕过
-		if err := sql.CheckReadonlyBlockQueryStatement(stmt, embedBlock.Box); nil != err {
-			logging.LogWarnf("skip non-readonly embed block [%s] script: %s", embedBlock.ID, err)
-			continue
-		}
-
-		var queryResultBlocks []*sql.Block
-		if IsEncryptedBox(embedBlock.Box) {
-			queryResultBlocks = sql.SelectBlocksRawStmtNoParseInBox(stmt, 102400, embedBlock.Box)
-		} else {
-			queryResultBlocks = sql.SelectBlocksRawStmtNoParse(stmt, 102400)
-		}
-		for _, block := range queryResultBlocks {
-			embedBlock.Content += block.Content
-		}
-		if "" == embedBlock.Content {
-			embedBlock.Content = "no query result"
-		}
+		embedBlock.Content = content
 		sql.UpdateBlockContentQueue(embedBlock)
 
 		if 63 <= i { // 一次任务中最多处理 64 个嵌入块，防止卡顿
@@ -558,13 +571,16 @@ func subscribeSQLEvents() {
 		util.ContextPushMsg(context, msg)
 	})
 
+	// 持久化索引队列负责崩溃恢复，状态事件只更新供查询使用的运行时标志。
 	eventbus.Subscribe(eventbus.EvtSQLIndexChanged, func() {
+		Conf.m.Lock()
 		Conf.DataIndexState = 1
-		Conf.Save()
+		Conf.m.Unlock()
 	})
 
 	eventbus.Subscribe(eventbus.EvtSQLIndexFlushed, func() {
+		Conf.m.Lock()
 		Conf.DataIndexState = 0
-		Conf.Save()
+		Conf.m.Unlock()
 	})
 }

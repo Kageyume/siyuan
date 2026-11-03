@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -28,7 +32,7 @@ func TestParseBacklinkRefFilter(t *testing.T) {
 func TestPublishReaderBacklinkRefCandidates(t *testing.T) {
 	oldConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.Editor = conf.NewEditor()
+	model.Conf.Editor.Store(conf.NewEditor())
 	t.Cleanup(func() { model.Conf = oldConf })
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()

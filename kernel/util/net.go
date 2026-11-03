@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package util
 
@@ -20,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -31,7 +18,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/88250/gulu"
 	"github.com/88250/lute/ast"
 	"github.com/gin-gonic/gin"
 	"github.com/imroc/req/v3"
@@ -117,6 +103,55 @@ func IsLocalHost(host string) bool {
 	}
 }
 
+// IsTLSRequest 判断这条客户端连接是否使用 TLS。
+//
+// 内核在同一端口上通过 cmux 同时承载 HTTP 与 HTTPS，入站方向由 request.TLS 区分；
+// 固定端口反代以 HTTPS 回源内核，由它写入的 ClientTLSHeader 标记客户端侧的真实连接方式。
+// 该头部仅在直连对端为本机时优先采信，区分客户端协议与回源协议，其他连接只判断实际 TLS 状态。
+// https://github.com/siyuan-note/siyuan/security/advisories/GHSA-hpj5-f7cj-vvwr
+func IsTLSRequest(request *http.Request) bool {
+	if nil == request {
+		return false
+	}
+	if IsLocalHost(request.RemoteAddr) {
+		switch request.Header.Get(ClientTLSHeader) {
+		case ClientTLSHeaderValue:
+			return true
+		case ClientTLSHeaderPlaintextValue:
+			return false
+		}
+	}
+	return nil != request.TLS
+}
+
+// IsValidRedirectHost 校验 Host 是否为可以直接拼接跳转地址的合法 authority。
+//
+// 仅接受 host 或 host:port 形式，拒绝凭据、路径、查询、片段与空白字符，
+// 避免被污染的 Host 让 HTTPS 跳转指向站外地址。
+func IsValidRedirectHost(host string) bool {
+	if "" == host || host != strings.TrimSpace(host) || strings.ContainsAny(host, "/\\?#@,; \t\r\n") {
+		return false
+	}
+
+	hostname, port, err := net.SplitHostPort(host)
+	if err != nil {
+		// 不含端口时按纯主机名处理，但要排除 "host:" 这类残留冒号的写法
+		if strings.Contains(host, ":") {
+			return false
+		}
+		hostname, port = host, ""
+	}
+	if "" == hostname || (strings.Contains(host, ":") && "" == port) {
+		return false
+	}
+	if "" != port {
+		if portNum, portErr := strconv.Atoi(port); nil != portErr || 1 > portNum || 65535 < portNum {
+			return false
+		}
+	}
+	return true
+}
+
 func IsLocalOrigin(origin string) bool {
 	if u, err := url.Parse(origin); err == nil {
 		return IsLocalHostname(u.Hostname())
@@ -147,13 +182,14 @@ func IsCrossSiteFetchSite(site string) bool {
 	return "" != site && "same-origin" != site && "none" != site
 }
 
-// IsSessionOriginAllowedRequest 校验会话认证请求：同站子域的应用页面导航可放行，
+// IsSessionOriginAllowedRequest 校验会话认证请求：应用入口的顶层 GET 页面导航可放行，
 // 其他跨源请求拒绝，其余请求继续校验 Origin。
 // https://github.com/siyuan-note/siyuan/security/advisories/GHSA-2w6q-wgc8-q743
 func IsSessionOriginAllowedRequest(r *http.Request) bool {
 	if IsCrossSiteFetchSite(r.Header.Get("Sec-Fetch-Site")) {
-		// 已登录用户可从同站子域进入应用页面；跨站导航和同站 API 请求仍须拒绝。
-		return r.Header.Get("Sec-Fetch-Site") == "same-site" &&
+		// 已登录用户可从子域、外部链接或 PWA 图标进入应用；API、资源和嵌入页面请求仍须拒绝。
+		site := r.Header.Get("Sec-Fetch-Site")
+		return (site == "same-site" || site == "cross-site") &&
 			r.Method == http.MethodGet && r.Header.Get("Origin") == "" &&
 			r.Header.Get("Sec-Fetch-Mode") == "navigate" &&
 			r.Header.Get("Sec-Fetch-Dest") == "document" && isAppEntryPath(r.URL.Path)
@@ -375,24 +411,6 @@ func GetRemoteAddr(req *http.Request) string {
 	return strings.Split(ret, ",")[0]
 }
 
-func JsonArg(c *gin.Context, result *gulu.Result) (arg map[string]any, ok bool) {
-	arg = map[string]any{}
-	if err := c.ShouldBindJSON(&arg); err != nil {
-		result.Code = -1
-		var detail string
-		if errors.Is(err, io.EOF) {
-			detail = "the request body is empty or truncated (EOF)"
-		} else {
-			detail = err.Error()
-		}
-		result.Msg = fmt.Sprintf("Parses request [%s] failed: %s", c.Request.URL.Path, detail)
-		return
-	}
-
-	ok = true
-	return
-}
-
 // GetRequestUrlStringParam extracts a string parameter from URL (path or query parameters).
 func GetRequestUrlStringParam(c *gin.Context, key string) string {
 	// /path/:name
@@ -408,134 +426,25 @@ func GetRequestUrlStringParam(c *gin.Context, key string) string {
 	return ""
 }
 
-// GetRequestStringParam extracts a string parameter from the request (URL or JSON body), with validation and error handling.
-func GetRequestStringParam(c *gin.Context, key string, result *gulu.Result) string {
-	// /path/:name
-	if value := GetRequestUrlStringParam(c, key); value != "" {
-		return value
-	}
+// ErrInvalidID 表示块或笔记本 ID 不是合法的 SiYuan ID 形态。
+var ErrInvalidID = errors.New("invalid ID argument")
 
-	// /path with JSON body {key: "xxx"}
-	arg, ok := JsonArg(c, result)
-	if !ok {
-		return ""
-	}
-	if arg[key] == nil {
-		result.Code = 1
-		result.Msg = fmt.Sprintf("Request body prop [%s] does not exist", key)
-		return ""
-	}
-
-	value, ok := arg[key].(string)
-	if !ok {
-		result.Code = 2
-		result.Msg = fmt.Sprintf("Request body prop [%s] is not a string", key)
-		return ""
-	}
-	return value
-}
-
-// ParseJsonArg 使用泛型从 JSON 参数中提取指定键的值。
-//   - 如果 required 为 true 但参数缺失，则会在 ret.Msg 中说明需要传入的键
-//   - 如果 rejectEmpty 为 true 但参数值为空，则会在 ret.Msg 中说明该键必须不为空（字符串去空白后、空数组、无任何键的对象）
-//   - 如果参数存在但类型不匹配，则会在 ret.Msg 中说明该键期望的类型
-//   - 返回值 ok 为 false 时，表示提取失败、类型不匹配或不满足非空约束
-func ParseJsonArg[T any](key string, arg map[string]any, ret *gulu.Result, required, rejectEmpty bool) (value T, ok bool) {
-	raw, exists := arg[key]
-	if !exists || raw == nil {
-		if required {
-			ret.Code = -1
-			ret.Msg = fmt.Sprintf("Field [%s] is required", key)
-		} else {
-			ok = true
-		}
-		return
-	}
-
-	value, ok = raw.(T)
-	if !ok {
-		var zero T
-		ret.Code = -1
-
-		// 返回对应的 JSON 类型
-		jsonType := ""
-		switch any(zero).(type) {
-		case string:
-			jsonType = "String"
-		case float64:
-			jsonType = "Number"
-		case bool:
-			jsonType = "Boolean"
-		case []any:
-			jsonType = "Array"
-		case map[string]any:
-			jsonType = "Object"
-		default:
-			jsonType = fmt.Sprintf("%T", zero)
-		}
-
-		ret.Msg = fmt.Sprintf("Field [%s] should be of type [%s]", key, jsonType)
-		return
-	}
-
-	if rejectEmpty {
-		var bad bool
-		switch x := any(value).(type) {
-		case string:
-			if t := strings.TrimSpace(x); t == "" {
-				bad = true
-			} else {
-				value = any(t).(T)
-			}
-		case []any:
-			bad = len(x) == 0
-		case map[string]any:
-			bad = len(x) == 0
-		}
-		if bad {
-			ret.Code = -1
-			ret.Msg = fmt.Sprintf("Field [%s] must not be empty", key)
-			ok = false
-		}
-	}
-	return
-}
-
-// JsonArgParseFunc 为单次提取函数，用于 ParseJsonArgs 批量提取。
-type JsonArgParseFunc func(arg map[string]any, ret *gulu.Result) bool
-
-// BindJsonArg 创建一个提取函数：从 arg 取 key 并写入 dest，供 ParseJsonArgs 使用。
-func BindJsonArg[T any](key string, dest *T, required, rejectEmpty bool) JsonArgParseFunc {
-	return func(arg map[string]any, ret *gulu.Result) bool {
-		v, ok := ParseJsonArg[T](key, arg, ret, required, rejectEmpty)
-		if !ok {
-			return false
-		}
-		*dest = v
-		return true
-	}
-}
-
-// ParseJsonArgs 按顺序执行多个提取函数。
-//   - 任一失败返回 false 并在 ret 中写入错误信息
-//   - 全部成功返回 true
-func ParseJsonArgs(arg map[string]any, ret *gulu.Result, extractors ...JsonArgParseFunc) bool {
-	for _, ext := range extractors {
-		if !ext(arg, ret) {
-			return false
-		}
-	}
-	return true
-}
-
-func InvalidIDPattern(idArg string, result *gulu.Result) bool {
+// ValidateID 检查块或笔记本 ID 形态，不合法时返回 ErrInvalidID。
+// 返回错误而不是往调用方的信封里写字，让调用方决定用哪个错误码响应。
+func ValidateID(idArg string) error {
 	if ast.IsNodeIDPattern(idArg) {
-		return false
+		return nil
 	}
+	return ErrInvalidID
+}
 
-	result.Code = -1
-	result.Msg = "invalid ID argument"
-	return true
+// ValidateOptionalID 与 ValidateID 相同，但把空字符串视为「未提供」而非非法值。
+// 用于可选的对端 ID 等参数，避免调用方各自重复判空。
+func ValidateOptionalID(idArg string) error {
+	if idArg == "" {
+		return nil
+	}
+	return ValidateID(idArg)
 }
 
 func initHttpClient() {

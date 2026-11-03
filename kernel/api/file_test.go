@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -15,7 +19,7 @@ import (
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
 
-func TestResolveFileAPIAppID(t *testing.T) {
+func TestResolveRequestAppID(t *testing.T) {
 	tests := []struct {
 		name     string
 		header   string
@@ -34,7 +38,7 @@ func TestResolveFileAPIAppID(t *testing.T) {
 			if test.header != "" {
 				context.Request.Header.Set(siyuanAppIDHeader, test.header)
 			}
-			if actual := resolveFileAPIAppID(context, test.body); actual != test.expected {
+			if actual := resolveRequestAppID(context, test.body); actual != test.expected {
 				t.Fatalf("expected app [%s], got [%s]", test.expected, actual)
 			}
 		})
@@ -169,7 +173,7 @@ func TestGetFileAdminCanFollowAssetsSymlinkOutsideWorkspace(t *testing.T) {
 func TestGetFileReaderCanReadHiddenNotebookFile(t *testing.T) {
 	previousConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	t.Cleanup(func() { model.Conf = previousConf })
 	workspaceDir := testutil.PublicDataDir(t)
 	origWorkspaceDir, origDataDir := util.WorkspaceDir, util.DataDir
@@ -223,7 +227,7 @@ func TestGetFileReaderCanReadHiddenNotebookFile(t *testing.T) {
 func TestGetFileReaderCanReadVisibleNotebookFile(t *testing.T) {
 	previousConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	t.Cleanup(func() { model.Conf = previousConf })
 	workspaceDir := testutil.PublicDataDir(t)
 	origWorkspaceDir, origDataDir := util.WorkspaceDir, util.DataDir
@@ -272,7 +276,7 @@ func TestGetFileReaderCanReadVisibleNotebookFile(t *testing.T) {
 func TestGetFileEditorCanReadHiddenNotebookFile(t *testing.T) {
 	previousConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	t.Cleanup(func() { model.Conf = previousConf })
 	workspaceDir := testutil.PublicDataDir(t)
 	origWorkspaceDir, origDataDir := util.WorkspaceDir, util.DataDir
@@ -321,7 +325,7 @@ func TestGetFileEditorCanReadHiddenNotebookFile(t *testing.T) {
 func TestGetFileDeniesNotebookSiyuanConf(t *testing.T) {
 	previousConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	t.Cleanup(func() { model.Conf = previousConf })
 	workspaceDir := testutil.PublicDataDir(t)
 	origWorkspaceDir, origDataDir := util.WorkspaceDir, util.DataDir

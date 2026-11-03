@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package agent
 
@@ -35,24 +23,6 @@ type executedToolResult struct {
 	ExecutionUnknown bool
 }
 
-// validateToolCallInput 在确认和快照之前校验工具调用，避免无效调用被误判为写操作。
-func validateToolCallInput(ctx context.Context, toolName string, args map[string]any) (*tools.Tool, *tools.ToolValidator, error) {
-	t, validator := tools.LookupToolWithValidator(toolName)
-	if t == nil {
-		return nil, nil, fmt.Errorf("unknown tool: %s", toolName)
-	}
-	if t.ContextHandler == nil && t.Handler == nil {
-		return nil, nil, fmt.Errorf("tool handler unavailable: %s", toolName)
-	}
-	if ctx.Err() != nil {
-		return nil, nil, fmt.Errorf("tool execution was cancelled before it started")
-	}
-	if err := validator.ValidateInputContext(ctx, args); err != nil {
-		return nil, nil, fmt.Errorf("invalid tool arguments: %w", err)
-	}
-	return t, validator, nil
-}
-
 func validateCapabilityCall(ctx context.Context, registration *capabilityRegistration, args map[string]any) error {
 	if registration == nil {
 		return fmt.Errorf("capability was not exposed in this model round")
@@ -69,6 +39,11 @@ func validateCapabilityCall(ctx context.Context, registration *capabilityRegistr
 	if err := registration.Validator.ValidateInputContext(ctx, args); err != nil {
 		return fmt.Errorf("invalid capability arguments: %w", err)
 	}
+	if registration.Tool != nil && (registration.Tool.Source == "native" || registration.Tool.Source == "") {
+		if err := validatePluginWorkflowTool(ctx, registration.Tool.Name, args); err != nil {
+			return err
+		}
+	}
 	if !registration.isBrowser() &&
 		(registration.Tool == nil || registration.Tool.ContextHandler == nil && registration.Tool.Handler == nil) {
 		return fmt.Errorf("capability handler unavailable: %s", registration.ID)
@@ -76,24 +51,11 @@ func validateCapabilityCall(ctx context.Context, registration *capabilityRegistr
 	return nil
 }
 
-// executeTool 执行单次工具调用。
-func executeTool(ctx context.Context, tc openai.ToolCall, sessionID string) executedToolResult {
-	tool, validator := tools.LookupToolWithValidator(tc.Function.Name)
-	if tool == nil {
-		return executedToolResult{Text: "unknown tool: " + tc.Function.Name, IsError: true}
-	}
-	return executeCapability(ctx, tc, sessionID, &capabilityRegistration{
-		ID:        tools.CapabilityIDForTool(tool),
-		ModelName: tool.Name,
-		Source:    tool.Source,
-		Runtime:   tool.Runtime,
-		Tool:      tool,
-		Validator: validator,
-	})
-}
-
 func executeCapability(ctx context.Context, tc openai.ToolCall, sessionID string,
 	registration *capabilityRegistration) executedToolResult {
+	if registration != nil && registration.Tool != nil && (registration.Tool.Source == "native" || registration.Tool.Source == "") {
+		ctx = pluginWorkflowContext(ctx, sessionID)
+	}
 	args, err := parseToolArgs(tc.Function.Arguments)
 	if err != nil {
 		return executedToolResult{Text: "invalid capability arguments: " + err.Error(), IsError: true}
@@ -110,6 +72,9 @@ func executeCapability(ctx context.Context, tc openai.ToolCall, sessionID string
 	if t.Source == "native" || t.Source == "" {
 		args["_sessionID"] = sessionID
 		args["_toolCallID"] = tc.ID
+		if t.Name == "decision" {
+			preserveDecisionJSONData(args, tc.Function.Arguments)
+		}
 	}
 	type executionResult struct {
 		result tools.CallToolResult

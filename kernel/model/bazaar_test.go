@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -295,6 +283,7 @@ func TestGetPackageUninstallPathUsesInvalidPackageDirectory(t *testing.T) {
 
 func TestInstallLocalBazaarPackageReplacesEmptyDirectoryTree(t *testing.T) {
 	setupSyncMutationTest(t)
+	changes := captureBazaarChanges(t)
 	oldDataDir, oldTempDir := util.DataDir, util.TempDir
 	root := t.TempDir()
 	util.DataDir = filepath.Join(root, "data")
@@ -342,13 +331,28 @@ func TestInstallLocalBazaarPackageReplacesEmptyDirectoryTree(t *testing.T) {
 	if _, err = os.Stat(filepath.Join(installPath, "plugin.json")); err != nil {
 		t.Fatalf("installed package manifest is missing: %s", err)
 	}
+	if len(*changes) != 1 || (*changes)[0] != "plugins" {
+		t.Fatalf("local installation notification = %v", *changes)
+	}
+	if _, err = InstallLocalBazaarPackage(archivePath, "", false); err == nil {
+		t.Fatal("expected existing package error")
+	}
+	if len(*changes) != 1 {
+		t.Fatal("rejected installation must not notify")
+	}
+	if _, err = InstallLocalBazaarPackage(archivePath, "", true); err != nil {
+		t.Fatal(err)
+	}
+	if len(*changes) != 2 {
+		t.Fatal("local overwrite must notify even when the plugin is disabled")
+	}
 }
 
 func TestFilterUpdatableBazaarPackages(t *testing.T) {
 	allowed := &UpdatedPackage{Available: &bazaar.Package{Name: "allowed"}}
 	blocked := &UpdatedPackage{Available: &bazaar.Package{Name: "blocked", DisallowUpdate: true}}
 
-	updatable, unmetRequirementCount := filterUpdatableBazaarPackages([]*UpdatedPackage{allowed, blocked, &UpdatedPackage{}})
+	updatable, unmetRequirementCount := filterUpdatableBazaarPackages([]*UpdatedPackage{allowed, blocked, {}})
 	if len(updatable) != 1 || updatable[0] != allowed {
 		t.Fatalf("expected only the allowed package, got %#v", updatable)
 	}

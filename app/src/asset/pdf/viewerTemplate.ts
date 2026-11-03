@@ -1,6 +1,6 @@
 import {updateHotkeyTip} from "../../protyle/util/compatibility";
 
-export const getPdfViewerHTML = () => `<div class="pdf__outer" id="outerContainer">
+export const getPdfViewerHTML = ({maximize = true}: {maximize?: boolean} = {}) => `<div class="pdf__outer" id="outerContainer">
       <div id="sidebarContainer">
         <div id="toolbarSidebar">
           <div id="toolbarSidebarLeft">
@@ -19,7 +19,7 @@ export const getPdfViewerHTML = () => `<div class="pdf__outer" id="outerContaine
           </div>
           <div class="fn__flex-1"></div>
           <div id="toolbarSidebarRight">
-            <div id="outlineOptionsContainer" class="fn__hidden">
+            <div id="outlineOptionsContainer" class="fn__none">
               <button id="currentOutlineItem" class="toolbarButton b3-tooltips b3-tooltips__nw" disabled="disabled" aria-label="${window.siyuan.languages.focusOutline}">
                 <svg><use xlink:href="#iconFocus"></use></svg>
               </button>
@@ -220,6 +220,9 @@ export const getPdfViewerHTML = () => `<div class="pdf__outer" id="outerContaine
                 <span id="secondaryPrint" class="fn__none"></span>
                 <span id="viewBookmark" class="fn__none"></span>
                 <span id="secondaryViewBookmark" class="fn__none"></span>
+                <button id="pdfMaximize" class="toolbarButton b3-tooltips b3-tooltips__sw${maximize ? "" : " fn__none"}" aria-label="${window.siyuan.languages.max}" aria-pressed="false" disabled>
+                  <svg><use xlink:href="#iconFullscreen"></use></svg>
+                </button>
                 <button id="secondaryToolbarToggleButton" class="toolbarButton b3-tooltips b3-tooltips__sw" aria-label="${window.siyuan.languages.more}" aria-expanded="false" aria-controls="secondaryToolbar">
                   <svg><use xlink:href="#iconMore"></use></svg>
                 </button>

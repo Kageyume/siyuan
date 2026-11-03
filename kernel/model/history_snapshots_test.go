@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -38,8 +42,8 @@ func historySnapshotTestEntry(t *testing.T, data []byte) *DocHistorySnapshotEntr
 
 func TestDocHistorySnapshotsMatching(t *testing.T) {
 	_, repo, _ := prepareAssetDownloadRepoTest(t)
-	Conf.Editor = conf.NewEditor()
-	Conf.Export = conf.NewExport()
+	Conf.Editor.Store(conf.NewEditor())
+	Conf.Export.Store(conf.NewExport())
 	data := historySnapshotData("original")
 	docPath := filepath.Join(util.DataDir, historySnapshotBoxID, historySnapshotDocID+".sy")
 	writeHistorySnapshotTestFile(t, docPath, data)
@@ -132,8 +136,8 @@ func TestDocHistorySnapshotsMatching(t *testing.T) {
 
 func TestDocHistorySnapshotsEncrypted(t *testing.T) {
 	prepareAssetDownloadRepoTest(t)
-	Conf.Editor = conf.NewEditor()
-	Conf.Export = conf.NewExport()
+	Conf.Editor.Store(conf.NewEditor())
+	Conf.Export.Store(conf.NewExport())
 	defer prepareEncryptedBoxLifecycleTest(t, historySnapshotBoxID)()
 	setEncryptedBoxState(historySnapshotBoxID, EncryptedBoxStateUnlocked)
 	dek, err := GetDEKIfUnlocked(historySnapshotBoxID)

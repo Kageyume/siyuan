@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -35,10 +39,15 @@ func testCloudAssetSourceAllowsOriginalAccountAfterLogout(t *testing.T, logout f
 	key := []byte("0123456789abcdef0123456789abcdef")
 	owner := &conf.User{UserId: "asset-owner", UserName: "owner", UserToken: "asset-token"}
 	Conf = NewAppConf()
-	Conf.Sync, Conf.Repo, Conf.System = conf.NewSync(), conf.NewRepo(), conf.NewSystem()
-	Conf.Sync.Provider, Conf.Sync.CloudName, Conf.Sync.Enabled = conf.ProviderSiYuan, "main", true
-	Conf.Sync.AssetDownloadMode = 1
-	Conf.Repo.Key = key
+	{
+		confSectionValue0, confSectionValue1, confSectionValue2 := conf.NewSync(), conf.NewRepo(), conf.NewSystem()
+		Conf.Sync.Store(confSectionValue0)
+		Conf.Repo.Store(confSectionValue1)
+		Conf.System.Store(confSectionValue2)
+	}
+	Conf.Sync.Load().Provider, Conf.Sync.Load().CloudName, Conf.Sync.Load().Enabled = conf.ProviderSiYuan, "main", true
+	Conf.Sync.Load().AssetDownloadMode = 1
+	Conf.Repo.Load().Key = key
 	Conf.SetUser(owner)
 	Conf.CloudRegion, util.CurrentCloudRegion = 0, 0
 	deviceDir := filepath.Join(base, "partial")
@@ -111,9 +120,9 @@ func testCloudAssetSourceAllowsOriginalAccountAfterLogout(t *testing.T, logout f
 	if err = checkAssetDownloadAccess(); err == nil {
 		t.Fatal("cloud asset downloads accepted without a cloud session")
 	}
-	result := Login("different-owner", "unused-password", "", 1)
-	if result.Code == 0 || Conf.CloudRegion != 0 || util.CurrentCloudRegion != 0 {
-		t.Fatalf("cross-region login changed the source: result=%v, region=%d", result, util.CurrentCloudRegion)
+	_, code, _ := Login("different-owner", "unused-password", "", 1)
+	if code == 0 || Conf.CloudRegion != 0 || util.CurrentCloudRegion != 0 {
+		t.Fatalf("cross-region login changed the source: code=%d, region=%d", code, util.CurrentCloudRegion)
 	}
 	if err = DeactivateUser(); err == nil {
 		t.Fatal("account deactivation accepted despite undownloaded data")
@@ -124,9 +133,9 @@ func testCloudAssetSourceAllowsOriginalAccountAfterLogout(t *testing.T, logout f
 	if err = validateCloudUserAssetSource(owner); !IsCloudAssetSourceChange(err) {
 		t.Fatalf("missing asset state was accepted during authentication: %v", err)
 	}
-	result = Login("different-owner", "unused-password", "", 1)
-	if result.Code == 0 || Conf.CloudRegion != 0 || util.CurrentCloudRegion != 0 {
-		t.Fatalf("cross-region login discarded a source with missing state: %v", result)
+	_, code, _ = Login("different-owner", "unused-password", "", 1)
+	if code == 0 || Conf.CloudRegion != 0 || util.CurrentCloudRegion != 0 {
+		t.Fatalf("cross-region login discarded a source with missing state: code=%d", code)
 	}
 	if _, err = os.Stat(filepath.Join(util.RepoDir, "asset-downloads-v1")); err != nil {
 		t.Fatalf("missing-state protection removed the repository marker: %v", err)

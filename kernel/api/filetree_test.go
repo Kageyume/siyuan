@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
@@ -172,7 +160,7 @@ func TestAuthFilePublishAccessReturnsUniformFailure(t *testing.T) {
 	oldLangs := util.Langs
 	util.DataDir = t.TempDir()
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	model.Conf.Lang = "test"
 	util.Langs = map[string]map[int]string{
 		"test": {285: passwordIncorrect},
@@ -307,7 +295,7 @@ func TestAuthFilePublishAccessThrottlesBruteForce(t *testing.T) {
 	oldLangs := util.Langs
 	util.DataDir = t.TempDir()
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	model.Conf.Lang = "test"
 	util.Langs = map[string]map[int]string{
 		"test": {285: "Password is incorrect", 354: passwordLocked},
@@ -348,7 +336,7 @@ func TestAuthFilePublishAccessThrottlesBruteForce(t *testing.T) {
 	defer util.AuthThrottleReset(attackerIP)
 
 	// 前 5 次失败为普通失败响应，第 6 次失败触发锁定但本次仍返回普通响应（与 util.AuthThrottleFail 语义一致）
-	for i := 0; i < 6; i++ {
+	for i := range 6 {
 		recorder := post(passwordWrong)
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("attempt %d expected %d, got %d", i+1, http.StatusOK, recorder.Code)
@@ -433,7 +421,7 @@ func TestPublishAccessConfigurationRejectsEncryptedNotebook(t *testing.T) {
 	oldLangs := util.Langs
 	util.DataDir = t.TempDir()
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	model.Conf.Lang = "test"
 	util.Langs = map[string]map[int]string{
 		"test": {313: "Encrypted notebooks do not support this operation"},
@@ -531,7 +519,7 @@ func TestPublishReaderCannotBrowseEncryptedNotebook(t *testing.T) {
 	oldConf := model.Conf
 	util.DataDir = t.TempDir()
 	model.Conf = model.NewAppConf()
-	model.Conf.FileTree = conf.NewFileTree()
+	model.Conf.FileTree.Store(conf.NewFileTree())
 	t.Cleanup(func() {
 		util.DataDir = oldDataDir
 		model.Conf = oldConf
@@ -608,11 +596,11 @@ func TestGetDocOptionallyReturnsEmbeddedDocInfo(t *testing.T) {
 	util.DataDir = filepath.Join(tempDir, "data")
 	util.BlockTreeDBPath = filepath.Join(tempDir, "blocktree.db")
 	model.Conf = model.NewAppConf()
-	model.Conf.Editor = conf.NewEditor()
-	model.Conf.Export = conf.NewExport()
-	model.Conf.FileTree = conf.NewFileTree()
+	model.Conf.Editor.Store(conf.NewEditor())
+	model.Conf.Export.Store(conf.NewExport())
+	model.Conf.FileTree.Store(conf.NewFileTree())
 	model.Conf.NotebookCrypto = conf.NewNotebookCrypto()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 
 	box := &model.Box{ID: boxID}
 	boxConf := conf.NewBoxConf()
@@ -683,7 +671,7 @@ func TestGetDocOptionallyReturnsEmbeddedDocInfo(t *testing.T) {
 func TestFilterFileTreePublishAccess(t *testing.T) {
 	previousConf := model.Conf
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	t.Cleanup(func() { model.Conf = previousConf })
 	const (
 		boxID             = "20260725000000-boxid01"
@@ -788,8 +776,8 @@ func TestListDocsByPathFiltersSubFileCountForPublishReader(t *testing.T) {
 	oldPublishAccess := model.GetPublishAccess()
 	util.DataDir = t.TempDir()
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
-	model.Conf.FileTree = conf.NewFileTree()
+	model.Conf.Sync.Store(conf.NewSync())
+	model.Conf.FileTree.Store(conf.NewFileTree())
 	const testLang = "filetree-subfile-count-test"
 	installAPITestTimeLangs(t, testLang)
 	model.Conf.Lang = testLang

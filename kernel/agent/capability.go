@@ -1,10 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package agent
 
@@ -74,10 +70,12 @@ type capabilityAuthorizer interface {
 type configCapabilityAuthorizer struct{}
 
 func (configCapabilityAuthorizer) Allows(id string, _ capabilityAccessContext) bool {
-	if kernelModel.Conf == nil || kernelModel.Conf.AI == nil || kernelModel.Conf.AI.Agent == nil {
+	confAIReadSnapshot := kernelModel.Conf.LoadAI()
+
+	if kernelModel.Conf == nil || confAIReadSnapshot == nil || confAIReadSnapshot.Agent == nil {
 		return true
 	}
-	return kernelModel.Conf.AI.Agent.CapabilityPolicy.Allows(id)
+	return confAIReadSnapshot.Agent.CapabilityPolicy.Allows(id)
 }
 
 var currentCapabilityAuthorizer capabilityAuthorizer = configCapabilityAuthorizer{}
@@ -89,10 +87,12 @@ type capabilityApprover interface {
 type configCapabilityApprover struct{}
 
 func (configCapabilityApprover) Decision(id, action string, _ capabilityAccessContext) string {
-	if kernelModel.Conf == nil || kernelModel.Conf.AI == nil || kernelModel.Conf.AI.Agent == nil {
+	confAIReadSnapshot := kernelModel.Conf.LoadAI()
+
+	if kernelModel.Conf == nil || confAIReadSnapshot == nil || confAIReadSnapshot.Agent == nil {
 		return conf.ApprovalDecisionRisk
 	}
-	return kernelModel.Conf.AI.Agent.ApprovalPolicy.Decision(id, action)
+	return confAIReadSnapshot.Agent.ApprovalPolicy.Decision(id, action)
 }
 
 var currentCapabilityApprover capabilityApprover = configCapabilityApprover{}
@@ -121,9 +121,11 @@ func (registration *capabilityRegistration) browserEffectsFor(action string) (to
 }
 
 type capabilitySet struct {
-	definitions   []openai.Tool
-	registrations map[string]*capabilityRegistration
-	ids           map[string]*capabilityRegistration
+	mcpServices           []mcpService
+	definitions           []openai.Tool
+	registrations         map[string]*capabilityRegistration
+	ids                   map[string]*capabilityRegistration
+	toolRoundLimitReached bool
 }
 
 func (set *capabilitySet) registration(modelName string) *capabilityRegistration {
@@ -170,16 +172,18 @@ func capabilityAllowed(id string, context capabilityAccessContext) bool {
 }
 
 func capabilityOwnerAvailable(source, runtime, ownerID string) bool {
+	confAIReadSnapshot := kernelModel.Conf.LoadAI()
+
 	if source != "mcp" && runtime != "mcp" {
 		return true
 	}
 	if ownerID == "" {
 		return true
 	}
-	if kernelModel.Conf == nil || kernelModel.Conf.AI == nil || kernelModel.Conf.AI.MCP == nil {
+	if kernelModel.Conf == nil || confAIReadSnapshot == nil || confAIReadSnapshot.MCP == nil {
 		return false
 	}
-	for _, server := range kernelModel.Conf.AI.MCP.Servers {
+	for _, server := range confAIReadSnapshot.MCP.Servers {
 		if server.ID == ownerID {
 			return server.Enabled
 		}

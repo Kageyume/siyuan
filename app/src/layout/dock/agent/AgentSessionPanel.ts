@@ -10,6 +10,9 @@ import {useShell} from "../../../util/pathName";
 
 /// #endif
 import {getHostCapabilities} from "../../../util/hostCapabilities";
+import {isInMobileApp, isPhablet} from "../../../protyle/util/compatibility";
+import {bindMenuMouseScroll} from "../../../menus/menuMouseScroll";
+import {showMessage} from "../../../dialog/message";
 
 export class AgentSessionPanel {
     private popup: HTMLElement | null = null;
@@ -20,6 +23,7 @@ export class AgentSessionPanel {
     private isLoadingMore = false;
     private searchTimer: number | null = null;
     private searchKeyword = "";
+    private removeCloseListeners: (() => void) | undefined;
 
     constructor(
         private triggerBtn: HTMLElement,
@@ -32,7 +36,6 @@ export class AgentSessionPanel {
             onRename: (id: string, title: string) => Promise<void>;
             getStatus?: (id: string) => AgentSessionRunStatus | undefined;
             getTitle?: (id: string) => string | undefined;
-            onClose?: () => void;
         },
         private mobile = false,
     ) {
@@ -53,11 +56,26 @@ export class AgentSessionPanel {
         this.render();
     }
 
-    close() {
+    close(immediate = false) {
+        this.removeCloseListeners?.();
+        this.removeCloseListeners = undefined;
         this.closeAllSubmenus();
-        this.popup?.remove();
-        document.querySelectorAll(".agent-session-popup").forEach(function (el) {
-            el.remove();
+        document.querySelectorAll<HTMLElement>(".agent-session-popup").forEach(el => {
+            const transform = getComputedStyle(el).transform;
+            el.getAnimations().forEach(animation => animation.cancel());
+            if (this.mobile && !immediate && el === this.popup) {
+                const animation = el.animate([
+                    {transform},
+                    {transform: "translateX(100%)"},
+                ], {
+                    duration: 150,
+                    easing: "cubic-bezier(0, 0, .2, 1)",
+                    fill: "forwards",
+                });
+                animation.finished.then(() => el.remove(), () => {});
+            } else {
+                el.remove();
+            }
         });
         this.popup = null;
         this.searchKeyword = "";
@@ -71,12 +89,12 @@ export class AgentSessionPanel {
     }
 
     destroy() {
-        this.close();
+        this.close(true);
     }
 
     private async render() {
         this.isRendering = true;
-        this.close();
+        this.close(true);
         try {
             const result = await SessionStore.list({page: 1, pageSize: 30});
             this.items = result.sessions;
@@ -92,21 +110,20 @@ export class AgentSessionPanel {
 
             let html = this.mobile ? '<div class="toolbar toolbar--border">' +
                 '<svg class="toolbar__icon" data-type="back"><use xlink:href="#iconLeft"></use></svg>' +
-                '<span class="toolbar__text">' + L.manageSessions + "</span>" +
-                '<svg class="toolbar__icon agent-session-popup__close" data-type="close"><use xlink:href="#iconCloseRound"></use></svg></div>' : "";
+                '<span class="toolbar__text">' + L.manageSessions + "</span></div>" : "";
             html += '<input spellcheck="false" class="b3-text-field agent-session-popup__search" placeholder="' + L.agentSessionSearch + '">';
             html += '<div class="b3-list b3-list--background fn__flex-1"></div>';
 
             this.popup.innerHTML = html;
 
             const itemsContainer = this.popup.querySelector(".b3-list") as HTMLElement;
+            if (!this.mobile) {
+                bindMenuMouseScroll(this.popup, () => !isInMobileApp() &&
+                    window.siyuan.config.appearance?.menuMouseScroll === true, itemsContainer);
+            }
             this.renderItems(itemsContainer, result.sessions, false);
             const searchInput = this.popup.querySelector(".agent-session-popup__search") as HTMLInputElement;
             this.popup.querySelector('[data-type="back"]')?.addEventListener("click", () => this.close());
-            this.popup.querySelector('[data-type="close"]')?.addEventListener("click", () => {
-                this.close();
-                this.callbacks.onClose?.();
-            });
             searchInput.addEventListener("input", (event: InputEvent) => {
                 event.stopPropagation();
                 if (event.isComposing) {
@@ -139,6 +156,13 @@ export class AgentSessionPanel {
             // 桌面端浮层使用视口坐标定位，挂到顶层可避免受浮动 Dock 的变换坐标系和裁剪影响。
             if (this.mobile) {
                 this.host.appendChild(this.popup);
+                this.popup.animate([
+                    {transform: "translateX(100%)"},
+                    {transform: "translateX(0)"},
+                ], {
+                    duration: 150,
+                    easing: "cubic-bezier(0, 0, .2, 1)",
+                });
             } else {
                 document.body.appendChild(this.popup);
             }
@@ -153,6 +177,12 @@ export class AgentSessionPanel {
                 e.stopPropagation();
             });
             const onResize = () => {
+                if (isPhablet() && this.popup) {
+                    // 平板软键盘改变视口时重新定位，保留会话搜索与列表。
+                    const btnRect = this.triggerBtn.getBoundingClientRect();
+                    setPosition(this.popup, btnRect.right - 280, btnRect.bottom, btnRect.height, btnRect.width);
+                    return;
+                }
                 this.close();
             };
             if (!this.mobile) {
@@ -160,13 +190,16 @@ export class AgentSessionPanel {
             }
             const closeOut = () => {
                 this.close();
+            };
+            const closeTimer = setTimeout(() => {
+                document.addEventListener("click", closeOut);
+            }, 10);
+            this.removeCloseListeners = () => {
+                clearTimeout(closeTimer);
                 document.removeEventListener("click", closeOut);
                 window.removeEventListener("resize", onResize);
             };
-            setTimeout(() => {
-                document.addEventListener("click", closeOut);
-            }, 10);
-            if (!this.mobile) {
+            if (!this.mobile && !isPhablet()) {
                 searchInput.focus();
             }
         } finally {
@@ -198,12 +231,15 @@ export class AgentSessionPanel {
                 html += '<div class="b3-list-item' + (this.mobile ? "" : " b3-list-item--hide-action") +
                     (isActive ? " b3-list-item--focus" : "") + '" data-id="' + s.id + '">' +
                     statusHTML +
+                    (s.pinnedAt ? '<svg class="b3-list-item__graphic ariaLabel" aria-label="' + escapeHtml(L.pinDoc) + '"><use xlink:href="#iconPin"></use></svg>' : "") +
                     '<span class="b3-list-item__text ariaLabel" data-position="parentW" aria-label="' + escapeHtml(title) + '">' + escapeHtml(title) + "</span>" +
                     '<span class="b3-list-item__action b3-tooltips b3-tooltips__nw" data-id="' + s.id + '" aria-label="' + window.siyuan.languages.rename + '"><svg><use xlink:href="#iconEdit"></use></svg></span>' +
                     '<span class="b3-list-item__action b3-tooltips b3-tooltips__nw agent-session-more" data-id="' + s.id + '" aria-label="' + (L.more || "More") + '">' +
                         '<svg><use xlink:href="#iconMore"></use></svg>' +
                         '<div class="b3-menu__submenu">' +
                             '<div class="b3-menu__items">' +
+                            '<button class="b3-menu__item" data-action="pin"><svg class="b3-menu__icon"><use xlink:href="#' + (s.pinnedAt ? "iconUnpin" : "iconPin") +
+                            '"></use></svg><span class="b3-menu__label">' + escapeHtml(s.pinnedAt ? L.unpinDoc : L.pinDoc) + "</span></button>" +
                             (isDesktop && getHostCapabilities().localFileSystem ? '<button class="b3-menu__item" data-action="folder"><svg class="b3-menu__icon"><use xlink:href="#iconFolder"></use></svg><span class="b3-menu__label">' + escapeHtml(L.showInFolder) + "</span></button>" : "") +
                             '<button class="b3-menu__item b3-menu__item--warning" data-action="delete"><svg class="b3-menu__icon"><use xlink:href="#iconTrashcan"></use></svg><span class="b3-menu__label">' + escapeHtml(L.delete) + "</span></button>" +
                             "</div>" +
@@ -242,7 +278,7 @@ export class AgentSessionPanel {
 
             const actionBtn = hasClosestByClassName(target, "b3-list-item__action");
             if (actionBtn) {
-                // "更多"按钮：弹出文件夹（桌面端）和删除操作。
+                // "更多"按钮：置顶、文件夹（桌面端）和删除操作。
                 if (actionBtn.classList.contains("agent-session-more")) {
                     e.stopPropagation();
                     const id = (actionBtn as HTMLElement).getAttribute("data-id") || "";
@@ -440,6 +476,18 @@ export class AgentSessionPanel {
                     if (!btn) { return; }
                     e.stopPropagation();
                     const action = btn.getAttribute("data-action");
+                    if (action === "pin") {
+                        if ((btn as HTMLButtonElement).disabled) {
+                            return;
+                        }
+                        (btn as HTMLButtonElement).disabled = true;
+                        const pinned = !this.items.find(item => item.id === id)?.pinnedAt;
+                        void SessionStore.setPinned(id, pinned).then(() => this.refresh()).catch(error => {
+                            showMessage(error.message);
+                        }).finally(() => {
+                            (btn as HTMLButtonElement).disabled = false;
+                        });
+                    }
                     if (action === "delete") {
                         this.callbacks.onDelete(id).then(() => {
                             this.refresh();

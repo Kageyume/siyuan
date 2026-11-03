@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -292,7 +280,6 @@ func PurgePublishAccess() {
 		}
 	}
 	SetPublishAccess(tempPublishAccess)
-	return
 }
 
 func CheckPathAccessableByPublishIgnore(box string, path string, publishIgnore PublishAccess) bool {
@@ -432,11 +419,6 @@ func CheckBlockTreeMetadataAccessableByPublishAccess(c *gin.Context, publishAcce
 	return password == "" || CheckPublishAuthCookie(c, passwordID, password)
 }
 
-func CheckBlockIdDiscoverableByPublishAccessInBox(publishAccess PublishAccess, blockID, boxID string) bool {
-	bt := treenode.GetBlockTreeInBox(blockID, boxID)
-	return CheckBlockTreeDiscoverableByPublishAccess(publishAccess, bt)
-}
-
 func CheckBlockTreeDiscoverableByPublishAccess(publishAccess PublishAccess, bt *treenode.BlockTree) bool {
 	if bt == nil || IsEncryptedBoxDeniedByPublishAccess(bt.BoxID) {
 		return false
@@ -449,11 +431,14 @@ func CheckBlockTreeDiscoverableByPublishAccess(publishAccess PublishAccess, bt *
 }
 
 func GetBlockTreePublishAccessStatus(c *gin.Context, publishAccess PublishAccess, bt *treenode.BlockTree) PublishAccessStatus {
+	return getBlockTreePublishAccessStatus(c, publishAccess, filterDisablePublishAccess(publishAccess), bt)
+}
+
+func getBlockTreePublishAccessStatus(c *gin.Context, publishAccess, publishDisable PublishAccess, bt *treenode.BlockTree) PublishAccessStatus {
 	if bt == nil || IsEncryptedBoxDeniedByPublishAccess(bt.BoxID) {
 		return PublishAccessDenied
 	}
 
-	publishDisable := filterDisablePublishAccess(publishAccess)
 	if !CheckPathAccessableByPublishIgnore(bt.BoxID, bt.Path, publishDisable) {
 		return PublishAccessDenied
 	}
@@ -472,11 +457,13 @@ func checkBlockTreeAccessableByPublishAccess(c *gin.Context, publishAccess Publi
 func SetPublishAuthCookie(c *gin.Context, ID string, password string) {
 	authCookie := util.SHA256Hash([]byte(ID + password))
 	http.SetCookie(c.Writer, &http.Cookie{
-		Name:     "publish-auth-" + ID,
-		Value:    authCookie,
-		MaxAge:   24 * 60 * 60,
-		Path:     "/",
-		Secure:   util.SSL,
+		Name:   "publish-auth-" + ID,
+		Value:  authCookie,
+		MaxAge: 24 * 60 * 60,
+		Path:   "/",
+		// 只有客户端连接确实使用 TLS 时才标记 Secure，与发布会话 Cookie 保持一致
+		// https://github.com/siyuan-note/siyuan/security/advisories/GHSA-hpj5-f7cj-vvwr
+		Secure:   util.SSL || util.IsTLSRequest(c.Request),
 		HttpOnly: true,
 	})
 }

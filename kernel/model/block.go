@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -132,18 +120,12 @@ func newBlockRefCheckGroup() *blockRefCheckGroup {
 	}
 }
 
-// CheckBlockRef 检查将被删除的块是否被引用或绑定到仍存在的数据库。
-func CheckBlockRef(ids []string) bool {
-	ret, _ := CheckBlockRefInBox(ids, nil, ids, "")
-	return ret
-}
-
 // CheckBlockRefInBox 检查受影响块的引用，并检查实际删除块的数据库绑定。
 func CheckBlockRefInBox(ids, exactIDs, deletedIDs []string, boxID string) (ret bool, err error) {
 	sql.FlushQueue()
-	ids = filterNonEmptyBlockRefCheckIDs(ids)
-	exactIDs = filterNonEmptyBlockRefCheckIDs(exactIDs)
-	deletedIDs = filterNonEmptyBlockRefCheckIDs(deletedIDs)
+	ids = sql.FilterNonEmptyRefCheckIDs(ids)
+	exactIDs = sql.FilterNonEmptyRefCheckIDs(exactIDs)
+	deletedIDs = sql.FilterNonEmptyRefCheckIDs(deletedIDs)
 	if 1 > len(ids) {
 		return
 	}
@@ -248,22 +230,6 @@ func expandBlockRefCheckDescendants(group *blockRefCheckGroup, selected, deleted
 			group.deletedBlockIDs[bt.ID] = struct{}{}
 		}
 	}
-}
-
-func filterNonEmptyBlockRefCheckIDs(ids []string) (ret []string) {
-	seen := map[string]struct{}{}
-	for _, id := range ids {
-		id = strings.TrimSpace(id)
-		if "" == id {
-			continue
-		}
-		if _, exists := seen[id]; exists {
-			continue
-		}
-		seen[id] = struct{}{}
-		ret = append(ret, id)
-	}
-	return
 }
 
 // CheckDocsRef 检查文档删除时会递归移除的全部文档。
@@ -398,10 +364,6 @@ type BlockTreeInfo struct {
 	NextType        string `json:"nextType"`
 }
 
-func GetBlockTreeInfos(ids []string) (ret map[string]*BlockTreeInfo) {
-	return GetBlockTreeInfosInBox(ids, "")
-}
-
 // GetBlockTreeInfosInBox 获取指定笔记本内的块树信息。空 box 仅查询普通全局库。
 func GetBlockTreeInfosInBox(ids []string, boxID string) (ret map[string]*BlockTreeInfo) {
 	ret = map[string]*BlockTreeInfo{}
@@ -455,10 +417,6 @@ func GetBlockTreeInfosInBox(ids []string, boxID string) (ret map[string]*BlockTr
 		}
 	}
 	return
-}
-
-func GetBlockSiblingID(id string) (parent, previous, next string) {
-	return GetBlockSiblingIDInBox(id, "")
 }
 
 // GetBlockSiblingIDInBox 获取指定笔记本内块的相邻关系。空 box 不回退搜索加密笔记本。
@@ -570,10 +528,6 @@ func getPreNext(parent *ast.Node) (previous, next string) {
 		return
 	}
 	return
-}
-
-func GetBlockRelevantIDs(id string) (parentID, previousID, nextID string, err error) {
-	return GetBlockRelevantIDsInBox(id, "")
 }
 
 // GetBlockRelevantIDsInBox 获取指定笔记本内块的父级及相邻块 ID。空 box 不回退搜索加密笔记本。
@@ -868,7 +822,7 @@ func swapBlockRefNodes(refNode, defNode *ast.Node, defID string, includeChildren
 			if includeChildren {
 				headingMode = "0"
 			}
-			embed.SetIALAttr("custom-heading-mode", headingMode)
+			embed.SetIALAttr(embedHeadingModeAttr, headingMode)
 		}
 		embed.AppendChild(&ast.Node{Type: ast.NodeBlockQueryEmbedScript, Tokens: []byte("select * from blocks where id='" + defID + "'")})
 		originalRefNode.InsertBefore(embed)
@@ -1068,10 +1022,6 @@ func prepareHeadingChildrenDOMNodes(heading *ast.Node, children []*ast.Node, rem
 	return
 }
 
-func GetHeadingLevelTransaction(id string, level int) (transaction *Transaction, err error) {
-	return GetHeadingLevelBatchTransaction([]string{id}, level)
-}
-
 func GetHeadingLevelBatchTransaction(ids []string, level int) (transaction *Transaction, err error) {
 	if len(ids) == 0 || level < 1 || 6 < level {
 		return
@@ -1216,10 +1166,6 @@ func GetBlockDOMInBox(id, boxID string) (ret string) {
 	return
 }
 
-func GetBlockDOMs(ids []string) (ret map[string]string) {
-	return GetBlockDOMsInBox(ids, "")
-}
-
 // GetBlockDOMsInBox 渲染指定笔记本内的块 DOM。禁止在 boxID 未指定时遍历加密笔记本。
 func GetBlockDOMsInBox(ids []string, boxID string) (ret map[string]string) {
 	ret = map[string]string{}
@@ -1254,15 +1200,6 @@ func GetBlockDOMsInBox(ids []string, boxID string) (ret map[string]string) {
 	return
 }
 
-func GetBlockDOMWithEmbed(id string) (ret string) {
-	return GetBlockDOMWithEmbedInBox(id, "")
-}
-
-// GetBlockDOMWithEmbedInBox 渲染指定笔记本内包含嵌入块的 DOM。
-func GetBlockDOMWithEmbedInBox(id, boxID string) (ret string) {
-	return GetBlockDOMWithEmbedInBoxWithAccessChecker(id, boxID, nil)
-}
-
 // EmbedBlockAccessChecker 判断嵌入查询结果块是否允许返回。
 type EmbedBlockAccessChecker func(blockID string) bool
 
@@ -1275,15 +1212,6 @@ func GetBlockDOMWithEmbedInBoxWithAccessChecker(id, boxID string, accessChecker 
 	doms := GetBlockDOMsWithEmbedInBoxWithAccessChecker([]string{id}, boxID, accessChecker)
 	ret = doms[id]
 	return
-}
-
-func GetBlockDOMsWithEmbed(ids []string) (ret map[string]string) {
-	return GetBlockDOMsWithEmbedInBox(ids, "")
-}
-
-// GetBlockDOMsWithEmbedInBox 渲染指定笔记本内包含嵌入块的 DOM。boxID 为空时仅查询普通全局库。
-func GetBlockDOMsWithEmbedInBox(ids []string, boxID string) (ret map[string]string) {
-	return GetBlockDOMsWithEmbedInBoxWithAccessChecker(ids, boxID, nil)
 }
 
 // GetBlockDOMsWithEmbedInBoxWithAccessChecker 按访问权限渲染指定笔记本内包含嵌入块的 DOM。
@@ -1327,10 +1255,6 @@ func GetBlockDOMsWithEmbedInBoxWithAccessChecker(ids []string, boxID string, acc
 	return
 }
 
-func resolveEmbedContent(n *ast.Node, luteEngine *lute.Lute) {
-	resolveEmbedContentInBox(n, luteEngine, "", nil)
-}
-
 // loadTreeForBlockDOM 按指定 box 加载树，空 box 不回退搜索已打开的加密笔记本。
 func loadTreeForBlockDOM(id, boxID string) *parse.Tree {
 	bt := treenode.GetBlockTreeInBox(id, boxID)
@@ -1367,7 +1291,7 @@ func resolveEmbedContentInBox(n *ast.Node, luteEngine *lute.Lute, boxID string, 
 		stmt = strings.ReplaceAll(stmt, editor.IALValEscNewLine, "\n")
 
 		// 执行查询获取嵌入的块
-		sqlBlocks := sql.SelectBlocksRawStmtInBox(stmt, 1, Conf.Search.Limit, boxID)
+		sqlBlocks := sql.SelectBlocksRawStmtInBox(stmt, 1, Conf.Search.Load().Limit, boxID)
 		sqlBlocks = filterEmbedBlocksByAccess(sqlBlocks, accessChecker)
 
 		// 收集所有嵌入块的内容 HTML
@@ -1434,16 +1358,16 @@ func filterEmbedBlocksByAccess(blocks []*sql.Block, accessChecker EmbedBlockAcce
 	return
 }
 
+var (
+	embedHTMLPattern    = regexp.MustCompile(`<div[^>]*data-type="NodeBlockQueryEmbed"[^>]*embed-content="[^"]*"[^>]*>`)
+	embedContentPattern = regexp.MustCompile(`embed-content="([^"]*)"`)
+)
+
 func processEmbedHTML(htmlStr string) string {
 	// 使用正则表达式查找所有带有 embed-content 属性的嵌入块
-	embedPattern := `<div[^>]*data-type="NodeBlockQueryEmbed"[^>]*embed-content="[^"]*"[^>]*>`
-	re := regexp.MustCompile(embedPattern)
-
-	return re.ReplaceAllStringFunc(htmlStr, func(match string) string {
+	return embedHTMLPattern.ReplaceAllStringFunc(htmlStr, func(match string) string {
 		// 提取 embed-content 属性值
-		contentPattern := `embed-content="([^"]*)"`
-		contentRe := regexp.MustCompile(contentPattern)
-		contentMatches := contentRe.FindStringSubmatch(match)
+		contentMatches := embedContentPattern.FindStringSubmatch(match)
 
 		if len(contentMatches) > 1 {
 			embedContent := contentMatches[1]
@@ -1451,7 +1375,7 @@ func processEmbedHTML(htmlStr string) string {
 			embedContent = html.UnescapeString(embedContent)
 
 			// 移除 embed-content 属性，避免在最终 HTML 中显示
-			cleanMatch := contentRe.ReplaceAllString(match, "")
+			cleanMatch := embedContentPattern.ReplaceAllString(match, "")
 
 			// 将内容插入到嵌入块内部
 			return cleanMatch + embedContent + "</div>"
@@ -1578,7 +1502,7 @@ func compareBlockKramdownIALAttrNames(a, b string) int {
 }
 
 func isSystemManagedBlockKramdownIALAttr(name string) bool {
-	return "custom-avs" == name || "custom-heading-mode" == name || embedHeadingLevelAttr == name || "custom-reminder-wechat" == name ||
+	return av.NodeAttrNameAvs == name || embedHeadingModeAttr == name || embedHeadingLevelAttr == name || reminderWechatAttr == name ||
 		strings.HasPrefix(name, "custom-riff-") || strings.HasPrefix(name, "custom-sy-")
 }
 
@@ -1701,10 +1625,6 @@ func childBlockFromNode(node *ast.Node, tree *parse.Tree) *ChildBlock {
 		Content:  block.Content,
 		Markdown: block.Markdown,
 	}
-}
-
-func GetTailChildBlocks(id string, n int) (ret []*ChildBlock) {
-	return GetTailChildBlocksInBox(id, n, "")
 }
 
 // GetTailChildBlocksInBox 返回指定笔记本边界内末尾的子块。

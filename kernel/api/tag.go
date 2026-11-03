@@ -1,24 +1,13 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/siyuan-note/siyuan/kernel/apicontract"
+	"github.com/siyuan-note/siyuan/kernel/conf"
 	"github.com/siyuan-note/siyuan/kernel/model"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
@@ -40,8 +29,7 @@ func tagContracts(tags model.Tags) []*apicontract.TagData {
 
 var getTag = contractHandler(apicontract.GetTag, func(c *gin.Context, request apicontract.GetTagRequest) apicontract.Response[[]*apicontract.TagData] {
 	if model.IsAdminRoleContext(c) && !model.IsReadOnlyRoleContext(c) {
-		model.Conf.Tag.Sort = int(request.Sort)
-		model.Conf.Save()
+		model.UpdateTagConf(func(s *conf.Tag) { s.Sort = int(request.Sort) })
 	}
 	tags := model.BuildTags(request.IgnoreMaxListHint, request.App, int(request.Sort))
 	if model.IsReadOnlyRoleContext(c) {

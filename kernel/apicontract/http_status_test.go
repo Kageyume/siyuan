@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import "testing"
@@ -5,7 +9,7 @@ import "testing"
 func TestAdditionalJSONErrorStatus(t *testing.T) {
 	previous := definitions
 	t.Cleanup(func() { definitions = previous })
-	endpoint := define[EmptyRequest, Null]("throttled", "/test/throttled", NoBody, ResponseOptions{AdditionalErrorStatuses: []int{429}}, "POST")
+	endpoint := define[EmptyRequest, Null]("throttled", "/test/throttled", PublicAccess, NoBody, ResponseOptions{AdditionalErrorStatuses: []int{429}}, "POST")
 	response := endpoint.WithHTTPStatus(Failure[Null](-1, "rate limited"), 429)
 	if endpoint.Status(response) != 429 {
 		t.Fatal("error status changed")

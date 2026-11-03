@@ -6,7 +6,7 @@
 		"id": "20260804171002-aiagt02",
 		"title": "AI 智能體",
 		"type": "doc",
-		"updated": "20260926163337"
+		"updated": "20261027140312"
 	},
 	"Children": [
 		{
@@ -44,7 +44,7 @@
 			"HeadingLevel": 2,
 			"Properties": {
 				"id": "20260804170025-arr6px9",
-				"updated": "20260926163337"
+				"updated": "20261024164212"
 			},
 			"Children": [
 				{
@@ -168,7 +168,7 @@
 			"HeadingLevel": 3,
 			"Properties": {
 				"id": "20260926163337-a9sacr9",
-				"updated": "20260926163337"
+				"updated": "20261024164212"
 			},
 			"Children": [
 				{
@@ -232,12 +232,26 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260926163337-zznm7nc",
-				"updated": "20260926163337"
+				"updated": "20261024164212"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
-					"Data": "指令儲存於工作空間的 data/ai/AGENTS.md，支援最多 32 KiB 的 UTF-8 文字。啟用資料同步且未被同步忽略規則排除時，此檔案會隨工作空間同步。也可以使用文字編輯器直接編輯檔案；檔案不存在或為空時不加入自訂指令。"
+					"Data": "指令儲存於工作空間的 data/storage/ai/AGENTS.md，支援最多 32 KiB 的 UTF-8 文字。啟用資料同步且未被同步忽略規則排除時，此檔案會隨工作空間同步。也可以使用文字編輯器直接編輯檔案；檔案不存在或為空時不加入自訂指令。"
+				}
+			]
+		},
+		{
+			"ID": "20261024164212-ramoe0l",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261024164212-ramoe0l",
+				"updated": "20261024164212"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "舊路徑 data/ai/AGENTS.md 仍可讀取，在設定中儲存時遷移至新位置；如有針對舊路徑的同步忽略規則，請在儲存前更新。若兩處檔案內容不同，請將內容合併至新檔案並移除舊檔案後再繼續。"
 				}
 			]
 		},
@@ -275,7 +289,7 @@
 			"HeadingLevel": 2,
 			"Properties": {
 				"id": "20260804170027-qlngedh",
-				"updated": "20260816114944"
+				"updated": "20261027140312"
 			},
 			"Children": [
 				{
@@ -496,7 +510,7 @@
 			"HeadingLevel": 3,
 			"Properties": {
 				"id": "20260804170039-1z57i1s",
-				"updated": "20260816114944"
+				"updated": "20261027140312"
 			},
 			"Children": [
 				{
@@ -551,12 +565,85 @@
 			]
 		},
 		{
+			"ID": "20261022182404-zoui51x",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261022182404-zoui51x",
+				"updated": "20261027140312"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "輸入框預設會隨文字和圖片自動增高，達到面板可用高度上限後捲動。桌面端將滑鼠移入輸入區域後會顯示頂部的小控制點，觸控裝置上則保持顯示。拖曳控制點可為目前的訊息設定固定高度，空白輸入框也能拉高；最小高度可完整容納一行文字，最大高度受面板可用空間限制。傳送訊息後，清空的輸入框會恢復初始高度，下一則訊息重新自動增高。編輯時也可按兩下控制點恢復自動增高。內容首尾保留捲動空間，方便完整查看首行和末行。"
+				}
+			]
+		},
+		{
+			"ID": "20261022182404-72jon51",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261022182404-72jon51",
+				"updated": "20261024153700"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "高度控制點取得鍵盤焦點後，按 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "↑"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 或 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "↓"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 增大或減小高度，按 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Home"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 調至最小高度，按 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "End"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 調至目前可用的最大高度；拖曳時按 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Esc"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 可取消調整。"
+				}
+			]
+		},
+		{
 			"ID": "20260804170041-t9reg9k",
 			"Type": "NodeHeading",
 			"HeadingLevel": 3,
 			"Properties": {
 				"id": "20260804170041-t9reg9k",
-				"updated": "20260804180000"
+				"updated": "20261016191345"
 			},
 			"Children": [
 				{
@@ -570,7 +657,7 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260804170042-mk2k1ns",
-				"updated": "20260804180000"
+				"updated": "20261016191345"
 			},
 			"Children": [
 				{
@@ -584,7 +671,7 @@
 				},
 				{
 					"Type": "NodeText",
-					"Data": " 在目前會話中不再詢問任何操作。"
+					"Data": " 免除本會話中一般操作的逐項確認。設為必須確認的能力及程式碼片段修改仍需確認。"
 				}
 			]
 		},
@@ -593,7 +680,7 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260804170043-geqztqz",
-				"updated": "20260804180000"
+				"updated": "20261016191345"
 			},
 			"Children": [
 				{
@@ -607,7 +694,7 @@
 				},
 				{
 					"Type": "NodeText",
-					"Data": " 前應確認目前任務範圍和所用工具可信，因為後續寫入操作將不再逐項確認。"
+					"Data": " 前應確認目前任務範圍和所用工具可信，因為一般寫入操作將不再逐項確認；上述強制確認仍然有效。"
 				}
 			]
 		},
@@ -846,12 +933,26 @@
 			"HeadingLevel": 2,
 			"Properties": {
 				"id": "20260804170054-vppxnqj",
-				"updated": "20260812170000"
+				"updated": "20261026182118"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
 					"Data": "MCP 服務"
+				}
+			]
+		},
+		{
+			"ID": "20261026182118-ra8a1vy",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261026182118-ra8a1vy",
+				"updated": "20261026182118"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "外部 MCP 工具按需載入。智能體預設只接收服務清單，需要時載入指定服務的工具定義，從下一輪模型請求開始可用；你也可以在訊息中指明要使用的服務。載入狀態僅保留在目前使用者請求及其工具執行輪次中，傳送下一則訊息時重新開始；可同時載入多個服務，不設固定數量上限，模型可卸載不再需要的服務以節省上下文。已停用的工具不會被載入，執行確認策略仍然生效。在智能體能力設定中停用內建 mcp 工具可恢復傳送全部外部工具定義，重新啟用則恢復按需載入。"
 				}
 			]
 		},
@@ -916,12 +1017,26 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260804170056-84olaaf",
-				"updated": "20260812170000"
+				"updated": "20261024164212"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
-					"Data": "stdio 服務只會繼承使用者勾選的核心環境變數，並在每次啟動時讀取目前值；還可以在環境變數項目中引用金鑰和變數。引用金鑰會將其明文提供給該程式及其子程序，直接填寫的值會以明文儲存。需要授權的 HTTP 服務會引導完成 OAuth 授權。金鑰和可重複使用的參數可以在 "
+					"Data": "stdio 服務只會繼承使用者勾選的核心環境變數，並在每次啟動時讀取目前值；還可以在環境變數項目中引用金鑰和變數。引用金鑰會將其明文提供給該程式及其子程序，直接填寫的值會以明文儲存。需要授權的 HTTP 服務會引導完成 OAuth 授權。"
+				}
+			]
+		},
+		{
+			"ID": "20261024164212-quvfdlc",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261024164212-quvfdlc",
+				"updated": "20261024164212"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "金鑰和可重複使用的參數可以在 "
 				},
 				{
 					"Type": "NodeTextMark",
@@ -951,6 +1066,317 @@
 				{
 					"Type": "NodeText",
 					"Data": "。呼叫外部 MCP 工具可能傳送本機資料、修改外部系統或產生費用，應根據確認卡片核對具體影響。"
+				}
+			]
+		},
+		{
+			"ID": "20261018102417-6a7ncw2",
+			"Type": "NodeHeading",
+			"Properties": {
+				"id": "20261018102417-6a7ncw2",
+				"updated": "20261018104335"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "網頁搜尋與擷取"
+				}
+			],
+			"HeadingLevel": 2
+		},
+		{
+			"ID": "20261018102417-wpqqnpa",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261018102417-wpqqnpa",
+				"updated": "20261018104335"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "可以讓智能體搜尋公開網頁、讀取正文並歸納內容或儲存到筆記。web_search 傳回連結和摘要，web_fetch 讀取指定 URL。直接擷取透過 HTTP 取得內容，不執行 JavaScript。桌面應用程式另有獨立的渲染擷取工具，用於讀取由 JavaScript 產生的正文。"
+				}
+			]
+		},
+		{
+			"ID": "20261018104335-t9urpxi",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261018104335-t9urpxi",
+				"updated": "20261018104335"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "在 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "設定"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "人工智能"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "網頁搜尋與擷取"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " 中可以分別選擇搜尋和擷取服務，預設使用 Exa 搜尋和直接擷取。使用 DeepSeek 時，填寫 Search 和 Fetch 共用的 DeepSeek API 金鑰，此設定與對話模型無關。DeepSeek Search 請求 5 筆結果且不包含網頁正文，單筆摘要最多 800 個字元，總輸出最多 8,000 個字元。需要正文時再擷取特定網頁。"
+				}
+			]
+		},
+		{
+			"ID": "20261018104335-16jvt70",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261018104335-16jvt70",
+				"updated": "20261018104335"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "DeepSeek Search 會將搜尋詞傳送給 DeepSeek，DeepSeek Fetch 會將目標 URL 傳送給 DeepSeek，不攜帶瀏覽器 Cookie 或登入狀態，這些請求可能產生費用。DeepSeek Fetch 僅取得網頁正文，下載檔案時應選擇直接擷取。金鑰無效、餘額不足、限流或網頁無法使用時會傳回錯誤，不自動切換服務。請依工具權限設定核對並確認外部請求。"
+				}
+			]
+		},
+		{
+			"ID": "20261018102417-i6tpsxl",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261018102417-i6tpsxl",
+				"updated": "20261018102417"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "渲染擷取會執行網頁指令碼，並從本機桌面端發出網路請求，連線至遠端核心時也是如此。它沿用目前視窗的代理設定，使用獨立的暫存工作階段，不攜帶既有的 Cookie 或登入狀態。請核對請求的網址，並依工具權限設定確認操作。內網位址和下載會被拒絕。"
+				}
+			]
+		},
+		{
+			"ID": "20261018102417-4dfvyxt",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261018102417-4dfvyxt",
+				"updated": "20261018104335"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "渲染擷取需要桌面實例保持連線。瀏覽器端、行動端和外部 MCP 用戶端使用設定的擷取服務。正文為空或逾時時會傳回錯誤，較長結果會截斷至 50,000 個字元。需要登入、嵌入頁面、工作執行緒或持續瀏覽器連線的網頁仍可能無法讀取。"
+				}
+			]
+		},
+		{
+			"ID": "20261010113646-gmbl8rw",
+			"Type": "NodeHeading",
+			"Properties": {
+				"id": "20261010113646-gmbl8rw",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "SQL 查詢、搜尋與動態嵌入"
+				}
+			],
+			"HeadingLevel": 2
+		},
+		{
+			"ID": "20261010113646-6398erx",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261010113646-6398erx",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "可讓智能體依內容區塊類型、行內格式、父子層級或多個條件查詢筆記，並統計結果。"
+				}
+			]
+		},
+		{
+			"ID": "20261010172554-kw70ky7",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261010172554-kw70ky7",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "例如：「統計最近一週更新的任務」，或「尋找專案文檔中未完成的任務列表項」。"
+				}
+			]
+		},
+		{
+			"ID": "20261010172554-evbp7ng",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261010172554-evbp7ng",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "需要查看和定位結果時，可以要求在搜尋視窗中顯示；需要在文檔中持續顯示符合條件的內容時，可以要求建立動態 SQL 嵌入。統計結果用於回答，不能直接作為嵌入區塊顯示。"
+				}
+			]
+		},
+		{
+			"ID": "20261010172554-d86vd45",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261010172554-d86vd45",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "修改既有嵌入時，說明要調整的查詢條件，並要求保留原有內容區塊及顯示設定。"
+				}
+			]
+		},
+		{
+			"ID": "20261010173100-2229ah9",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261010173100-2229ah9",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "查詢加密筆記本前需先解鎖，並明確指定筆記本；其中的嵌入只能查詢該筆記本的內容。"
+				}
+			]
+		},
+		{
+			"ID": "20260804170109-gephumz",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20260804170109-gephumz",
+				"updated": "20260804205607"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "資料快照和回滾"
+				}
+			]
+		},
+		{
+			"ID": "20260804170110-v76ve3i",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260804170110-v76ve3i",
+				"updated": "20260804205607"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "智能體在一輪任務中首次寫入工作空間資料前會自動建立資料快照，每輪最多建立一次。確認修改結果不符合預期時，可以在會話中的快照提示上執行回滾。"
+				}
+			]
+		},
+		{
+			"ID": "20260804170111-p98zgxp",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260804170111-p98zgxp",
+				"updated": "20260804205607"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "快照涵蓋工作空間資料，但不涵蓋外部 MCP 服務或外掛對外部系統所做的修改。重新回答、停止任務或刪除會話也不會自動撤銷已完成的寫入操作。"
+				}
+			]
+		},
+		{
+			"ID": "20261008115720-aa8twuc",
+			"Type": "NodeHeading",
+			"HeadingLevel": 2,
+			"Properties": {
+				"id": "20261008115720-aa8twuc",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "CSS/JS 程式碼片段"
+				}
+			]
+		},
+		{
+			"ID": "20261008115720-xmyh0qv",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261008115720-xmyh0qv",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "可以讓智能體列出、讀取、建立、修改、啟用、停用或刪除 CSS/JS 程式碼片段。例如：「建立一個增大介面字級的 CSS 程式碼片段，先保持停用，供我檢查。」"
+				}
+			]
+		},
+		{
+			"ID": "20261008115720-a91sfqt",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261008115720-a91sfqt",
+				"updated": "20261008115720"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "每次修改程式碼片段都需要確認，即使已開啟工作階段允許或自動核准。請檢查確認卡片中的擬寫入程式碼和目前片段。新建片段預設停用，並且不在發佈服務中載入。智能體保留 CSS/JS 總開關及既有片段的發佈設定。"
+				}
+			]
+		},
+		{
+			"ID": "20261008115720-xz9amjt",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261008115720-xz9amjt",
+				"updated": "20261008115720"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "啟用 JS 或修改已啟用的 JS 片段，可能在已連線的視窗中執行程式碼。停用或刪除片段不會撤銷已經執行的程式碼，可能需要重新啟動前端。如果片段在確認期間發生變化，操作會被拒絕，智能體需要重新讀取並請求確認。"
+				}
+			]
+		},
+		{
+			"ID": "20261008125238-2p6cqc1",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261008125238-2p6cqc1",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "可以同時搜尋片段名稱和程式碼內容，也可重新命名或局部修改片段。如果管理對話框開啟期間片段發生變化，儲存會被拒絕並保留草稿；請複製目前的修改，重新開啟對話框後與最新片段合併。"
 				}
 			]
 		},
@@ -1132,49 +1558,6 @@
 							]
 						}
 					]
-				}
-			]
-		},
-		{
-			"ID": "20260804170109-gephumz",
-			"Type": "NodeHeading",
-			"HeadingLevel": 2,
-			"Properties": {
-				"id": "20260804170109-gephumz",
-				"updated": "20260804205607"
-			},
-			"Children": [
-				{
-					"Type": "NodeText",
-					"Data": "資料快照和回滾"
-				}
-			]
-		},
-		{
-			"ID": "20260804170110-v76ve3i",
-			"Type": "NodeParagraph",
-			"Properties": {
-				"id": "20260804170110-v76ve3i",
-				"updated": "20260804205607"
-			},
-			"Children": [
-				{
-					"Type": "NodeText",
-					"Data": "智能體在一輪任務中首次寫入工作空間資料前會自動建立資料快照，每輪最多建立一次。確認修改結果不符合預期時，可以在會話中的快照提示上執行回滾。"
-				}
-			]
-		},
-		{
-			"ID": "20260804170111-p98zgxp",
-			"Type": "NodeParagraph",
-			"Properties": {
-				"id": "20260804170111-p98zgxp",
-				"updated": "20260804205607"
-			},
-			"Children": [
-				{
-					"Type": "NodeText",
-					"Data": "快照涵蓋工作空間資料，但不涵蓋外部 MCP 服務或外掛對外部系統所做的修改。重新回答、停止任務或刪除會話也不會自動撤銷已完成的寫入操作。"
 				}
 			]
 		},

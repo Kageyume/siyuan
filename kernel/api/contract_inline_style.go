@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -107,40 +111,6 @@ func inlineStyleAVContract(value *model.InlineStyleAV) *apicontract.InlineStyleA
 		}
 	}
 	result.Order = value.Order
-	return result
-}
-
-func workspaceAVBuiltinColorUpdateContract(value *model.WorkspaceAVBuiltinColorUpdate) *apicontract.WorkspaceAVBuiltinColorUpdate {
-	if value == nil {
-		return nil
-	}
-	result := &apicontract.WorkspaceAVBuiltinColorUpdate{}
-	result.Index = value.Index
-	result.Customized = value.Customized
-	result.Light = inlineStyleThemeContract(value.Light)
-	result.Dark = inlineStyleThemeContract(value.Dark)
-	result.Hidden = value.Hidden
-	return result
-}
-
-func workspaceAVPaletteUpdateContract(value *model.WorkspaceAVPaletteUpdate) *apicontract.WorkspaceAVPaletteUpdate {
-	if value == nil {
-		return nil
-	}
-	result := &apicontract.WorkspaceAVPaletteUpdate{}
-	if value.Colors != nil {
-		result.Colors = make([]*apicontract.AttributeViewCustomColor, len(value.Colors))
-		for i, entry := range value.Colors {
-			result.Colors[i] = attributeViewCustomColorContract(entry)
-		}
-	}
-	result.Order = value.Order
-	if value.BuiltinColors != nil {
-		result.BuiltinColors = make([]*apicontract.WorkspaceAVBuiltinColorUpdate, len(value.BuiltinColors))
-		for i, entry := range value.BuiltinColors {
-			result.BuiltinColors[i] = workspaceAVBuiltinColorUpdateContract(entry)
-		}
-	}
 	return result
 }
 

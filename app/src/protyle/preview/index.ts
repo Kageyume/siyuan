@@ -1,5 +1,5 @@
 import {isOnlyMeta, writeText} from "../util/compatibility";
-import {focusByRange} from "../util/selection";
+import {focusByRange} from "../util/selectionOffsets";
 import {openLink} from "../../editor/openLink";
 import {showMessage} from "../../dialog/message";
 import {previewDocImage} from "./image";
@@ -26,8 +26,8 @@ import {speechRender} from "../render/speechRender";
 import {avRender} from "../render/av/render";
 import {getPadding} from "../ui/initUI";
 import {hasTopClosestByAttribute} from "../util/hasClosest";
-import {addScriptSync} from "../util/addScript";
 import {prepareWechatCopy, prepareZhihuCopy} from "./platformCopy";
+import {renderWechatMath} from "./wechatMath";
 import {getHostCapabilities} from "../../util/hostCapabilities";
 import {destroyAutoDirection, setAutoDirection} from "../render/autoDirection";
 
@@ -161,7 +161,9 @@ export class Preview {
                         event.preventDefault();
                         return;
                     }
-                    previewDocImage((event.target as HTMLElement).getAttribute("src"), protyle.block.rootID);
+                    previewDocImage((event.target as HTMLElement).getAttribute("src"), protyle.block.rootID,
+                        target.getAttribute(Constants.CUSTOM_SY_LIVE_PHOTO) === "1" ?
+                            target.getAttribute(Constants.CUSTOM_SY_LIVE_PHOTO_VIDEO) || "" : "");
                     event.stopPropagation();
                     event.preventDefault();
                     break;
@@ -252,8 +254,9 @@ export class Preview {
         }
     }
 
-    public render(protyle: IProtyle) {
+    public render(protyle: IProtyle, callback?: () => void, onError?: () => void) {
         if (this.element.style.display === "none") {
+            callback?.();
             return;
         }
         this.updatePadding(getPadding(protyle));
@@ -261,14 +264,20 @@ export class Preview {
         let loadingElement = this.element.querySelector(".fn__loading");
         if (!loadingElement) {
             this.element.insertAdjacentHTML("beforeend", `<div style="flex-direction: column;" class="fn__loading">
-    <img width="48px" src="/stage/loading-pure.svg">
+    <span class="b3-loading b3-loading--large" aria-hidden="true"></span>
 </div>`);
             loadingElement = this.element.querySelector(".fn__loading");
         }
         this.mdTimeoutId = window.setTimeout(() => {
-            fetchPost("/api/export/preview", {
+            let handled = false;
+            void fetchPost("/api/export/preview", {
                 id: protyle.block.id || protyle.options.blockId || protyle.block.parentID,
             }, response => {
+                handled = true;
+                if (response.code !== 0 || !response.data) {
+                    onError?.();
+                    return;
+                }
                 const oldScrollTop = protyle.preview.previewElement.scrollTop;
                 protyle.preview.previewElement.innerHTML = getHostCapabilities().remoteKernel ?
                     window.DOMPurify.sanitize(response.data.html) : response.data.html;
@@ -281,11 +290,13 @@ export class Preview {
                 tabsRender(protyle.preview.previewElement, {label: window.siyuan.languages.tabItem,
                     shown: item => processRender(item)});
                 highlightRender(protyle.preview.previewElement);
-                avRender(protyle.preview.previewElement, protyle);
+                void avRender(protyle.preview.previewElement, protyle).then(() => callback?.(), () => onError?.());
                 speechRender(protyle.preview.previewElement, window.siyuan.config.appearance.lang);
                 protyle.preview.previewElement.scrollTop = oldScrollTop;
                 loadingElement.remove();
-            });
+            }, undefined, () => onError?.()).then(() => {
+                if (!handled) onError?.();
+            }, () => onError?.());
         }, protyle.options.preview.delay);
     }
 
@@ -307,29 +318,9 @@ export class Preview {
     }
 
     private async copyToX(copyElement: HTMLElement, protyle: IProtyle, type?: string) {
-        // fix math render
         if (type === "mp-wechat") {
             this.link2online(copyElement);
-            copyElement.querySelectorAll(".katex-html .base").forEach((item: HTMLElement) => {
-                item.style.display = "initial";
-            });
-            copyElement.querySelectorAll("mjx-container > svg").forEach((item) => {
-                item.setAttribute("width", (parseInt(item.getAttribute("width")) * 8) + "px");
-            });
-            if (typeof window.MathJax === "undefined") {
-                window.MathJax = {
-                    svg: {
-                        fontCache: "none"
-                    },
-                };
-            }
-            await addScriptSync(`${Constants.PROTYLE_CDN}/js/mathjax/tex-svg-full.js`, "protyleMathJaxScript");
-            await window.MathJax.startup.promise;
-            copyElement.querySelectorAll('[data-subtype="math"]').forEach(mathElement => {
-                const node = window.MathJax.tex2svg(Lute.UnEscapeHTMLStr(mathElement.getAttribute("data-content")).trim(), {display: mathElement.tagName === "DIV"});
-                node.querySelector("mjx-assistive-mml").remove();
-                mathElement.innerHTML = node.outerHTML;
-            });
+            await renderWechatMath(copyElement);
             prepareWechatCopy(copyElement, this.previewElement);
         } else if (type === "zhihu") {
             this.link2online(copyElement);

@@ -1,14 +1,12 @@
+import {config as configApi} from "../config/util/configApi";
 import {Constants} from "../constants";
 import {getBodyGradientImage} from "./bodyGradient";
 import {addScript} from "../protyle/util/addScript";
+import {ensureLute} from "../protyle/util/lute";
 import {addStyle} from "../protyle/util/addStyle";
 import {getAllEditor, getAllModels} from "../layout/getAll";
 import {invalidateHeadingNumberMeasurements} from "../protyle/util/headingNumberCore";
 import {renderHeadingNumbers} from "../protyle/util/headingNumber";
-/// #if !MOBILE
-import {exportLayout} from "../layout/util";
-/// #endif
-import {fetchPost} from "./fetch";
 import {
     isInAndroid,
     isInHarmony,
@@ -17,21 +15,25 @@ import {
     isIPad,
     isIPhone,
     isMac,
-    isWin11
+    isWin11,
+    resolvePlatformClass
 } from "../protyle/util/compatibility";
 import {setCodeTheme} from "../protyle/render/util";
+import {refreshMermaidTheme} from "../protyle/render/mermaidRender";
 import {getBackend, getFrontend} from "./functions";
 import {getWorkspaceName} from "./processTitle";
 import {ensureSelectedCustomFonts, getExportCustomFontStyle} from "./customFont";
 import {getGlobalFontStyle} from "./globalFont";
 import {getEmojiFontStyle} from "./emojiFont";
-import {isCurrentThemeSupported, shouldUnloadThemeScript} from "./themeCompatibility";
+import {isCurrentThemeSupported} from "./themeCompatibility";
 import {
     getInlineStylesCSS,
     loadInlineStyles
 } from "../protyle/toolbar/inlineStyle";
 import {refreshChartTheme} from "../protyle/render/chartRender";
 import {getHostCapabilities} from "./hostCapabilities";
+import {initSelectionStyle} from "./selectionStyle";
+import {applyCompactMode} from "../config/tabs/compactMode";
 
 let headingNumberMeasurementRefreshTimer: number;
 let appearanceUpdate = Promise.resolve();
@@ -133,6 +135,7 @@ export const refreshThemeStyle = (themeAddress: string) => {
 };
 
 export const loadAssets = async (appearance: Config.IAppearance) => {
+    initSelectionStyle();
     const scriptLoads: Promise<unknown>[] = [];
     setBodyHighlight(appearance.bodyGradient);
     const data = getHostCapabilities().customAppearance ? appearance : {
@@ -148,6 +151,8 @@ export const loadAssets = async (appearance: Config.IAppearance) => {
     const previousThemeMode = htmlElement.getAttribute("data-theme-mode");
     const themeMode = getThemeMode();
     htmlElement.setAttribute("lang", window.siyuan.config.appearance.lang);
+    applyCompactMode();
+    // data-frontend 也会由 applyPlatformClasses 提前写入，此处保持为外观刷新时的权威来源
     htmlElement.setAttribute("data-frontend", getFrontend()); // https://github.com/siyuan-note/siyuan/issues/12549
     htmlElement.setAttribute("data-backend", getBackend());
     htmlElement.setAttribute("data-theme-mode", themeMode);
@@ -158,11 +163,12 @@ export const loadAssets = async (appearance: Config.IAppearance) => {
         (window.siyuan.config.appearance.mode === 1 && OSTheme === "light") ||
         (window.siyuan.config.appearance.mode === 0 && OSTheme === "dark")
     )) {
-        fetchPost("/api/system/setAppearanceMode", {mode: OSTheme === "light" ? 0 : 1});
+        configApi.set("appearance.mode", OSTheme === "light" ? 0 : 1);
         window.siyuan.config.appearance.mode = (OSTheme === "light" ? 0 : 1);
     }
     if (previousThemeMode && previousThemeMode !== themeMode) {
         refreshChartTheme(document.body);
+        refreshMermaidTheme(document.body);
     }
     const defaultStyleElement = document.getElementById("themeDefaultStyle");
     const defaultThemeAddress = `/appearance/themes/${data.mode === 1 ? "midnight" : "daylight"}/theme.css?v=${Constants.SIYUAN_VERSION}`;
@@ -216,8 +222,8 @@ export const loadAssets = async (appearance: Config.IAppearance) => {
     getAllModels().graph.forEach(item => {
         item.searchGraph();
     });
-    const pdfTheme = window.siyuan.config.appearance.mode === 0 ? window.siyuan.storage[Constants.LOCAL_PDFTHEME].light :
-        window.siyuan.storage[Constants.LOCAL_PDFTHEME].dark;
+    const pdfTheme = window.siyuan.config.appearance.mode === 0 ? window.siyuan.config.appearance.pdfTheme.light :
+        window.siyuan.config.appearance.pdfTheme.dark;
     document.querySelectorAll(".pdf__outer").forEach(item => {
         const darkElement = item.querySelector("#pdfDark");
         const lightElement = item.querySelector("#pdfLight");
@@ -245,6 +251,11 @@ export const loadAssets = async (appearance: Config.IAppearance) => {
     const themeScriptAddress = `/appearance/themes/${themeName}/theme.js?v=${appearancePackageVersion("themes", themeName, data.themeVer)}`;
     const themeScriptURL = new URL(themeScriptAddress, window.location.href).href;
     const themeScriptElements = getThemeScriptElements();
+    const iconName = data.icon === "litheness" || data.icons?.some(icon => icon.name === data.icon) ? data.icon : "litheness";
+    if ((data.themeJS && themeSupported) || iconName !== "litheness") {
+        // 第三方主题和图标脚本可以调用编辑器引擎，执行前确保 Lute 已就绪。
+        await ensureLute();
+    }
     if (!data.themeJS || !themeSupported) {
         removeThemeScriptElements();
     } else if (!themeScriptElements.some((item) => item.src === themeScriptURL)) {
@@ -253,7 +264,6 @@ export const loadAssets = async (appearance: Config.IAppearance) => {
     }
 
     // load icons
-    const iconName = data.icon === "litheness" || data.icons?.some(icon => icon.name === data.icon) ? data.icon : "litheness";
     const isBuiltInIcon = iconName === "litheness";
     const iconScriptElement = document.getElementById("iconScript");
     const iconDefaultScriptElement = document.getElementById("iconDefaultScript");
@@ -308,34 +318,11 @@ export const initAssets = (keepLoading = false) => {
             (window.siyuan.config.appearance.mode === 1 && OSTheme === "dark")) {
             return;
         }
-        fetchPost("/api/system/setAppearanceMode", {
-            mode: OSTheme === "light" ? 0 : 1
-        }, response => {
-            void enqueueAppearanceUpdate(async () => {
-                const nextAppearance = response.data.appearance as Config.IAppearance;
-                if (shouldUnloadThemeScript(window.siyuan.config.appearance, nextAppearance, getFrontend()) &&
-                    !await unloadThemeScript()) {
-                    markAppearanceReloadPending();
-                    /// #if !MOBILE
-                    exportLayout({
-                        cb() {
-                            window.location.reload();
-                        },
-                        errorExit: false,
-                    });
-                    /// #else
-                    window.location.reload();
-                    /// #endif
-                    return;
-                }
-                window.siyuan.config.appearance = nextAppearance;
-                await loadAssets(nextAppearance);
-            });
-        });
+        void configApi.set("appearance.mode", OSTheme === "light" ? 0 : 1);
     });
 };
 
-export const setInlineStyle = async (set = true, servePath = "../../../") => {
+export const setInlineStyle = async (set = true, servePath = "../../../", exportHTML = "") => {
     const allowCustomAppearance = getHostCapabilities().customAppearance;
     const globalFonts = allowCustomAppearance ? window.siyuan.config.appearance.globalFontFamilies || [] : [];
     const editorFonts = allowCustomAppearance ? window.siyuan.config.editor.fontFamilies || [] : [];
@@ -353,11 +340,13 @@ export const setInlineStyle = async (set = true, servePath = "../../../") => {
     if (set && allowCustomAppearance) {
         await ensureSelectedCustomFonts([...globalFonts, ...editorFonts, ...codeFonts]);
     }
-    const emojiPlatform = isMac() || isIPad() || isIPhone() ? "apple" : await isWin11() ? "windows11" : "other";
+    const emojiPlatform = isMac() || isIPad() || isIPhone() ? "apple" : await isWin11() ? "windows11" :
+        resolvePlatformClass() === "body--windows" ? "windows" : "other";
     let style = getEmojiFontStyle(emojiPlatform, servePath);
     style += getGlobalFontStyle(globalFonts);
     if (!set) {
-        style += "\n" + await getExportCustomFontStyle([...globalFonts, ...editorFonts, ...codeFonts]);
+        style += "\n" + await getExportCustomFontStyle([...globalFonts, ...editorFonts, ...codeFonts],
+            allowCustomAppearance ? exportHTML : "");
     }
     const editorFontFamilies = editorFonts.map((font) => CSS.escape(font.family)).join(", ");
     const editorFontWeight = editorFonts[0]?.weight;
@@ -366,7 +355,7 @@ export const setInlineStyle = async (set = true, servePath = "../../../") => {
         `var(--b3-font-family-emoji-reset), ${codeFontFamilies}, var(--b3-font-family-code)` :
         "var(--b3-font-family-code)";
     const codeFontWeight = codeFonts[0]?.weight || 400;
-    style += `\n:root { --b3-font-size-editor: ${window.siyuan.config.editor.fontSize}px; --b3-font-family-editor: ${editorFontFamilies || "var(--b3-font-family-protyle)"}; --b3-font-family-editor-code: ${codeFontFamily}; --b3-font-weight-editor-code: ${codeFontWeight} }
+    style += `\n:root { --b3-font-size-editor: ${window.siyuan.config.editor.fontSize}px; --b3-font-family-editor: ${editorFontFamilies || "var(--b3-font-family-protyle)"}; --b3-font-family-editor-code: ${codeFontFamily}; --b3-font-weight-editor-code: ${codeFontWeight}; --b3-database-attr-columns: ${window.siyuan.config.editor.databaseAttrLayout === 0 ? 1 : 2}; --b3-database-attr-column-flow: ${window.siyuan.config.editor.databaseAttrLayout === 2 ? 1 : 0} }
 .b3-typography code:not(.hljs), .protyle-wysiwyg span[data-type~=code] { font-variant-ligatures: ${window.siyuan.config.editor.codeLigatures ? "normal" : "none"} }
 .b3-typography:not(.b3-typography--default) code:not(.hljs), .protyle-wysiwyg span[data-type~=code] { font-family: var(--b3-font-family-editor-code); font-weight: var(--b3-font-weight-editor-code) }${window.siyuan.config.editor.justify ? "\n.protyle-wysiwyg [data-node-id] { text-align: justify }" : ""}`;
     if (editorFontFamilies) {
@@ -415,8 +404,7 @@ export const setMode = (modeElementValue: number) => {
             mode = 0;
         }
     }
-    fetchPost("/api/setting/setAppearance", {
-        ...window.siyuan.config.appearance,
+    configApi.set("appearance", {
         mode,
         modeOS: modeElementValue === 2,
     });
@@ -449,6 +437,10 @@ const cssVarToRgba = (varName: string) => {
     const rgba = getComputedStyle(probe).backgroundColor;
     probe.remove();
     return rgba;
+};
+
+export const getThemeColor = (varName: string, fallback: string) => {
+    return rgbaToHex(cssVarToRgba(varName)).slice(0, 7) || fallback;
 };
 
 const updateMobileTheme = (OSTheme: string) => {

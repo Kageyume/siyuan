@@ -1,7 +1,8 @@
 import type {FileTreeGetDocRequestInput} from "../types/api";
 import {hasClosestBlock, isInEmbedBlock} from "../protyle/util/hasClosest";
 import {getContenteditableElement} from "../protyle/wysiwyg/getBlock";
-import {focusByOffset, focusByRange, getSelectionOffset} from "../protyle/util/selection";
+import {focusByOffset} from "../protyle/util/selection";
+import {focusByRange, getSelectionOffset} from "../protyle/util/selectionOffsets";
 import {hideElements} from "../protyle/ui/hideElements";
 import {fetchPost, fetchSyncPost} from "./fetch";
 import {Constants} from "../constants";
@@ -323,6 +324,13 @@ const focusStack = async (app: App, stack: IBackStack) => {
         });
         return true;
     }
+};
+
+export const hasBackHistory = () => {
+    const stacks = window.siyuan.backStack;
+    const last = stacks[stacks.length - 1];
+    // 后退后当前记录位于前进栈；未后退时，已关闭的当前页签也可作为返回目标。
+    return Boolean(last && (previousIsBack || stacks.length > 1 || !document.contains(last.protyle.element)));
 };
 
 export const goBack = async (app: App) => {

@@ -8,7 +8,9 @@ import {unmountBazaarTab} from "../../config/bazaarTab";
 import {clearSyncTabElement} from "../../config/tabs/syncRuntime";
 import {clearAccessTabElement} from "../../config/tabs/accessRuntime";
 import {unmountAssetsTab} from "../../config/assets";
+import {unmountOCRTab} from "../../config/ocr";
 import {unmountWorkspaceStorage} from "../../config/tabs/workspaceStorage";
+import {watchSettingTabInteractions} from "../../config/setting/mount";
 
 /** 卸载设置页中持有全局状态的模块，避免容器被替换后残留副作用 */
 export const unmountSettingTab = (root: HTMLElement, tabId: TSettingTab) => {
@@ -16,6 +18,8 @@ export const unmountSettingTab = (root: HTMLElement, tabId: TSettingTab) => {
         unmountBazaarTab(root);
     } else if (tabId === "assets") {
         unmountAssetsTab(root);
+    } else if (tabId === "ocr") {
+        unmountOCRTab(root);
     } else if (tabId === "app") {
         unmountWorkspaceStorage(root);
     } else if (tabId === "sync") {
@@ -33,12 +37,13 @@ export const openSettingTab = (app: App, settingTabDef: ISettingTabShell<TSettin
         title: settingTabDef.title,
         icon: "iconLeft",
         hideCloseIcon: true,
-        html: `<div class="config${isMobile() ? " config--mobile" : ""}"></div>`,
+        html: `<div class="config${isMobile() ? " config--mobile" : ""}" data-setting-tab="${settingTabDef.id}"></div>`,
         bindEvent(modelMainElement: HTMLElement) {
             root = modelMainElement.firstElementChild as HTMLElement;
+            watchSettingTabInteractions();
             bindSettingSaveDelegation(root);
             const mountedRoot = root;
-            void getSettingTab(settingTabDef.id).mount(mountedRoot, undefined, app).then(() => {
+            void getSettingTab(settingTabDef.id).mount(mountedRoot, undefined, app, settingTabDef.id === "access").then(() => {
                 if (mountedRoot.isConnected) {
                     mountedRoot.classList.toggle("config--mobile-items", Boolean(mountedRoot.querySelector(":scope > .config-group")));
                 } else {

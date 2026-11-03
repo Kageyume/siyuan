@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -64,7 +68,7 @@ func TestSSEHTTPResponseKinds(t *testing.T) {
 	t.Cleanup(func() { definitions = previous })
 	options := SSEOptions(SSEEvent[sseTestToken]("content"))
 	options.AdditionalErrorStatuses = []int{409}
-	define[EmptyRequest, Null]("events", "/test/events", NoBody, options, "POST")
+	define[EmptyRequest, Null]("events", "/test/events", PublicAccess, NoBody, options, "POST")
 	bundle, err := BuildBundle()
 	if err != nil {
 		t.Fatal(err)

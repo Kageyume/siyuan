@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //go:build fts5
 
 package model
@@ -124,6 +128,13 @@ func TestDocumentHPathRefresh(t *testing.T) {
 		assertHPathTestDoc(t, database, child, "/Final/Leaf")
 		assertHPathTestDoc(t, database, grandchild, "/Final/Leaf/Grandchild")
 		assertHPathTestDoc(t, database, sibling, "/Parent")
+		var title string
+		if err := database.QueryRow("SELECT content FROM blocks WHERE id=? AND type='d'", child.ID).Scan(&title); err != nil || title != "Leaf" {
+			t.Fatalf("stale queued edit restored the old title: %q, %v", title, err)
+		}
+		if stale.Root.IALAttr("title") != "Child" {
+			t.Fatal("index reconciliation modified the original editing snapshot")
+		}
 	})
 
 	t.Run("interrupted source writes and restart", func(t *testing.T) {
@@ -292,7 +303,12 @@ func TestDocumentHPathRefresh(t *testing.T) {
 }
 
 func prepareHPathRefreshTest(t *testing.T) {
-	root := t.TempDir()
+	t.Helper()
+	prepareHPathRefreshTestAt(t, t.TempDir())
+}
+
+func prepareHPathRefreshTestAt(t *testing.T, root string) {
+	t.Helper()
 	util.WorkspaceDir = root
 	util.DataDir, util.TempDir, util.ConfDir = filepath.Join(root, "data"), filepath.Join(root, "temp"), filepath.Join(root, "conf")
 	util.HistoryDir, util.QueueDir = filepath.Join(root, "history"), filepath.Join(util.TempDir, "queue")
@@ -304,10 +320,20 @@ func prepareHPathRefreshTest(t *testing.T) {
 		}
 	}
 	Conf = NewAppConf()
-	Conf.FileTree, Conf.NotebookCrypto, Conf.Sync = conf.NewFileTree(), conf.NewNotebookCrypto(), conf.NewSync()
-	Conf.Editor, Conf.Export, Conf.Search = conf.NewEditor(), conf.NewExport(), conf.NewSearch()
+	{
+		confSectionValue0, confSectionValue1, confSectionValue2 := conf.NewFileTree(), conf.NewNotebookCrypto(), conf.NewSync()
+		Conf.FileTree.Store(confSectionValue0)
+		Conf.NotebookCrypto = confSectionValue1
+		Conf.Sync.Store(confSectionValue2)
+	}
+	{
+		confSectionValue0, confSectionValue1, confSectionValue2 := conf.NewEditor(), conf.NewExport(), conf.NewSearch()
+		Conf.Editor.Store(confSectionValue0)
+		Conf.Export.Store(confSectionValue1)
+		Conf.Search.Store(confSectionValue2)
+	}
 	Conf.Lang, util.Lang = "en", "en"
-	util.StatusBarCfg = util.NewStatusBar(false)
+	util.StatusBarCfg.Store(util.NewStatusBar(false))
 	util.WorkingDir, _ = filepath.Abs(filepath.Join("..", "..", "app"))
 	initLang()
 	sql.InitDatabase(true)

@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -58,7 +62,7 @@ func blockRequestFields(reader io.Reader, path string) (fields map[string]json.R
 		if errors.Is(err, io.EOF) {
 			err = errors.New("the request body is empty or truncated (EOF)")
 		}
-		err = fmt.Errorf("Parses request [%s] failed: %s", path, err)
+		err = fmt.Errorf("Parses request [%s] failed: %s", path, legacyJSONObjectError(err))
 	}
 	return
 }

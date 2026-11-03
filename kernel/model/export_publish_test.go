@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //go:build fts5
 
@@ -70,16 +58,16 @@ func setupExportPublishTest(t *testing.T) {
 	sql.InitHistoryDatabase(true)
 	sql.InitAssetContentDatabase(true)
 	Conf = NewAppConf()
-	Conf.Editor = conf.NewEditor()
-	Conf.FileTree = conf.NewFileTree()
-	Conf.Search = conf.NewSearch()
-	Conf.Export = conf.NewExport()
+	Conf.Editor.Store(conf.NewEditor())
+	Conf.FileTree.Store(conf.NewFileTree())
+	Conf.Search.Store(conf.NewSearch())
+	Conf.Export.Store(conf.NewExport())
 	treenode.InitBlockTree(true)
 	invalidateEncryptedPublishAccessCache()
 
 	t.Cleanup(func() {
+		closeModelTestDatabases()
 		treenode.CloseDatabase()
-		sql.CloseDatabase()
 		Conf = oldConf
 		util.WorkspaceDir = oldWorkspaceDir
 		util.ConfDir = oldConfDir
@@ -147,7 +135,16 @@ func TestExportEmbedFilteredByPublishAccess(t *testing.T) {
 		return checkBlockTreeAccessableByPublishAccess(c, publishAccess, bt)
 	}
 
-	markdown := ExportStdMarkdown(publicID, false, false, false, false, nil, accessChecker)
+	markdown := ExportStdMarkdown(publicID, &ExportOptions{
+		Render: ExportRenderOptions{
+			AssetsDestSpace2Underscore: false,
+			FillCSSVar:                 false,
+			AdjustHeadingLevel:         false,
+			ImgTag:                     false,
+			AVPublishFilter:            nil,
+			AccessCheckers:             []EmbedBlockAccessChecker{accessChecker},
+		},
+	})
 	if strings.Contains(markdown, canary) {
 		t.Fatalf("publish reader received private embed content: %s", markdown)
 	}
@@ -156,7 +153,15 @@ func TestExportEmbedFilteredByPublishAccess(t *testing.T) {
 		t.Fatalf("publish reader received private embed content in preview: %s", stdHTML)
 	}
 
-	adminMarkdown := ExportStdMarkdown(publicID, false, false, false, false, nil)
+	adminMarkdown := ExportStdMarkdown(publicID, &ExportOptions{
+		Render: ExportRenderOptions{
+			AssetsDestSpace2Underscore: false,
+			FillCSSVar:                 false,
+			AdjustHeadingLevel:         false,
+			ImgTag:                     false,
+			AVPublishFilter:            nil,
+		},
+	})
 	if !strings.Contains(adminMarkdown, canary) {
 		t.Fatalf("administrator export should include embed content: %s", adminMarkdown)
 	}

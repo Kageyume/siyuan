@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -106,6 +94,33 @@ func TestInsertMissingTargetReturnsTransactionError(t *testing.T) {
 	}}}
 
 	requireStructureTransactionError(t, PerformTxSync(tx))
+}
+
+func TestInsertRejectsDocumentSiblingAnchor(t *testing.T) {
+	for _, field := range []string{"previousID", "nextID"} {
+		t.Run(field, func(t *testing.T) {
+			fixture := setupStructureTransactionTest(t)
+			dom := util.NewLute().Md2BlockDOM("inserted", false)
+			operation := &Operation{Action: "insert", Data: dom}
+			if field == "previousID" {
+				operation.PreviousID = fixture.sourceID
+			} else {
+				operation.NextID = fixture.sourceID
+			}
+			err := PerformTxSync(&Transaction{DoOperations: []*Operation{operation}})
+			requireStructureTransactionError(t, err)
+			if err.Error() != "`"+field+"` cannot be the ID of a document" {
+				t.Fatalf("expected explicit document anchor error, got %v", err)
+			}
+			tree, err := LoadTreeByBlockID(fixture.sourceID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tree.Root.FirstChild.ID != fixture.childID || tree.Root.FirstChild != tree.Root.LastChild {
+				t.Fatal("rejected anchor changed the document")
+			}
+		})
+	}
 }
 
 func TestMoveRejectsParagraphDirectlyUnderList(t *testing.T) {

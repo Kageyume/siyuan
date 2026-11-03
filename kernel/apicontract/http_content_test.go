@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -8,7 +12,7 @@ import (
 func TestHTTPContentVariants(t *testing.T) {
 	previous := definitions
 	t.Cleanup(func() { definitions = previous })
-	endpoint := define[EmptyRequest, BinaryContent]("page", "/test/page", NoBody, HTTPContentOptions(
+	endpoint := define[EmptyRequest, BinaryContent]("page", "/test/page", PublicAccess, NoBody, HTTPContentOptions(
 		HTTPContentVariant{200, "text/html"}, HTTPContentVariant{400, "text/html"}, HTTPContentVariant{403, "text/plain"}), "GET")
 	bundle, err := BuildBundle()
 	if err != nil {
@@ -62,7 +66,7 @@ func TestHTTPContentDeclarations(t *testing.T) {
 		{{200, "invalid"}},
 	} {
 		definitions = previous
-		define[EmptyRequest, BinaryContent]("invalidPage", "/test/page", NoBody, HTTPContentOptions(variants...), "GET")
+		define[EmptyRequest, BinaryContent]("invalidPage", "/test/page", PublicAccess, NoBody, HTTPContentOptions(variants...), "GET")
 		if _, err := BuildBundle(); err == nil {
 			t.Fatalf("invalid variants accepted: %+v", variants)
 		}

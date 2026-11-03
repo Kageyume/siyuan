@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -147,7 +151,7 @@ func TestEventSourceProxyResponseSecurityHeaders(t *testing.T) {
 }
 
 func TestForwardProxyResponseSizeLimit(t *testing.T) {
-	const limit int64 = 64
+	const limit int64 = 1024
 	body := bytes.Repeat([]byte("a"), int(limit)+1)
 	var compressed bytes.Buffer
 	gzipWriter := gzip.NewWriter(&compressed)

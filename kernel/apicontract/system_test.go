@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -8,9 +12,17 @@ import (
 	"testing"
 )
 
+func TestNoBodyContractRequests(t *testing.T) {
+	for _, definition := range Definitions() {
+		if definition.Body == NoBody && definition.Request != reflect.TypeFor[EmptyRequest]() {
+			t.Errorf("no-body endpoint %s declares request fields: %v", definition.Path, definition.Request)
+		}
+	}
+}
+
 func TestAPIContractSystemRequestCompatibility(t *testing.T) {
 	for _, body := range []string{`{}`, `null`, `{"force":null}`, `{"force":true}`, `{"force":true} {}`, `{"unknown":1e1000}`, ``} {
-		var legacy map[string]interface{}
+		var legacy map[string]any
 		legacyErr := json.NewDecoder(strings.NewReader(body)).Decode(&legacy)
 		request, err := SystemGetChangelog.Decode(strings.NewReader(body))
 		if err != nil {

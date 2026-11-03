@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -82,7 +86,7 @@ type DocTreeReorderResult struct {
 func resolveDraggedDocSortMode(boxID, listPath string) (*int, error) {
 	mode := util.SortModeCustom
 	if listPath == "/" {
-		if Conf.FileTree.Sort == util.SortModeCustom {
+		if Conf.FileTree.Load().Sort == util.SortModeCustom {
 			mode = util.SortModeFileTree
 		}
 		return &mode, nil

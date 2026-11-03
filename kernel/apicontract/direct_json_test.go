@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -16,7 +20,7 @@ type directJSONTestResult struct {
 func TestDirectJSONHTTPResponses(t *testing.T) {
 	previous := definitions
 	t.Cleanup(func() { definitions = previous })
-	endpoint := define[EmptyRequest, directJSONTestResult]("directJSONTest", "/test/direct-json", NoBody, ResponseOptions{Output: DirectJSONOutput, NoContent: true}, "POST")
+	endpoint := define[EmptyRequest, directJSONTestResult]("directJSONTest", "/test/direct-json", PublicAccess, NoBody, ResponseOptions{Output: DirectJSONOutput, NoContent: true}, "POST")
 	bundle, err := BuildBundle()
 	if err != nil {
 		t.Fatal(err)

@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package plugin
 
@@ -20,12 +8,14 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/dop251/goja"
 	"github.com/samber/lo"
 	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/mcp/tools"
+	"github.com/siyuan-note/siyuan/kernel/plugin/gojaext"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
 
@@ -53,6 +43,69 @@ func injectAgent(p *KernelPlugin, rt *goja.Runtime, siyuan *goja.Object) (err er
 	agentAPI := rt.NewObject()
 
 	// siyuan.agent.registerCapability(name, config, handler) 返回 Promise<IRegisteredCapability>。
+	bindAgentRegisterCapability(p, rt, agentAPI)
+
+	// siyuan.agent.unregisterCapability(name) 返回 Promise<void>。
+	bindAgentUnregisterCapability(p, rt, agentAPI)
+
+	lo.Must0(gojaext.Freeze(rt, agentAPI))
+	lo.Must0(siyuan.Set("agent", agentAPI))
+	return
+}
+
+// jsCapabilitySchemaToGoSchema 将 JavaScript 能力 Schema 转换为 Go ToolSchema。
+func jsCapabilitySchemaToGoSchema(rt *goja.Runtime, value goja.Value) (toolSchema *tools.ToolSchema, err error) {
+	schemaJson, marshalErr := value.ToObject(rt).MarshalJSON()
+	if marshalErr != nil {
+		err = fmt.Errorf("failed to serialize inputSchema: %v", marshalErr)
+		return
+	}
+
+	schema := &tools.ToolSchema{}
+	unmarshalErr := json.Unmarshal(schemaJson, schema)
+	if unmarshalErr != nil {
+		err = fmt.Errorf("invalid json schema: %v", unmarshalErr)
+		return
+	}
+
+	toolSchema = schema
+	return
+}
+
+func jsCapabilityEffectsToGoEffects(rt *goja.Runtime, value goja.Value) (*tools.ToolEffects, error) {
+	effects := &tools.ToolEffects{}
+	if err := unmarshalCapabilityJSON(rt, value, effects, "effects"); err != nil {
+		return nil, err
+	}
+	return effects, nil
+}
+
+func jsCapabilityActionEffectsToGoEffects(rt *goja.Runtime, value goja.Value) (map[string]tools.ToolEffects, error) {
+	actionEffects := map[string]tools.ToolEffects{}
+	if err := unmarshalCapabilityJSON(rt, value, &actionEffects, "actionEffects"); err != nil {
+		return nil, err
+	}
+	for action := range actionEffects {
+		if strings.TrimSpace(action) == "" {
+			return nil, fmt.Errorf("config.actionEffects contains an empty action")
+		}
+	}
+	return actionEffects, nil
+}
+
+func unmarshalCapabilityJSON(rt *goja.Runtime, value goja.Value, target any, field string) error {
+	jsonValue, err := value.ToObject(rt).MarshalJSON()
+	if err != nil {
+		return fmt.Errorf("failed to serialize config.%s: %v", field, err)
+	}
+	if err = json.Unmarshal(jsonValue, target); err != nil {
+		return fmt.Errorf("invalid config.%s: %v", field, err)
+	}
+	return nil
+}
+
+// bindAgentRegisterCapability 安装对应的沙箱方法，异步操作仍通过插件工作线程执行。
+func bindAgentRegisterCapability(p *KernelPlugin, rt *goja.Runtime, agentAPI *goja.Object) {
 	lo.Must0(agentAPI.Set("registerCapability", rt.ToValue(func(call goja.FunctionCall, rt *goja.Runtime) goja.Value {
 		promise, resolve, reject := rt.NewPromise()
 
@@ -81,7 +134,7 @@ func injectAgent(p *KernelPlugin, rt *goja.Runtime, siyuan *goja.Object) (err er
 					return
 				}
 
-				if c := call.Argument(1); isJsValueNotNull(c) {
+				if c := call.Argument(1); gojaext.IsValueNotNull(c) {
 					configObj := c.ToObject(rt)
 					if configObj != nil {
 						if titleValue := configObj.Get("title"); goja.IsString(titleValue) {
@@ -97,7 +150,7 @@ func injectAgent(p *KernelPlugin, rt *goja.Runtime, siyuan *goja.Object) (err er
 							err = fmt.Errorf("config.description is required and must be a string")
 							return
 						}
-						if inputSchemaValue := configObj.Get("inputSchema"); isJsValueNotNull(inputSchemaValue) {
+						if inputSchemaValue := configObj.Get("inputSchema"); gojaext.IsValueNotNull(inputSchemaValue) {
 							if inputSchema, err = jsCapabilitySchemaToGoSchema(rt, inputSchemaValue); err != nil {
 								return
 							}
@@ -105,17 +158,17 @@ func injectAgent(p *KernelPlugin, rt *goja.Runtime, siyuan *goja.Object) (err er
 							err = fmt.Errorf("config.inputSchema is required")
 							return
 						}
-						if outputSchemaValue := configObj.Get("outputSchema"); isJsValueNotNull(outputSchemaValue) {
+						if outputSchemaValue := configObj.Get("outputSchema"); gojaext.IsValueNotNull(outputSchemaValue) {
 							if outputSchema, err = jsCapabilitySchemaToGoSchema(rt, outputSchemaValue); err != nil {
 								return
 							}
 						}
-						if effectsValue := configObj.Get("effects"); isJsValueNotNull(effectsValue) {
+						if effectsValue := configObj.Get("effects"); gojaext.IsValueNotNull(effectsValue) {
 							if effects, err = jsCapabilityEffectsToGoEffects(rt, effectsValue); err != nil {
 								return
 							}
 						}
-						if actionEffectsValue := configObj.Get("actionEffects"); isJsValueNotNull(actionEffectsValue) {
+						if actionEffectsValue := configObj.Get("actionEffects"); gojaext.IsValueNotNull(actionEffectsValue) {
 							if actionEffects, err = jsCapabilityActionEffectsToGoEffects(rt, actionEffectsValue); err != nil {
 								return
 							}
@@ -143,9 +196,7 @@ func injectAgent(p *KernelPlugin, rt *goja.Runtime, siyuan *goja.Object) (err er
 
 			fullToolName := pluginCapabilityModelName(p.Name, name)
 			declaredActionEffects := make(map[string]tools.ToolEffects, len(actionEffects)+1)
-			for action, actionEffect := range actionEffects {
-				declaredActionEffects[action] = actionEffect
-			}
+			maps.Copy(declaredActionEffects, actionEffects)
 			if effects != nil {
 				declaredActionEffects[""] = *effects
 			}
@@ -206,8 +257,10 @@ func injectAgent(p *KernelPlugin, rt *goja.Runtime, siyuan *goja.Object) (err er
 
 		return rt.ToValue(promise)
 	})))
+}
 
-	// siyuan.agent.unregisterCapability(name) 返回 Promise<void>。
+// bindAgentUnregisterCapability 安装对应的沙箱方法，异步操作仍通过插件工作线程执行。
+func bindAgentUnregisterCapability(p *KernelPlugin, rt *goja.Runtime, agentAPI *goja.Object) {
 	lo.Must0(agentAPI.Set("unregisterCapability", rt.ToValue(func(call goja.FunctionCall, rt *goja.Runtime) goja.Value {
 		promise, resolve, reject := rt.NewPromise()
 
@@ -250,59 +303,4 @@ func injectAgent(p *KernelPlugin, rt *goja.Runtime, siyuan *goja.Object) (err er
 
 		return rt.ToValue(promise)
 	})))
-
-	lo.Must0(ObjectFreeze(rt, agentAPI))
-	lo.Must0(siyuan.Set("agent", agentAPI))
-	return
-}
-
-// jsCapabilitySchemaToGoSchema 将 JavaScript 能力 Schema 转换为 Go ToolSchema。
-func jsCapabilitySchemaToGoSchema(rt *goja.Runtime, value goja.Value) (toolSchema *tools.ToolSchema, err error) {
-	schemaJson, marshalErr := value.ToObject(rt).MarshalJSON()
-	if marshalErr != nil {
-		err = fmt.Errorf("failed to serialize inputSchema: %v", marshalErr)
-		return
-	}
-
-	schema := &tools.ToolSchema{}
-	unmarshalErr := json.Unmarshal(schemaJson, schema)
-	if unmarshalErr != nil {
-		err = fmt.Errorf("invalid json schema: %v", unmarshalErr)
-		return
-	}
-
-	toolSchema = schema
-	return
-}
-
-func jsCapabilityEffectsToGoEffects(rt *goja.Runtime, value goja.Value) (*tools.ToolEffects, error) {
-	effects := &tools.ToolEffects{}
-	if err := unmarshalCapabilityJSON(rt, value, effects, "effects"); err != nil {
-		return nil, err
-	}
-	return effects, nil
-}
-
-func jsCapabilityActionEffectsToGoEffects(rt *goja.Runtime, value goja.Value) (map[string]tools.ToolEffects, error) {
-	actionEffects := map[string]tools.ToolEffects{}
-	if err := unmarshalCapabilityJSON(rt, value, &actionEffects, "actionEffects"); err != nil {
-		return nil, err
-	}
-	for action := range actionEffects {
-		if strings.TrimSpace(action) == "" {
-			return nil, fmt.Errorf("config.actionEffects contains an empty action")
-		}
-	}
-	return actionEffects, nil
-}
-
-func unmarshalCapabilityJSON(rt *goja.Runtime, value goja.Value, target any, field string) error {
-	jsonValue, err := value.ToObject(rt).MarshalJSON()
-	if err != nil {
-		return fmt.Errorf("failed to serialize config.%s: %v", field, err)
-	}
-	if err = json.Unmarshal(jsonValue, target); err != nil {
-		return fmt.Errorf("invalid config.%s: %v", field, err)
-	}
-	return nil
 }

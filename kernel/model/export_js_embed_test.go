@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -13,8 +17,8 @@ func TestExportPreviewJSEmbed(t *testing.T) {
 	const boxID = "20260924010000-box0001"
 	const docID = "20260924010001-doc0001"
 	setupExportRelatedTest(t, boxID)
-	Conf.Editor = conf.NewEditor()
-	Conf.Search = conf.NewSearch()
+	Conf.Editor.Store(conf.NewEditor())
+	Conf.Search.Store(conf.NewSearch())
 	tree := treenode.NewTree(boxID, "/"+docID+".sy", "/Export", "Export")
 	script := "//!js\nitem.innerHTML = '<b>&amp; content</b>';"
 	for range 2 {
@@ -24,7 +28,7 @@ func TestExportPreviewJSEmbed(t *testing.T) {
 		tree.Root.AppendChild(embed)
 	}
 	writeExportRelatedTestTree(t, tree)
-	_, content, _ := ExportPreviewHTMLWithTitle(docID, false, false, false, "", true)
+	_, content, _ := ExportPreviewHTMLWithTitle(docID, false, false, false, "", true, false)
 	if strings.Count(content, `data-type="NodeBlockQueryEmbed"`) != 2 ||
 		strings.Contains(content, "<b>") || !strings.Contains(content, `data-notebook="`+boxID+`"`) ||
 		!strings.Contains(content, `custom-heading-mode="1"`) || strings.Contains(content, "<protyle-html") {

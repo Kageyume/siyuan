@@ -1,12 +1,18 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -16,6 +22,7 @@ import (
 	"github.com/siyuan-note/dejavu/entity"
 	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/conf"
+	"github.com/siyuan-note/siyuan/kernel/filesys"
 	"github.com/siyuan-note/siyuan/kernel/sql"
 	"github.com/siyuan-note/siyuan/kernel/treenode"
 	"github.com/siyuan-note/siyuan/kernel/util"
@@ -117,6 +124,8 @@ func listNotebookArchiveCandidates() ([]NotebookArchiveCandidate, error) {
 }
 
 func walkNotebookArchiveSnapshots(visit func(*dejavu.Repo, *entity.Index, []*entity.File) error) error {
+	confRepoSnapshot := Conf.LoadRepo()
+
 	if util.RepoDir == "" {
 		return nil
 	}
@@ -127,7 +136,7 @@ func walkNotebookArchiveSnapshots(visit func(*dejavu.Repo, *entity.Index, []*ent
 	if err != nil {
 		return err
 	}
-	if Conf.Repo == nil || len(Conf.Repo.Key) == 0 {
+	if confRepoSnapshot == nil || len(confRepoSnapshot.Key) == 0 {
 		return ErrNotebookArchiveBusy
 	}
 	assetDownloadSourceMu.RLock()
@@ -162,8 +171,8 @@ func notebookArchiveKeys() (map[string][]byte, error) {
 		return nil, err
 	}
 	keys["keys/conf.json"] = data
-	data, err = os.ReadFile(filepath.Join(util.ConfDir, "conf.json"))
-	if err == nil {
+	// 持久化形态取自本进程最近一次生成的配置字节，与打包时磁盘文件的写入时机无关。
+	if data = lastPersistedConf(); data != nil {
 		var persisted struct {
 			NotebookCrypto json.RawMessage `json:"notebookCrypto"`
 		}
@@ -173,8 +182,9 @@ func notebookArchiveKeys() (map[string][]byte, error) {
 		if len(persisted.NotebookCrypto) != 0 {
 			keys["keys/persisted-conf.json"] = persisted.NotebookCrypto
 		}
-	} else if !os.IsNotExist(err) {
-		return nil, err
+	}
+	if len(keys["keys/persisted-conf.json"]) == 0 {
+		keys["keys/persisted-conf.json"] = append([]byte(nil), keys["keys/conf.json"]...)
 	}
 	for name, source := range map[string]string{"keys/backup.json": dataCryptoBackupPath(), "keys/migration.json": masterPasswordMigrationPath()} {
 		data, err = os.ReadFile(source)
@@ -239,11 +249,15 @@ func notebookArchiveRoots(ids []string) ([]string, error) {
 func holdNotebookArchiveBoxes(ids []string) (func(), error) {
 	var releases []func()
 	release := func() {
-		for i := len(releases) - 1; i >= 0; i-- {
-			releases[i]()
+		for _, release := range slices.Backward(releases) {
+			release()
 		}
 	}
 	for _, id := range ids {
+		if err := filesys.CheckDocumentAddressing(id); err != nil {
+			release()
+			return nil, err
+		}
 		if _, busy := boxLock.LoadOrStore(id, true); busy {
 			release()
 			return nil, ErrNotebookArchiveBusy
@@ -303,6 +317,9 @@ func PrepareNotebookArchive(ids []string) (archiveID, downloadPath string, err e
 	}
 	defer release()
 	for _, id := range ids {
+		if err = recoverSortConfAppend(filepath.Join(util.DataDir, id, ".siyuan", "sort.json")); err != nil {
+			return
+		}
 		if err = EnsureAssetPrefixLocal(filepath.Join(util.DataDir, id)); err != nil {
 			return
 		}
@@ -428,8 +445,8 @@ func checkNotebookArchiveSources(manifest *notebookArchiveManifest) error {
 		}
 		expected := map[string]notebookArchiveFile{}
 		for name, file := range manifest.Files {
-			if strings.HasPrefix(name, root+"/") {
-				expected[strings.TrimPrefix(name, root+"/")] = file
+			if after, ok := strings.CutPrefix(name, root+"/"); ok {
+				expected[after] = file
 			}
 		}
 		if !reflect.DeepEqual(files, expected) {
@@ -579,8 +596,8 @@ func CommitNotebookArchive(id string, saved bool) error {
 }
 
 func rollbackNotebookArchive(directory string, operation *notebookArchiveOperation) error {
-	for i := len(operation.Roots) - 1; i >= 0; i-- {
-		root := operation.Roots[i]
+	for _, root := range slices.Backward(operation.Roots) {
+
 		source, err := archiveSourcePath(root)
 		if err != nil {
 			return err
@@ -708,9 +725,7 @@ func preserveNotebookCryptoBeforeDisable() error {
 			return readErr
 		}
 		// 已提交归档保留其生成时的密钥；之后重新启用或改密不影响这些旧快照的归档覆盖。
-		for name, fingerprint := range manifest.Files {
-			covered[name] = fingerprint
-		}
+		maps.Copy(covered, manifest.Files)
 	}
 	err = walkNotebookArchiveSnapshots(func(repo *dejavu.Repo, index *entity.Index, files []*entity.File) error {
 		encrypted := map[string]bool{}

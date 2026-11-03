@@ -1,6 +1,9 @@
 import {onWindowWorkspaceStorageChanged} from "./workspace";
 import {closeNotebookHistoryDialogs} from "../history/notebookDialogs";
+import {clearDocumentCreationPlans} from "../util/configuredDocument";
+import {closeNotebookLivePhotos} from "../protyle/preview/livePhoto";
 import {Constants} from "../constants";
+import {refreshSettingConfig} from "../config/setting/sync";
 import {systemConfig} from "../config/systemConfig";
 import {Menus} from "../menus";
 import {Model} from "../layout/Model";
@@ -14,13 +17,14 @@ import {openFileById} from "../editor/util";
 import {
     processSync,
     progressBackgroundTask,
-    progressLoading,
     progressStatus,
     processBacklinkIndexCommit,
     setDefRefCount,
     setRefDynamicText,
     transactionError
 } from "../dialog/processSystem";
+import {progressLoading} from "../dialog/progress";
+import {syncCheckoutProgress} from "../sync/checkoutProgress";
 import {initMessage} from "../dialog/message";
 import {getAllTabs} from "../layout/getAll";
 import {getLocalStorage} from "../protyle/util/compatibility";
@@ -43,6 +47,8 @@ import {emitToPlugins} from "../plugin/EventBusCore";
 import {initializeEnglishCommandTranslations} from "../command/english";
 import {loadLanguages} from "../boot/loadLanguages";
 import {installPluginStorageFetchAppId} from "../util/fetchAppId";
+import {initWindowWithLoading} from "../boot/loading";
+import {setTabPosition} from "../layout/tabUtil";
 
 class App {
     public plugins: import("../plugin").Plugin[] = [];
@@ -56,6 +62,11 @@ class App {
         mainWs.connect({
             id: genUUID(),
             type: "main",
+            callback: () => {
+                if (window.siyuan.isReady) {
+                    void refreshSettingConfig().catch(error => console.error("Could not refresh settings", error));
+                }
+            },
             msgCallback: (data) => {
                     emitToPlugins("ws-main", data);
                     if (data) {
@@ -65,6 +76,9 @@ class App {
                                 break;
                             case "setAppearance":
                                 appearanceConfigApi.apply(data.data);
+                                break;
+                            case "settingChanged":
+                                void refreshSettingConfig(data.data.namespace, data.data.revision);
                                 break;
                             case "refreshAppearance":
                                 void refreshAppearance(data.data);
@@ -111,6 +125,9 @@ class App {
                             case "setServerAddrs":
                                 updateServerAddresses(data.data);
                                 break;
+                            case "syncProgress":
+                                syncCheckoutProgress(data);
+                                break;
                             case "progress":
                                 progressLoading(data);
                                 break;
@@ -152,6 +169,8 @@ class App {
                             case "closeBox":
                             case "removeBox":
                                 closeNotebookHistoryDialogs(data.data.box);
+                                clearDocumentCreationPlans(data.data.box);
+                                closeNotebookLivePhotos(data.data.box);
                                 removeBlockPanelEditors({notebookId: data.data.box});
                                 getAllTabs().forEach((tab) => {
                                     if (tab.headElement) {
@@ -228,7 +247,7 @@ class App {
             await notebookPromise;
             await loadPlugins(this);
             getLocalStorage(() => {
-                void loadLanguages(window.siyuan.config.appearance.lang, Constants.SIYUAN_VERSION, (languages: IObject) => {
+                void loadLanguages(window.siyuan.config.appearance.lang, Constants.SIYUAN_VERSION, async (languages: IObject) => {
                     window.siyuan.languages = languages;
                     void initializeEnglishCommandTranslations(
                         window.siyuan.config.appearance.lang,
@@ -236,13 +255,11 @@ class App {
                         Constants.SIYUAN_VERSION,
                     );
                     window.siyuan.menus = new Menus(this);
-                    (async () => {
-                        await init(this);
-                        setTitle("", true);
-                        initMessage();
-                        window.siyuan.isReady = true;
-                        mainWs.flushMainMessages();
-                    })();
+                    await initWindowWithLoading(() => init(this), setTabPosition);
+                    setTitle("", true);
+                    initMessage();
+                    window.siyuan.isReady = true;
+                    mainWs.flushMainMessages();
                 });
             });
         });
@@ -250,5 +267,5 @@ class App {
     }
 }
 
-installPluginStorageFetchAppId(window, Constants.SIYUAN_APPID, window.location.href);
+installPluginStorageFetchAppId(window, Constants.SIYUAN_APPID, document.baseURI, location.origin);
 new App();

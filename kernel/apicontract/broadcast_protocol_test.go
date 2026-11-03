@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -8,8 +12,8 @@ import (
 func TestRawBroadcastProtocols(t *testing.T) {
 	previous := definitions
 	t.Cleanup(func() { definitions = previous })
-	ws := define[EmptyRequest, Null]("rawBroadcastWS", "/test/broadcast/ws", NoBody, RawWebSocketOptions(), "GET")
-	stream := define[EmptyRequest, Null]("rawBroadcastSSE", "/test/broadcast/es", NoBody, RawSSEOptions(), "GET")
+	ws := define[EmptyRequest, Null]("rawBroadcastWS", "/test/broadcast/ws", PublicAccess, NoBody, RawWebSocketOptions(), "GET")
+	stream := define[EmptyRequest, Null]("rawBroadcastSSE", "/test/broadcast/es", PublicAccess, NoBody, RawSSEOptions(), "GET")
 	bundle, err := BuildBundle()
 	if err != nil {
 		t.Fatal(err)

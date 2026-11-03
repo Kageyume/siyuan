@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -18,6 +22,12 @@ func isolateImportedAttributeViewBindings(data []byte, importedBlockIDs map[stri
 	if err := av.CheckSpec(&attrView); err != nil {
 		return nil, err
 	}
+	if err := attrView.ValidateLayouts(); err != nil {
+		return nil, err
+	}
+	if err := attrView.NormalizeLocations(); err != nil {
+		return nil, err
+	}
 	var root map[string]json.RawMessage
 	if err := json.Unmarshal(data, &root); err != nil {
 		return nil, err
@@ -35,6 +45,10 @@ func isolateImportedAttributeViewBindings(data []byte, importedBlockIDs map[stri
 			return nil, err
 		}
 		if key.Type != av.KeyTypeBlock {
+			continue
+		}
+		if _, exists := kv["values"]; !exists {
+			// 空主键值可由 omitempty 合法省略，不补写字段，保持原始 JSON。
 			continue
 		}
 		var values []map[string]json.RawMessage
@@ -93,7 +107,7 @@ func retainImportedAttributeViewBindings(node *ast.Node, avIDs map[string]string
 		allowed[id] = true
 	}
 	var retained []string
-	for _, id := range strings.Split(node.IALAttr(av.NodeAttrNameAvs), ",") {
+	for id := range strings.SplitSeq(node.IALAttr(av.NodeAttrNameAvs), ",") {
 		id = strings.TrimSpace(id)
 		if allowed[id] {
 			retained = append(retained, id)

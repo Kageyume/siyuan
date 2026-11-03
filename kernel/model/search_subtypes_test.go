@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -32,6 +20,10 @@ func TestBuildTypeFilterSubTypes(t *testing.T) {
 		alias    string
 		want     string
 	}{
+		{"document", map[string]bool{"document": true}, nil, "", "(type = 'd')"},
+		{"documentAlias", map[string]bool{"document": true}, map[string]bool{"h2": true}, "b.", "(b.type = 'd')"},
+		{"documentAndParagraph", map[string]bool{"document": true, "paragraph": true}, nil, "", "(type IN ('d','p'))"},
+		{"documentAndHeading", map[string]bool{"document": true, "heading": true}, map[string]bool{"h2": true}, "", "(type IN ('d') OR (type = 'h' AND subtype IN ('h2')))"},
 		{"heading", map[string]bool{"heading": true}, map[string]bool{"h2": true}, "", "((type = 'h' AND subtype IN ('h2')))"},
 		{"list", map[string]bool{"list": true, "listItem": true}, map[string]bool{"list:o": true}, "", "(type IN ('i') OR (type = 'l' AND subtype IN ('o')))"},
 		{"listItem", map[string]bool{"list": true, "listItem": true}, map[string]bool{"listItem:t": true}, "", "(type IN ('l') OR (type = 'i' AND subtype IN ('t')))"},

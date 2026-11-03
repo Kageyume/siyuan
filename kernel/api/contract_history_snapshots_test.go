@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //go:build fts5
 
 package api
@@ -10,6 +14,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -44,21 +49,23 @@ func TestAPIContractDocHistorySnapshots(t *testing.T) {
 	util.AssetContentDBPath = filepath.Join(root, "assets.db")
 	util.BlockTreeDBPath = filepath.Join(root, "blocktree.db")
 	model.Conf = model.NewAppConf()
-	model.Conf.Repo = conf.NewRepo()
-	model.Conf.Repo.Key = bytes.Repeat([]byte{1}, 32)
-	model.Conf.Sync = conf.NewSync()
-	model.Conf.System = conf.NewSystem()
-	model.Conf.Editor = conf.NewEditor()
-	model.Conf.Export = conf.NewExport()
+	model.Conf.Repo.Store(conf.NewRepo())
+	model.Conf.Repo.Load().Key = bytes.Repeat([]byte{1}, 32)
+	model.Conf.Sync.Store(conf.NewSync())
+	model.Conf.System.Store(conf.NewSystem())
+	model.Conf.Editor.Store(conf.NewEditor())
+	model.Conf.Export.Store(conf.NewExport())
 	sql.InitDatabase(true)
 	sql.InitHistoryDatabase(true)
 	sql.InitAssetContentDatabase(true)
 	t.Cleanup(sql.CloseDatabase)
 	const id = "20260928100000-abcdefg"
 	const box = "20260928100000-normal1"
-	const created = "1790560800"
+	historyTime := time.Now().Add(-time.Hour)
+	created := strconv.FormatInt(historyTime.Unix(), 10)
+	historyDir := historyTime.Format("2006-01-02-150405") + "-update/"
 	data := []byte(`{"ID":"` + id + `","Spec":"2","Type":"NodeDocument","Properties":{"id":"` + id + `","title":"History"},"Children":[]}`)
-	historyPath := "2026-09-28-100000-update/" + box + "/" + id + ".sy"
+	historyPath := historyDir + box + "/" + id + ".sy"
 	for _, p := range []string{filepath.Join(util.HistoryDir, historyPath), filepath.Join(util.DataDir, box, id+".sy")} {
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 			t.Fatal(err)
@@ -69,10 +76,10 @@ func TestAPIContractDocHistorySnapshots(t *testing.T) {
 	}
 	sql.IndexHistoriesQueue([]*sql.History{
 		{ID: id, Type: model.HistoryTypeDoc, Op: "update", Title: "History", Path: historyPath, Created: created},
-		{ID: "20260928100000-locked1", Type: model.HistoryTypeDoc, Op: "update", Title: "Locked", Path: "2026-09-28-100000-update/" + lockedBoxID + "/20260928100000-locked1.sy", Created: created},
+		{ID: "20260928100000-locked1", Type: model.HistoryTypeDoc, Op: "update", Title: "Locked", Path: historyDir + lockedBoxID + "/20260928100000-locked1.sy", Created: created},
 	})
 	sql.FlushHistoryQueue()
-	repo, err := dejavu.NewRepo(util.DataDir, util.RepoDir, util.HistoryDir, util.TempDir, "test", "test", "test", model.Conf.Repo.Key, nil, nil)
+	repo, err := dejavu.NewRepo(util.DataDir, util.RepoDir, util.HistoryDir, util.TempDir, "test", "test", "test", model.Conf.Repo.Load().Key, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +96,7 @@ func TestAPIContractDocHistorySnapshots(t *testing.T) {
 	engine.POST("/api/repo/getRepoSnapshots", getRepoSnapshots)
 	engine.POST("/api/repo/getRepoDocHistory", getRepoDocHistory)
 	for _, include := range []bool{false, true} {
-		body, _ := json.Marshal(map[string]interface{}{"id": index.ID, "page": 1, "includeFiles": include})
+		body, _ := json.Marshal(map[string]any{"id": index.ID, "page": 1, "includeFiles": include})
 		recorder := httptest.NewRecorder()
 		engine.ServeHTTP(recorder, httptest.NewRequest("POST", "/api/repo/getRepoSnapshots", bytes.NewReader(body)))
 		requireAPIContract(t, "POST", "/api/repo/getRepoSnapshots", recorder)

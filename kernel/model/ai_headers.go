@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -19,7 +23,7 @@ func ResolveAIProviderHeaders(provider *conf.Provider) map[string]string {
 	headers := make(map[string]string, len(provider.Headers))
 	for name, value := range provider.Headers {
 		if Conf != nil {
-			value = conf.ResolveSecretsVarsForHost(Conf.Secrets, Conf.Variables, host, value)
+			value = conf.ResolveSecretsVarsForHost(Conf.Secrets.Load(), Conf.Variables.Load(), host, value)
 		}
 		headers[name] = value
 	}

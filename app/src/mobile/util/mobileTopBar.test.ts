@@ -75,26 +75,37 @@ describe("mobile top bar layout", () => {
         topBarElement.appendChild(toolbarNameReadonly);
         topBarElement.appendChild(toolbarSync);
         topBarElement.appendChild(toolbarSidebarRight);
-        let landscape = true;
+        const screen = {orientation: {type: "landscape-primary"}, width: 1200, height: 800};
+        const browser = {
+            screen,
+            innerWidth: 1200,
+            innerHeight: 800,
+            matchMedia: () => ({matches: browser.innerWidth > browser.innerHeight}),
+        };
 
         Object.defineProperty(globalThis, "document", {
             configurable: true,
             value: {
                 body: bodyElement,
                 getElementById: (id: string) => elements.get(id),
+                querySelector: () => breadcrumbSpace,
             },
         });
         Object.defineProperty(globalThis, "window", {
             configurable: true,
-            value: {
-                matchMedia: () => ({matches: landscape}),
-            },
+            value: browser,
         });
 
         try {
             updateMobileTopBarLayout();
             assert.equal(bodyElement.classList.contains("mobile-topbar--merged"), true);
             assert.equal(breadcrumbSpace.classList.contains("protyle-breadcrumb__space--mobile-title"), true);
+            assert.deepEqual(breadcrumbSpace.children, [toolbarSidebarLeft, toolbarName, toolbarNameReadonly, toolbarSync, toolbarSidebarRight]);
+
+            editorElement.breadcrumbSpace = undefined;
+            updateMobileTopBarLayout();
+            assert.equal(bodyElement.classList.contains("mobile-topbar--merged"), true,
+                "fullscreen mind maps keep title controls in the document breadcrumb");
             assert.deepEqual(breadcrumbSpace.children, [toolbarSidebarLeft, toolbarName, toolbarNameReadonly, toolbarSync, toolbarSidebarRight]);
 
             restoreMobileTopBarLayout();
@@ -109,13 +120,27 @@ describe("mobile top bar layout", () => {
             assert.equal(replacementBreadcrumbSpace.classList.contains("protyle-breadcrumb__space--mobile-title"), true);
             assert.deepEqual(replacementBreadcrumbSpace.children, [toolbarSidebarLeft, toolbarName, toolbarNameReadonly, toolbarSync, toolbarSidebarRight]);
 
-            landscape = false;
+            screen.orientation.type = "portrait-primary";
+            screen.width = 800;
+            screen.height = 1200;
+            browser.innerWidth = 800;
+            browser.innerHeight = 1200;
             updateMobileTopBarLayout();
             assert.equal(bodyElement.classList.contains("mobile-topbar--merged"), false);
             assert.equal(replacementBreadcrumbSpace.classList.contains("protyle-breadcrumb__space--mobile-title"), false);
             assert.deepEqual(topBarElement.children, [toolbarSidebarLeft, toolbarName, toolbarNameReadonly, toolbarSync, toolbarSidebarRight]);
 
-            landscape = true;
+            // 软键盘压缩视口后媒体查询会变成横屏，但屏幕方向和标题栏布局保持竖屏。
+            for (const height of [450, 1200, 450]) {
+                browser.innerHeight = height;
+                updateMobileTopBarLayout();
+                assert.equal(bodyElement.classList.contains("mobile-topbar--merged"), false);
+                assert.deepEqual(topBarElement.children, [toolbarSidebarLeft, toolbarName, toolbarNameReadonly, toolbarSync, toolbarSidebarRight]);
+            }
+
+            screen.orientation.type = "landscape-primary";
+            updateMobileTopBarLayout();
+            assert.equal(bodyElement.classList.contains("mobile-topbar--merged"), true);
             editorElement.classList.add("fn__none");
             updateMobileTopBarLayout();
             assert.equal(bodyElement.classList.contains("mobile-topbar--merged"), false);

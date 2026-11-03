@@ -1,10 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -60,6 +56,48 @@ func TestAnalyzeObsidianVault(t *testing.T) {
 	}
 	if vault.Analysis.SkippedHiddenCount != 0 {
 		t.Fatalf("Vault 配置目录不应计入跳过路径：%d", vault.Analysis.SkippedHiddenCount)
+	}
+}
+
+func TestObsidianFootnoteHeadingsPreserveHeadingTargets(t *testing.T) {
+	root := newObsidianTestDir(t)
+	if err := os.Mkdir(filepath.Join(root, ".obsidian"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	source := []byte("# A\n\nText[^note].\n\n[^note]: # Footnote heading\n\n# B\n\n[[#B]]\n\n[Go to B](#B)\n")
+	if err := os.WriteFile(filepath.Join(root, "Note.md"), source, 0644); err != nil {
+		t.Fatal(err)
+	}
+	vault, err := analyzeObsidianVault(context.Background(), root, func(int, string) {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := vault.DocsByRel[obsidianPathKey("Note")]
+	if doc == nil {
+		t.Fatal("missing analyzed document")
+	}
+	transformed, stats := transformObsidianMarkdown(vault, doc, source)
+	tree, err := parseObsidianMd(transformed, vault, doc, stats)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved := resolveObsidianTarget(vault, doc, "#B")
+	if resolved.Status != "resolved" {
+		t.Fatalf("missing heading B: %+v", resolved)
+	}
+	target := treenode.GetNodeInTree(tree, resolved.ID)
+	if target == nil || target.Type != ast.NodeHeading || target.Text() != "B" {
+		t.Fatalf("heading B resolves to the wrong block: %+v", target)
+	}
+	refs := 0
+	ast.Walk(tree.Root, func(n *ast.Node, entering bool) ast.WalkStatus {
+		if entering && treenode.IsBlockRef(n) && n.TextMarkBlockRefID == target.ID {
+			refs++
+		}
+		return ast.WalkContinue
+	})
+	if refs != 2 {
+		t.Fatalf("expected wiki and Markdown references to heading B, got %d", refs)
 	}
 }
 
@@ -515,7 +553,7 @@ func TestObsidianBlockIDsOnStructuredBlocks(t *testing.T) {
 	for _, blockID := range scan.BlockIDs {
 		doc.BlockIDs[blockID] = ast.NewNodeID()
 	}
-	analysisTree, _, _, _ := parseStdMd(source)
+	analysisTree, _, _, _ := parseStdMd(source, false)
 	buildObsidianHeadingIndex(doc, analysisTree)
 	headingIDs := map[string]string{}
 	for _, heading := range doc.Headings {

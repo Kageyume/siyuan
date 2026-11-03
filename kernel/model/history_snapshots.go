@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -93,7 +97,7 @@ func GetDocHistorySnapshots(ctx context.Context, id string, histories []*DocHist
 		key := matchKey{boxID, hash}
 		matches[key] = append(matches[key], history)
 	}
-	if len(Conf.Repo.Key) == 0 {
+	if len(Conf.Repo.Load().Key) == 0 {
 		return nil
 	}
 	repo, err := newRepository()
@@ -121,7 +125,7 @@ func GetDocHistorySnapshots(ctx context.Context, id string, histories []*DocHist
 				if path.Base(file.Path) != id+".sy" {
 					continue
 				}
-				boxID := strings.Split(strings.TrimPrefix(file.Path, "/"), "/")[0]
+				boxID, _, _ := strings.Cut(strings.TrimPrefix(file.Path, "/"), "/")
 				if !IsEncryptedBox(boxID) {
 					boxID = ""
 				}
@@ -253,7 +257,7 @@ func localTaggedSnapshotIndexes(ctx context.Context, repo *dejavu.Repo) (map[str
 			if readErr != nil {
 				return nil, nil, readErr
 			}
-			if index.ID != indexID || !index.VerifyAESKey(Conf.Repo.Key) {
+			if index.ID != indexID || !index.VerifyAESKey(Conf.Repo.Load().Key) {
 				return nil, nil, errors.New("invalid tagged snapshot index")
 			}
 			indexes[indexID] = index

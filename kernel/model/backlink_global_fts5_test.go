@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 //go:build fts5
 
 package model
@@ -18,7 +22,7 @@ import (
 func TestGlobalBacklinkPagination(t *testing.T) {
 	fixture := setupStructureTransactionTest(t)
 	setupFoldTransactionDatabase(t, fixture)
-	Conf.Search = conf.NewSearch()
+	Conf.Search.Store(conf.NewSearch())
 	t.Cleanup(func() { ClearGlobalBacklinkSnapshots("") })
 	ids := map[int]string{}
 	for index, rootID := range []string{fixture.sourceID, fixture.targetID} {
@@ -122,7 +126,7 @@ func TestGlobalBacklinkPagination(t *testing.T) {
 func TestGlobalBacklinkTransitiveContextsAndContentSort(t *testing.T) {
 	fixture := setupStructureTransactionTest(t)
 	setupFoldTransactionDatabase(t, fixture)
-	Conf.Search = conf.NewSearch()
+	Conf.Search.Store(conf.NewSearch())
 	t.Cleanup(func() { ClearGlobalBacklinkSnapshots("") })
 	definition, err := LoadTreeByBlockID(fixture.sourceID)
 	if err != nil {
@@ -210,7 +214,7 @@ func TestGlobalBacklinkSnapshotBounds(t *testing.T) {
 	t.Cleanup(func() { ClearGlobalBacklinkSnapshots("") })
 	query := GlobalBacklinkQuery{ID: "id", Sort: 1}
 	first := ""
-	for i := 0; i < globalBacklinkSnapshotLimit+1; i++ {
+	for i := range globalBacklinkSnapshotLimit + 1 {
 		token, _, err := globalBacklinkSnapshotPut(query, []*GlobalBacklinkItem{{ID: fmt.Sprint(i)}})
 		if err != nil {
 			t.Fatal(err)
@@ -246,7 +250,7 @@ func TestGlobalBacklinkSnapshotBounds(t *testing.T) {
 func TestGlobalBacklinkLargeDataset(t *testing.T) {
 	fixture := setupStructureTransactionTest(t)
 	setupFoldTransactionDatabase(t, fixture)
-	Conf.Search = conf.NewSearch()
+	Conf.Search.Store(conf.NewSearch())
 	t.Cleanup(func() { ClearGlobalBacklinkSnapshots("") })
 	const documents, perDocument = 100, 100
 	definition, err := LoadTreeByBlockID(fixture.sourceID)
@@ -254,7 +258,7 @@ func TestGlobalBacklinkLargeDataset(t *testing.T) {
 		t.Fatal(err)
 	}
 	sql.IndexTreeQueue(definition)
-	for doc := 0; doc < documents; doc++ {
+	for doc := range documents {
 		tree := addFileOperationTestDoc(t, fixture, fmt.Sprintf("20260923000000-d%06d", doc), fmt.Sprintf("Source%d", doc), false)
 		for tree.Root.FirstChild != nil {
 			tree.Root.FirstChild.Unlink()

@@ -4,6 +4,53 @@ import {decodeTableCellRich, encodeTableCellRich} from "./tableCellRichValue";
 import {configureAVRichTextLute} from "../render/av/richTextValue";
 
 describe("table cell rich text wire format", () => {
+    for (const [name, content, source] of [
+        ["single break", "first<br>second", "first\nsecond\n"],
+        ["formatted breaks", "a. <strong>first</strong><br>b. <strong>second</strong><br>c. <strong>third</strong>",
+            "a. **first**\nb. **second**\nc. **third**\n"],
+    ]) {
+        it(`pastes paragraph-wrapped cells with ${name} without changing the table grid or rich source`, () => {
+            if (typeof Lute === "undefined") {
+                require("../../../stage/protyle/js/lute/lute.min.js");
+            }
+            const lute = Lute.New();
+            lute.SetTextMark(true);
+            lute.SetHTMLTag2TextMark(true);
+            lute.SetKramdownIAL(true);
+            lute.SetProtyleWYSIWYG(true);
+            let dom = lute.HTML2BlockDOM("<table><thead><tr><th><p>title</p></th><th><p>details</p></th></tr></thead>" +
+                `<tbody><tr><td><p>value</p></td><td><p>${content}</p></td></tr></tbody></table>`);
+            for (let round = 0; round < 3; round++) {
+                assert.equal((dom.match(/<tr>/g) || []).length, 2);
+                assert.equal((dom.match(/<t[dh][\s>]/g) || []).length, 4);
+                assert.doesNotMatch(dom, /\{: table-cell-rich/);
+                const cells = Array.from(dom.matchAll(/data-sy-table-cell-rich="([^"]+)"/g));
+                assert.equal(cells.length, 4);
+                assert.equal(decodeTableCellRich(cells[3][1]).content, source);
+                dom = lute.SpinBlockDOM(dom);
+            }
+            const markdown = lute.BlockDOM2StdMd(dom);
+            assert.doesNotMatch(markdown, /table-cell-rich/);
+            assert.equal((lute.Md2BlockDOM(markdown).match(/<tr>/g) || []).length, 2);
+        });
+    }
+
+    it("copies styled table cells as standard Markdown without internal attributes", () => {
+        if (typeof Lute === "undefined") {
+            require("../../../stage/protyle/js/lute/lute.min.js");
+        }
+        const lute = Lute.New();
+        lute.SetProtyleWYSIWYG(true);
+        lute.SetKramdownIAL(true);
+        const html = '<div data-type="NodeTable"><div contenteditable="true"><table><thead><tr>' +
+            '<th style="text-align: left;">Header</th></tr></thead><tbody><tr>' +
+            '<td style="text-align: center;"><strong>value</strong></td></tr></tbody></table></div></div>';
+        const markdown = lute.BlockDOM2StdMd(html);
+        assert.match(markdown, /\*\*value\*\*/);
+        assert.doesNotMatch(markdown, /\{:\s|text-align|style=/);
+        assert.match(lute.BlockDOM2Md(html), /text-align: center/);
+    });
+
     it("preserves Unicode, literal Markdown, pipes, and line breaks without changing the source", () => {
         const source = "- **文本** 🧪\n\n```go\na | b\nc\n```\n\n\\*literal\\*";
         const encoded = encodeTableCellRich(source);
@@ -30,7 +77,7 @@ describe("table cell rich text wire format", () => {
         }
     });
 
-    it("round-trips rich cells through the bundled parser and exports an inline Markdown projection", () => {
+    it("round-trips rich cells through the bundled parser and exports structural HTML in Markdown", () => {
         if (typeof Lute === "undefined") {
             require("../../../stage/protyle/js/lute/lute.min.js");
         }
@@ -56,6 +103,8 @@ describe("table cell rich text wire format", () => {
         }
         const markdown = lute.BlockDOM2StdMd(html);
         assert.match(markdown, /first/);
+        assert.match(markdown, /<ul>/);
+        assert.match(markdown, /<pre><code/);
         assert.match(markdown, /a.*b/);
         assert.doesNotMatch(markdown, /table-cell-rich|```go/);
         assert.match(lute.BlockDOM2InlineBlockDOM(html), /a.*b/);

@@ -1,24 +1,14 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package av
 
 import (
+	"slices"
 	"time"
 
+	"github.com/88250/lute"
 	"github.com/88250/lute/ast"
 	"github.com/88250/lute/parse"
 	"github.com/siyuan-note/logging"
@@ -26,9 +16,11 @@ import (
 )
 
 const (
-	CurrentSpec   = 10
+	CurrentSpec   = 13
 	PlainTextSpec = 8
 	RichTextSpec  = 9
+	// 单一 WGS84 位置使用独立版本，防止其他格式的内核重写坐标含义。
+	LocationSpec = 13
 )
 
 const MaxFilterNestingDepth = 3
@@ -48,6 +40,9 @@ func UpgradeSpec(av *AttributeView) {
 	upgradeSpec8(av)
 	upgradeSpec9(av)
 	upgradeSpec10(av)
+	if av.Spec < LocationSpec && av.HasLocation() {
+		av.Spec = LocationSpec
+	}
 }
 
 // upgradeSpec10 仅为包含列表或日历配置的数据库升级，保留其他数据库的旧版兼容性。
@@ -63,18 +58,11 @@ func upgradeSpec10(av *AttributeView) {
 		if nil != view.List || nil != view.Calendar {
 			return true
 		}
-		for _, group := range view.Groups {
-			if needsUpgrade(group) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(view.Groups, needsUpgrade)
 	}
-	for _, view := range av.Views {
-		if needsUpgrade(view) {
-			av.Spec = 10
-			return
-		}
+	if slices.ContainsFunc(av.Views, needsUpgrade) {
+		av.Spec = 10
+		return
 	}
 }
 
@@ -83,6 +71,9 @@ func CheckSpec(av *AttributeView) (err error) {
 		logging.LogErrorf("attribute view [%s] spec [%d] is newer than current [%d]", av.ID, av.Spec, CurrentSpec)
 		err = ErrSpecTooNew
 		return
+	}
+	if av.Spec < LocationSpec && av.HasLocation() {
+		return ErrLocationSpecMismatch
 	}
 	if av.Spec < RichTextSpec && av.HasRichText() {
 		logging.LogErrorf("attribute view [%s] rich text requires spec [%d], current is [%d]", av.ID, RichTextSpec, av.Spec)
@@ -126,13 +117,17 @@ func (av *AttributeView) NormalizeRichText() (err error) {
 		richContent string
 	}
 	var normalized []normalizedText
+	var luteEngine *lute.Lute
 	av.visitPersistedValues(func(value *Value) {
 		if nil != err || nil == value.Text || !value.Text.IsRich() {
 			return
 		}
 		rich := *value.Text.Rich
+		if luteEngine == nil {
+			luteEngine = newValueTextRichLute()
+		}
 		var tree *parse.Tree
-		if tree, err = NormalizeValueTextRich(&rich); nil == err {
+		if tree, err = normalizeValueTextRichWithLute(&rich, luteEngine); nil == err {
 			normalized = append(normalized, normalizedText{
 				value:       value.Text,
 				content:     valueTextRichPlainContent(tree),

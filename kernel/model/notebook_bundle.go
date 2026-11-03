@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -92,11 +80,9 @@ func exportNotebooksSYBundle(ids []string) (zipPath string) {
 		boxes = append(boxes, box)
 	}
 
-	originalIncludeRelatedDocs := Conf.Export.IncludeRelatedDocs
-	Conf.Export.IncludeRelatedDocs = false
-	defer func() {
-		Conf.Export.IncludeRelatedDocs = originalIncludeRelatedDocs
-	}()
+	// 笔记本包只包含所选笔记本，关联文档由各笔记本自身导出
+	config := resolveExportOptions(nil)
+	config.IncludeRelatedDocs = false
 
 	workDir := filepath.Join(util.TempDir, "export", "notebooks-"+gulu.Rand.String(7))
 	if err := os.MkdirAll(workDir, 0755); nil != err {
@@ -109,7 +95,7 @@ func exportNotebooksSYBundle(ids []string) (zipPath string) {
 	manifest := &syNotebookBundleManifest{Spec: syNotebookBundleSpec}
 	innerArchives := map[string]string{}
 	for _, box := range boxes {
-		innerURI := exportBoxSYZip(box.ID)
+		innerURI := exportBoxSYZip(box.ID, config)
 		innerPath, err := exportedFilePath(innerURI)
 		if nil != err {
 			logging.LogErrorf("resolve exported notebook archive failed: %s", err)
@@ -336,6 +322,9 @@ func inspectSYNotebookArchive(zipPath string) (ret *inspectedSYNotebook, err err
 		return nil, errors.New(Conf.Language(199))
 	}
 	rootPath := filepath.Join(unzipPath, entries[0].Name())
+	if err = checkImportedDocumentAddressing(rootPath); err != nil {
+		return nil, err
+	}
 	ret = &inspectedSYNotebook{archivePath: zipPath, name: entries[0].Name()}
 	confPath := filepath.Join(rootPath, ".siyuan", "conf.json")
 	hasNotebookMetadata := filelock.IsExist(confPath)

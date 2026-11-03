@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package util
 
 import (
@@ -21,14 +25,22 @@ import (
 const DecisionMaxBytes = 1024 * 1024
 
 type DecisionOptions struct {
-	Endpoint, APIKey, Model string
-	Timeout                 int
+	Provider, Endpoint, APIKey, Model string
+	Timeout                           int
 }
 
 type DecisionState struct {
 	Context string          `json:"context,omitempty"`
 	Text    string          `json:"text,omitempty"`
 	Blocks  []DecisionBlock `json:"blocks,omitempty"`
+	Data    json.RawMessage `json:"data,omitempty"`
+	Images  []DecisionImage `json:"-"`
+}
+
+// DecisionImage 必须显式提供；正文或 JSON 中的图片链接不会被自动读取。
+type DecisionImage struct {
+	URL    string `json:"image_url"`
+	Detail string `json:"detail,omitempty"`
 }
 
 type DecisionBlock struct {
@@ -40,6 +52,7 @@ type DecisionQuestion struct {
 	Type         string          `json:"type"`
 	Instructions string          `json:"instructions"`
 	Criteria     json.RawMessage `json:"criteria,omitempty"`
+	Images       []DecisionImage `json:"-"`
 }
 
 type DecisionAnswer struct {
@@ -55,10 +68,19 @@ type DecisionAnswer struct {
 type DecisionResult struct {
 	Model   string                    `json:"model"`
 	Answers map[string]DecisionAnswer `json:"answers"`
-	Usage   struct {
-		InputTokens  int `json:"input_tokens"`
-		OutputTokens int `json:"output_tokens"`
-	} `json:"usage"`
+	Usage   DecisionUsage             `json:"usage"`
+}
+
+type DecisionUsage struct {
+	InputTokens        int                         `json:"input_tokens"`
+	OutputTokens       int                         `json:"output_tokens"`
+	InputTokensDetails *DecisionInputTokensDetails `json:"input_tokens_details,omitempty"`
+}
+
+// 缓存读写均已包含在 InputTokens 中，不能再次累加。
+type DecisionInputTokensDetails struct {
+	CachedTokens     int `json:"cached_tokens"`
+	CacheWriteTokens int `json:"cache_write_tokens"`
 }
 
 var decisionHTTPClient = func() *http.Client {
@@ -69,8 +91,26 @@ var decisionHTTPClient = func() *http.Client {
 }()
 
 func ValidateDecisionQuestions(questions map[string]DecisionQuestion) error {
-	if len(questions) == 0 || len(questions) > 32 {
-		return errors.New("decision requires 1 to 32 questions")
+	return ValidateDecisionQuestionsForProvider(DecisionProviderTypeSafe, questions)
+}
+
+func ValidateDecisionQuestionsForProvider(provider string, questions map[string]DecisionQuestion) error {
+	if _, err := decisionProviderFor(provider); err != nil {
+		return err
+	}
+	limit := 32
+	if provider == DecisionProviderOpenAI {
+		limit = 400
+	}
+	if len(questions) == 0 || len(questions) > limit {
+		return fmt.Errorf("decision requires 1 to %d questions for this provider", limit)
+	}
+	return validateDecisionQuestions(questions)
+}
+
+func validateDecisionQuestions(questions map[string]DecisionQuestion) error {
+	if len(questions) == 0 || len(questions) > 400 {
+		return errors.New("decision requires 1 to 400 questions")
 	}
 	for id, question := range questions {
 		if strings.TrimSpace(id) == "" || strings.TrimSpace(question.Instructions) == "" {
@@ -110,7 +150,15 @@ func ValidateDecisionQuestions(questions map[string]DecisionQuestion) error {
 
 // EvaluateDecision 发送一次判断请求，不重试、不截断原文，也不将缺失或无效答案转换为分数。
 func EvaluateDecision(ctx context.Context, options DecisionOptions, state DecisionState, questions map[string]DecisionQuestion) (*DecisionResult, error) {
-	if err := ValidateDecisionQuestions(questions); err != nil {
+	if err := ValidateDecisionQuestionsForProvider(options.Provider, questions); err != nil {
+		return nil, err
+	}
+	plan, err := normalizeDecisionQuestions(questions)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := decisionProviderFor(options.Provider)
+	if err != nil {
 		return nil, err
 	}
 	endpoint, err := url.Parse(options.Endpoint)
@@ -121,12 +169,11 @@ func EvaluateDecision(ctx context.Context, options DecisionOptions, state Decisi
 	if strings.TrimSpace(options.APIKey) == "" || strings.TrimSpace(options.Model) == "" {
 		return nil, errors.New("decision model not configured")
 	}
-	payload, err := json.Marshal(struct {
-		Model     string                      `json:"model"`
-		State     DecisionState               `json:"state"`
-		Questions map[string]DecisionQuestion `json:"questions"`
-	}{options.Model, state, questions})
-	if err != nil || len(payload) > DecisionMaxBytes {
+	payload, err := provider.encode(options.Model, state, plan)
+	if err != nil {
+		return nil, err
+	}
+	if len(payload) > DecisionMaxBytes {
 		return nil, errors.New("decision request exceeds 1 MiB; reduce the input without silently truncating it")
 	}
 	timeout := options.Timeout
@@ -165,15 +212,24 @@ func EvaluateDecision(ctx context.Context, options DecisionOptions, state Decisi
 	if len(data) > DecisionMaxBytes {
 		return nil, errors.New("decision response exceeds 1 MiB")
 	}
-	var result DecisionResult
-	if err = json.Unmarshal(data, &result); err != nil || !validDecisionResult(result, questions) {
+	result, err := provider.decode(data, plan)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil || !validDecisionResult(*result, questions) {
 		return nil, errors.New("decision API returned incomplete or invalid answers")
 	}
-	return &result, nil
+	return result, nil
 }
 
 func validDecisionResult(result DecisionResult, questions map[string]DecisionQuestion) bool {
-	if result.Model == "" || len(result.Answers) != len(questions) {
+	if strings.TrimSpace(result.Model) == "" || len(result.Answers) != len(questions) ||
+		result.Usage.InputTokens < 0 || result.Usage.OutputTokens < 0 {
+		return false
+	}
+	if details := result.Usage.InputTokensDetails; details != nil &&
+		(details.CachedTokens < 0 || details.CacheWriteTokens < 0 ||
+			details.CachedTokens > result.Usage.InputTokens || details.CacheWriteTokens > result.Usage.InputTokens) {
 		return false
 	}
 	for id, question := range questions {

@@ -1,9 +1,12 @@
+import {escapeHtmlTextAndAttr} from "../../util/escape";
 import {bindPasswordIconaToggle} from "../render/fragments";
 import {Dialog} from "../../dialog";
 import {confirmDialog} from "../../dialog/confirmDialog";
 import {showMessage} from "../../dialog/message";
 import {Constants} from "../../constants";
 import {isMobile} from "../../util/functions";
+import {readText} from "../../protyle/util/compatibility";
+import {scrollInputIntoView} from "../../mobile/util/visibleViewport";
 import {secretsConfigApi, variablesConfigApi} from "./secretsVariablesRuntime";
 
 interface NamedItem {
@@ -227,8 +230,8 @@ const renderNamedItemList = (options: RenderNamedItemListOptions) => {
         return;
     }
     const html = items.map((item) => {
-        return `<div class="b3-list-item b3-list-item--narrow${hideActionClass}" ${dataAttr}="${Lute.EscapeHTMLStr(item.name)}">
-    <span class="b3-list-item__text">${Lute.EscapeHTMLStr(item.name)}</span>
+        return `<div class="b3-list-item b3-list-item--narrow${hideActionClass}" ${dataAttr}="${escapeHtmlTextAndAttr(item.name)}">
+    <span class="b3-list-item__text">${escapeHtmlTextAndAttr(item.name)}</span>
     <span data-type="${deleteType}" class="b3-list-item__action b3-list-item__action--warning b3-tooltips b3-tooltips__w" aria-label="${window.siyuan.languages.delete}">
         <svg><use xlink:href="#iconTrashcan"></use></svg>
     </span>
@@ -250,6 +253,7 @@ const openItemDialog = (options: OpenItemDialogOptions) => {
     const {root, existingName, kind} = options;
     const isNew = !existingName;
     const isSecret = kind === "secret";
+    const mobile = isMobile();
     const configItems: NamedItem[] = isSecret
         ? window.siyuan.config.secrets.items
         : window.siyuan.config.variables.items;
@@ -272,12 +276,17 @@ const openItemDialog = (options: OpenItemDialogOptions) => {
 
     const valueInputHtml = isSecret
         ? `<div class="b3-form__icona fn__block">
-    <input id="itemValue" type="password" class="b3-text-field b3-form__icona-input" spellcheck="false" value="${Lute.EscapeHTMLStr(initial.value)}">
+    <input id="itemValue" type="password" class="b3-text-field b3-form__icona-input" spellcheck="false" value="${escapeHtmlTextAndAttr(initial.value)}">
     <svg class="b3-form__icona-icon" data-action="togglePassword" style="user-select: none;">
         <use xlink:href="#iconEye"></use>
     </svg>
 </div>`
-        : `<input class="b3-text-field fn__block" id="itemValue" type="text" spellcheck="false" value="${Lute.EscapeHTMLStr(initial.value)}"/>`;
+        : `<input class="b3-text-field fn__block" id="itemValue" type="text" spellcheck="false" value="${escapeHtmlTextAndAttr(initial.value)}"/>`;
+    const valueFieldHtml = mobile && isSecret
+        ? `<div class="fn__flex"><div class="fn__flex-1">${valueInputHtml}</div><div class="fn__space"></div>
+    <button class="b3-button b3-button--outline fn__flex-center" data-action="pasteValue">${window.siyuan.languages.paste}</button>
+</div>`
+        : valueInputHtml;
 
     const initialHosts: string[] = isSecret ? (initial.allowedHosts ?? []) : [];
     const hostsInputHtml = isSecret
@@ -285,25 +294,27 @@ const openItemDialog = (options: OpenItemDialogOptions) => {
     <div class="config-name">${window.siyuan.languages.secretAllowedHosts}</div>
     <div class="b3-label__text">${window.siyuan.languages.secretAllowedHostsTip}</div>
     <div class="fn__hr"></div>
-    <input class="b3-text-field fn__block" id="itemAllowedHosts" type="text" spellcheck="false" value="${Lute.EscapeHTMLStr(initialHosts.join(", "))}"/>
+    <input class="b3-text-field fn__block" id="itemAllowedHosts" type="text" spellcheck="false" value="${escapeHtmlTextAndAttr(initialHosts.join(", "))}"/>
 </div>`
         : "";
 
+    let disposeViewport: () => void;
     const dialog = new Dialog({
         title: titleKey,
-        width: isMobile() ? "92vw" : "520px",
+        width: mobile ? "92vw" : "520px",
+        destroyCallback: () => disposeViewport?.(),
         content: `<div class="b3-dialog__content">
     <div class="b3-label b3-label--inner">
         <div class="config-name">${isSecret ? window.siyuan.languages.secretName : window.siyuan.languages.variableName}</div>
         <div class="b3-label__text">${isSecret ? window.siyuan.languages.secretNameTip : window.siyuan.languages.variableNameTip}</div>
         <div class="fn__hr"></div>
-        <input class="b3-text-field fn__block" id="itemName" type="text" spellcheck="false" value="${Lute.EscapeHTMLStr(initial.name)}"/>
+        <input class="b3-text-field fn__block" id="itemName" type="text" spellcheck="false" value="${escapeHtmlTextAndAttr(initial.name)}"/>
     </div>
     ${hostsInputHtml}
     <div class="b3-label b3-label--inner">
         <div class="config-name">${valueKey}</div>
         <div class="fn__hr"></div>
-        ${valueInputHtml}
+        ${valueFieldHtml}
     </div>
 </div>
 <div class="b3-dialog__action">
@@ -315,6 +326,32 @@ const openItemDialog = (options: OpenItemDialogOptions) => {
     dialog.element.setAttribute("data-key", Constants.DIALOG_AIPROVIDER);
     if (isSecret) {
         bindPasswordIconaToggle(dialog.element, "itemValue");
+        const pasteButton = dialog.element.querySelector<HTMLButtonElement>('[data-action="pasteValue"]');
+        pasteButton?.addEventListener("click", async () => {
+            pasteButton.disabled = true;
+            try {
+                const text = await readText(true);
+                if (dialog.element.dataset.dialogClosing || !dialog.element.isConnected) {
+                    return;
+                }
+                if (typeof text !== "string") {
+                    showMessage(window.siyuan.languages.clipboardPermissionDenied);
+                    return;
+                }
+                if (text) {
+                    dialog.element.querySelector<HTMLInputElement>("#itemValue").value = text;
+                }
+            } catch {
+                if (!dialog.element.dataset.dialogClosing && dialog.element.isConnected) {
+                    showMessage(window.siyuan.languages.clipboardPermissionDenied);
+                }
+            } finally {
+                pasteButton.disabled = false;
+            }
+        });
+    }
+    if (mobile) {
+        disposeViewport = bindItemDialogViewport(dialog.element);
     }
     dialog.element.querySelector<HTMLInputElement>("#itemName").select();
 
@@ -352,10 +389,51 @@ const openItemDialog = (options: OpenItemDialogOptions) => {
     });
 };
 
+// 随键盘动画调整弹窗可用高度，只滚动弹窗内的输入区域，保留焦点、选区和草稿。
+const bindItemDialogViewport = (element: HTMLElement) => {
+    const container = element.querySelector<HTMLElement>(".b3-dialog");
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const update = () => {
+        frame = 0;
+        if (!element.isConnected || element.dataset.dialogClosing) {
+            return;
+        }
+        const top = Math.max(0, viewport?.offsetTop ?? 0);
+        const bottom = Math.min(window.innerHeight, viewport ? viewport.offsetTop + viewport.height : window.innerHeight);
+        if (bottom <= top) {
+            return;
+        }
+        container.style.top = `${top}px`;
+        container.style.height = `${bottom - top}px`;
+        const activeElement = document.activeElement;
+        if (element.contains(activeElement) && activeElement.matches("input, textarea")) {
+            scrollInputIntoView(activeElement);
+        }
+    };
+    const schedule = () => {
+        if (!frame) {
+            frame = requestAnimationFrame(update);
+        }
+    };
+    window.addEventListener("resize", schedule);
+    viewport?.addEventListener("resize", schedule);
+    viewport?.addEventListener("scroll", schedule);
+    element.addEventListener("focusin", schedule);
+    update();
+    return () => {
+        cancelAnimationFrame(frame);
+        window.removeEventListener("resize", schedule);
+        viewport?.removeEventListener("resize", schedule);
+        viewport?.removeEventListener("scroll", schedule);
+        element.removeEventListener("focusin", schedule);
+    };
+};
+
 const showDeleteConfirm = (title: string, onConfirm: () => void) => {
     confirmDialog(
         window.siyuan.languages.deleteOpConfirm,
-        window.siyuan.languages.confirmDeleteTip.replace("${x}", Lute.EscapeHTMLStr(title)),
+        window.siyuan.languages.confirmDeleteTip.replace("${x}", escapeHtmlTextAndAttr(title)),
         onConfirm,
         undefined,
         true,

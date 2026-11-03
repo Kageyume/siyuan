@@ -6,6 +6,9 @@ import {getAllEditor} from "../layout/getAll";
 import {ipcRenderer} from "electron";
 import {Constants} from "../constants";
 import {flushWindowWorkspace} from "./workspace";
+import {hasNativeSettingTasks, setNativeSettingTask} from "../config/setting/taskBlocker";
+import {sendGlobalShortcut, sendUnregisterGlobalShortcut} from "../boot/globalEvent/globalShortcut";
+import {receiveTabInMainWindow} from "./moveTabToMainWindow";
 
 const closeTab = (ipcData: IWebSocketData) => {
     const tab = getInstanceById(ipcData.data);
@@ -15,6 +18,18 @@ const closeTab = (ipcData: IWebSocketData) => {
 };
 export const onWindowsMsg = (ipcData: IWebSocketData) => {
     switch (ipcData.cmd) {
+        case "prepareSettingTask":
+            setNativeSettingTask(ipcData.data, true);
+            sendUnregisterGlobalShortcut(window.siyuan.ws.app);
+            void Promise.all(getAllEditor().filter(editor => editor?.protyle?.wysiwyg)
+                .map(editor => editor.flushPendingTransactions())).then(() => {
+                ipcRenderer.send("siyuan-settings-task-ready", {id: ipcData.data, saved: true});
+            }).catch(() => ipcRenderer.send("siyuan-settings-task-ready", {id: ipcData.data, saved: false}));
+            break;
+        case "endSettingTask":
+            setNativeSettingTask(ipcData.data, false);
+            if (!hasNativeSettingTasks()) sendGlobalShortcut(window.siyuan.ws.app);
+            break;
         case Constants.SIYUAN_WINDOW_WORKSPACE_FLUSH:
             void flushWindowWorkspace().then(saved => {
                 ipcRenderer.send(Constants.SIYUAN_WINDOW_WORKSPACE_SAVED, {id: ipcData.data, saved});
@@ -30,6 +45,9 @@ export const onWindowsMsg = (ipcData: IWebSocketData) => {
             break;
         case "closetab":
             closeTab(ipcData);
+            break;
+        case "moveTabToMainWindow":
+            void receiveTabInMainWindow(ipcData.data).catch(error => console.error(error));
             break;
         case "setTabDragData":
             window.siyuan.dragTab = ipcData.data as ITabDragData;

@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
@@ -40,10 +28,10 @@ func TestListNotebooksSortsBySubDocCount(t *testing.T) {
 	oldPublishAccess := model.GetPublishAccess()
 	util.DataDir = t.TempDir()
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
-	model.Conf.FileTree = conf.NewFileTree()
+	model.Conf.Sync.Store(conf.NewSync())
+	model.Conf.FileTree.Store(conf.NewFileTree())
 	model.Conf.NotebookCrypto = conf.NewNotebookCrypto()
-	*model.Conf.FileTree.BoxDocEnabled = true
+	model.Conf.FileTree.Load().BoxDocEnabled = true
 	t.Cleanup(func() {
 		if err := model.SetPublishAccess(oldPublishAccess); err != nil {
 			t.Errorf("restore publish access failed: %v", err)
@@ -85,7 +73,7 @@ func TestListNotebooksSortsBySubDocCount(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			model.Conf.FileTree.Sort = test.sortMode
+			model.Conf.FileTree.Load().Sort = test.sortMode
 			notebooks := requestNotebookList(t, model.RoleAdministrator)
 			if actual := notebookIDs(notebooks); !slices.Equal(actual, test.expected) {
 				t.Fatalf("unexpected notebook order: %v", actual)
@@ -100,7 +88,7 @@ func TestListNotebooksSortsBySubDocCount(t *testing.T) {
 	if err := model.SetPublishAccess(publishAccess); err != nil {
 		t.Fatal(err)
 	}
-	model.Conf.FileTree.Sort = util.SortModeSubDocCountDESC
+	model.Conf.FileTree.Load().Sort = util.SortModeSubDocCountDESC
 	notebooks := requestNotebookList(t, model.RoleReader)
 	expected := []string{boxIDs[1], boxIDs[2], boxIDs[4], boxIDs[0], boxIDs[3]}
 	if actual := notebookIDs(notebooks); !slices.Equal(actual, expected) {
@@ -131,7 +119,7 @@ func writeNotebookSortFixture(t *testing.T, boxID string, childCount, boxIndex i
 
 	writeNotebookSortDoc(t, boxID, boxID)
 	childIDs := make([]string, 0, childCount)
-	for i := 0; i < childCount; i++ {
+	for i := range childCount {
 		childID := fmt.Sprintf("2026081201%02d%02d-doc%04d", boxIndex, i, boxIndex*100+i)
 		writeNotebookSortDoc(t, boxID, childID)
 		childIDs = append(childIDs, childID)

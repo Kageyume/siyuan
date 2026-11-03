@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -141,7 +145,7 @@ func MigrateLegacyMindmaps(id string) (tx *Transaction, visible map[string]strin
 	if err != nil {
 		return nil, nil, err
 	}
-	if tree.ID != id || tree.Root.IALAttr("custom-sy-readonly") == "true" {
+	if tree.ID != id || tree.Root.IALAttr(readonlyAttr) == "true" {
 		return nil, nil, errors.New("mind map migration requires an editable document")
 	}
 	engine := util.NewLute()
@@ -150,7 +154,7 @@ func MigrateLegacyMindmaps(id string) (tx *Transaction, visible map[string]strin
 		if !entering {
 			return ast.WalkContinue
 		}
-		if n.IALAttr("custom-sy-readonly") == "true" {
+		if n.IALAttr(readonlyAttr) == "true" {
 			return ast.WalkSkipChildren
 		}
 		if isLegacyMindmap(n) && n.IALAttr(legacyMindmapCodeAttr) != "1" {

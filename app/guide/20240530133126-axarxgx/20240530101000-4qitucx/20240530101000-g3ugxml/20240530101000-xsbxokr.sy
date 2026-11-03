@@ -9,7 +9,7 @@
 		"id": "20240530101000-xsbxokr",
 		"title": "ショートカット",
 		"type": "doc",
-		"updated": "20260928175046"
+		"updated": "20261026090134"
 	},
 	"Children": [
 		{
@@ -18,12 +18,26 @@
 			"HeadingLevel": 2,
 			"Properties": {
 				"id": "20260928091747-t67pljp",
-				"updated": "20260928175046"
+				"updated": "20261024161440"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
 					"Data": "概要"
+				}
+			]
+		},
+		{
+			"ID": "20261024161440-ntq613d",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261024161440-ntq613d",
+				"updated": "20261024161440"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "表にはデフォルトのショートカットを示します。変更した場合は設定画面の割り当てを確認してください。スラッシュの前は Windows/Linux、後は macOS のキーです。モバイルの外付けキーボードは、対応する操作で利用できます。"
 				}
 			]
 		},
@@ -65,13 +79,146 @@
 			]
 		},
 		{
+			"ID": "20261015193140-d0uhm3q",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261015193140-d0uhm3q",
+				"updated": "20261015193140"
+			},
+			"Children": [
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "設定"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "ショートカット"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "エディタ"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "要素"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " で、Note、Tip、Important、Warning、Caution の各コールアウトブロックに個別のショートカットを設定できます。初期状態ではすべて未割り当てで、モバイル端末でも外付けキーボードで使用できます。引用ブロックと同様に、現在または選択中のブロックを変換し、変換できない場合は空のコールアウトを挿入します。コールアウト内で別の種類のショートカットを押すと種類を切り替えます。同じ種類の場合、折りたたまれていない子ブロックが一つだけならコールアウトを解除し、子ブロックが複数あるか折りたたまれている場合は現在の子ブロックの後に空のコールアウトを挿入します。"
+				}
+			]
+		},
+		{
+			"ID": "20261011091952-yanstq2",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261011091952-yanstq2",
+				"updated": "20261011091952"
+			},
+			"Children": [
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "設定"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "ショートカット"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "一般"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " で「前のデータベース項目」と「次のデータベース項目」を設定すると、現在のプレビュー内で元のビューの絞り込みと並び順に従って項目を切り替えられます。初期状態ではショートカットは未割り当てです。モバイル端末でも外付けキーボードで利用できます。データベースのビューからプレビューを開いた場合に利用でき、先頭と末尾では切り替えを停止します。"
+				}
+			]
+		},
+		{
+			"ID": "20261002010621-mogxh00",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261002010621-mogxh00",
+				"updated": "20261002013053"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "コマンドパレット、最近開いたドキュメント、データ履歴、フラッシュカードの復習、インラインの外観、メインメニュー、タブ一覧のショートカットは、パネルを開きます。もう一度押してもパネルは開いたままです。"
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Esc"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押すと閉じます。エディターのポップアップが表示されている場合は、先にそのポップアップを閉じます。フラッシュカードの本文では、"
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Esc"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押すとブロックを選択します。"
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Esc"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を長押しすると復習ボタンにフォーカスが移り、もう一度 "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Esc"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押すとダイアログが閉じます。"
+				}
+			]
+		},
+		{
 			"ID": "20240530101000-9imgmgf",
 			"Type": "NodeHeading",
 			"HeadingLevel": 2,
 			"Properties": {
 				"ID": "20240530101000-0wo4ch4",
 				"id": "20240530101000-9imgmgf",
-				"updated": "20260928091724"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -91,7 +238,7 @@
 			"Properties": {
 				"colgroup": "||",
 				"id": "20240530101000-5z0uafx",
-				"updated": "20260828134448"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -259,6 +406,65 @@
 									"Data": "{: colspan=\"1\"}"
 								}
 							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "コマンドパレット"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Alt"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "+"
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Shift"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "+"
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "P"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " / "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "⌥⇧P"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": []
 						}
 					]
 				},
@@ -1386,7 +1592,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "9 番目/最後のタブへ移動"
+									"Data": "最後のタブへ移動"
 								}
 							]
 						},
@@ -1443,7 +1649,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "次のタブへ移動"
+									"Data": "前のタブへ移動"
 								}
 							]
 						},
@@ -1509,7 +1715,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "前のタブへ移動"
+									"Data": "次のタブへ移動"
 								}
 							]
 						},
@@ -1595,7 +1801,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1604,7 +1810,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1613,7 +1819,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -1649,7 +1855,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1658,7 +1864,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1667,7 +1873,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -1703,7 +1909,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1712,7 +1918,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1721,7 +1927,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -1757,7 +1963,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1766,7 +1972,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1775,7 +1981,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -1811,7 +2017,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1820,7 +2026,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1829,7 +2035,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -1865,7 +2071,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1874,7 +2080,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1883,7 +2089,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -1919,7 +2125,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1928,7 +2134,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -1937,7 +2143,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で個別に設定できます"
+									"Data": " で個別に設定できます"
 								}
 							]
 						}
@@ -3038,7 +3244,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -3047,7 +3253,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -3056,7 +3262,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -3096,7 +3302,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -3105,7 +3311,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -3114,7 +3320,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -3150,7 +3356,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -3159,7 +3365,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -3168,7 +3374,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -3383,7 +3589,7 @@
 			"Properties": {
 				"ID": "20240530101000-jqxdws2",
 				"id": "20240530101000-fibh6bk",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -3413,7 +3619,7 @@
 			"Properties": {
 				"colgroup": "||",
 				"id": "20240530101000-anawzpw",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -4091,7 +4297,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -4100,7 +4306,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -4109,7 +4315,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -4145,7 +4351,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -4154,7 +4360,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -4163,7 +4369,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -4178,7 +4384,7 @@
 			"Properties": {
 				"ID": "20240530101000-twmuxke",
 				"id": "20240530101000-675gu9g",
-				"updated": "20260928091724"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -4204,7 +4410,7 @@
 			"Properties": {
 				"ID": "20240530101000-tkbdrth",
 				"id": "20240530101000-9wkmh8w",
-				"updated": "20260928091724"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -4224,7 +4430,7 @@
 			"Properties": {
 				"colgroup": "||",
 				"id": "20240530101000-1isfzez",
-				"updated": "20260902224242"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -4769,7 +4975,13 @@
 						},
 						{
 							"Type": "NodeTableCell",
-							"Data": "td"
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "複数ブロックにまたがるテキスト選択では、それらのブロックを選択した場合と同じ埋め込みブロックのリストをコピーします"
+								}
+							]
 						}
 					]
 				},
@@ -5284,7 +5496,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "選択したコンテンツはブロック名として設定されます"
+									"Data": "編集可能なときは選択した内容をブロック名に設定します。読み取り専用のときは属性パネルを閲覧用に開き、ブロック名は変更しません"
 								}
 							]
 						}
@@ -5605,7 +5817,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -5614,7 +5826,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -5623,7 +5835,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -5632,7 +5844,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ の設定に従います"
+									"Data": " の設定に従います"
 								},
 								{
 									"Type": "NodeBr",
@@ -7400,7 +7612,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "一番上までスクロール"
+									"Data": "カーソルをドキュメントの先頭へ移動"
 								}
 							]
 						},
@@ -7443,7 +7655,54 @@
 						},
 						{
 							"Type": "NodeTableCell",
-							"Data": "td"
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "設定"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "ショートカット"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "エディタ"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "一般"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " で設定できます。"
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Home"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " を追加するか、既定のショートカットを置き換えます。このキーを割り当てると、行内の移動動作が置き換わります"
+								}
+							]
 						}
 					]
 				},
@@ -7457,7 +7716,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "一番下までスクロール"
+									"Data": "カーソルをドキュメントの末尾へ移動"
 								}
 							]
 						},
@@ -7504,7 +7763,54 @@
 						},
 						{
 							"Type": "NodeTableCell",
-							"Data": "td"
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "設定"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "ショートカット"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "エディタ"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "一般"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " で設定できます。"
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "End"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " を追加するか、既定のショートカットを置き換えます。このキーを割り当てると、行内の移動動作が置き換わります"
+								}
+							]
 						}
 					]
 				},
@@ -8893,7 +9199,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -8902,7 +9208,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -8911,7 +9217,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます。カーソルが参照要素内にある必要があります"
+									"Data": " で設定できます。カーソルが参照要素内にある必要があります"
 								}
 							]
 						}
@@ -8947,7 +9253,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -8956,7 +9262,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -8965,7 +9271,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9001,7 +9307,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9010,7 +9316,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9019,7 +9325,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9055,7 +9361,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9064,7 +9370,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9073,7 +9379,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9109,7 +9415,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9118,7 +9424,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9127,7 +9433,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9163,7 +9469,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9172,7 +9478,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9181,7 +9487,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9217,7 +9523,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9226,7 +9532,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9235,7 +9541,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9292,7 +9598,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9301,7 +9607,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9310,7 +9616,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9346,7 +9652,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9355,7 +9661,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9364,7 +9670,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます。データベースブロックでのみ使用できます"
+									"Data": " で設定できます。データベースブロックでのみ使用できます"
 								}
 							]
 						}
@@ -9400,7 +9706,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9409,7 +9715,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9418,7 +9724,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9454,7 +9760,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9463,7 +9769,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9472,7 +9778,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9508,7 +9814,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9517,7 +9823,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9526,7 +9832,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9562,7 +9868,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9571,7 +9877,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9580,7 +9886,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9616,7 +9922,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9625,7 +9931,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9634,7 +9940,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9670,7 +9976,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9679,7 +9985,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9688,7 +9994,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9724,7 +10030,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9733,7 +10039,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9742,7 +10048,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9778,7 +10084,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9787,7 +10093,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9796,7 +10102,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9832,7 +10138,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9841,7 +10147,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9850,7 +10156,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9886,7 +10192,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9895,7 +10201,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -9904,7 +10210,57 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "リッチテキスト/HTML をコピー"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "-"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "設定"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "ショートカット"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -9913,72 +10269,110 @@
 			]
 		},
 		{
-			"ID": "20260928091724-dfq9c2s",
-			"Type": "NodeHeading",
-			"HeadingLevel": 3,
+			"ID": "20261009184321-d4p2i22",
+			"Type": "NodeParagraph",
 			"Properties": {
-				"id": "20260928091724-dfq9c2s",
-				"updated": "20260928091724"
+				"id": "20261009184321-d4p2i22",
+				"updated": "20261009184321"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "エディタの内容をコピーする場合や Markdown のコピーを使う場合は、タスクリストの [/]（進行中）、[-]（中止）、カスタム状態の記号を保持します。Markdown のエクスポートでは標準形式との互換性を保ち、非標準のタスク記号を [X] に統一します。"
+				}
+			]
+		},
+		{
+			"ID": "20261012014537-bo67ulk",
+			"Type": "NodeHeading",
+			"Properties": {
+				"id": "20261012014537-bo67ulk",
+				"updated": "20261012014859"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
 					"Data": "スラッシュメニューとツールバーの設定"
 				}
-			]
+			],
+			"HeadingLevel": 3
 		},
 		{
-			"ID": "20260927164841-exxixvw",
+			"ID": "20261012014537-k54rp2a",
 			"Type": "NodeParagraph",
 			"Properties": {
-				"id": "20260927164841-exxixvw",
-				"updated": "20260928175046"
+				"id": "20261012014537-k54rp2a",
+				"updated": "20261012014859"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
-					"Data": "モバイルでは "
+					"Data": "/ を入力するとスラッシュメニューが開きます。設定方法は "
 				},
 				{
 					"Type": "NodeTextMark",
-					"TextMarkType": "kbd",
-					"TextMarkTextContent": "設定"
+					"TextMarkType": "block-ref",
+					"TextMarkBlockRefID": "20260928091724-dfq9c2s",
+					"TextMarkBlockRefSubtype": "s",
+					"TextMarkTextContent": "スラッシュメニューとツールバーの設定"
 				},
 				{
 					"Type": "NodeText",
-					"Data": " - "
-				},
-				{
-					"Type": "NodeTextMark",
-					"TextMarkType": "kbd",
-					"TextMarkTextContent": "スタイル"
-				},
-				{
-					"Type": "NodeText",
-					"Data": " - "
-				},
-				{
-					"Type": "NodeTextMark",
-					"TextMarkType": "kbd",
-					"TextMarkTextContent": "メニューとボタンの表示と順序"
-				},
-				{
-					"Type": "NodeText",
-					"Data": " を開き、カスタムプロファイルを編集してスラッシュメニューの分類を選択します。モバイルとデスクトップは、有効・無効、候補の表示・非表示、順序を同じプロファイル設定で管理します。初期値はデスクトップでは有効、モバイルでは無効です。スイッチを有効にして確認・保存し、そのプロファイルを有効にすると、/ を入力してコンテンツブロックを検索でき、候補を選択すると元のカーソル位置に挿入されます。"
+					"Data": "を参照してください。"
 				}
 			]
 		},
 		{
-			"ID": "20260927164841-2wtv9yz",
-			"Type": "NodeParagraph",
+			"ID": "20261012014537-d20p785",
+			"Type": "NodeHeading",
 			"Properties": {
-				"id": "20260927164841-2wtv9yz",
-				"updated": "20260928175046"
+				"id": "20261012014537-d20p785",
+				"updated": "20261012014859"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
-					"Data": "カスタムプロファイルでは、分類の選択欄でツールバーとスラッシュメニューを切り替えます。項目の左側にある6つの点のハンドルをドラッグして順序を変更し、スイッチで表示・非表示を設定します。リストの端までドラッグするとスクロールします。並べ替える前に検索欄を空にし、変更後は確認してプロファイルを保存します。組み込みプロファイルは読み取り専用です。複製してカスタマイズし、保存したプロファイルを有効にしてください。プロファイルはこの端末に保存され、端末間では同期されません。"
+					"Data": "画像のタイトル"
+				}
+			],
+			"HeadingLevel": 3
+		},
+		{
+			"ID": "20261012014537-g1tryas",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261012014537-g1tryas",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "タイトルにフォーカスがあるとき、Enter または Space で編集を開始します。編集中は Enter または Tab で保存し、Esc でキャンセルします。"
+				}
+			]
+		},
+		{
+			"ID": "20261012014537-2kv8rqp",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261012014537-2kv8rqp",
+				"updated": "20261012014859"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "詳しくは "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "block-ref",
+					"TextMarkBlockRefID": "20261010134815-h903uwh",
+					"TextMarkBlockRefSubtype": "s",
+					"TextMarkTextContent": "画像のタイトル"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を参照してください。"
 				}
 			]
 		},
@@ -9989,7 +10383,7 @@
 			"Properties": {
 				"ID": "20240530101000-qf3oj4u",
 				"id": "20240530101000-zy0pmo3",
-				"updated": "20260811122156"
+				"updated": "20261002202250"
 			},
 			"Children": [
 				{
@@ -10019,7 +10413,7 @@
 			"Properties": {
 				"colgroup": "||",
 				"id": "20240530101000-5be9vw0",
-				"updated": "20260811122156"
+				"updated": "20261002202250"
 			},
 			"Children": [
 				{
@@ -11264,6 +11658,10 @@
 								{
 									"Type": "NodeText",
 									"Data": "関連するショートカットは以下をご覧ください"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。設定したショートカットで、選択したマインドマップブロックを対応するリストに変換することもできます"
 								}
 							]
 						}
@@ -11309,6 +11707,10 @@
 								{
 									"Type": "NodeText",
 									"Data": "関連するショートカットは以下をご覧ください"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。設定したショートカットで、選択したマインドマップブロックを対応するリストに変換することもできます"
 								}
 							]
 						}
@@ -11381,6 +11783,73 @@
 								{
 									"Type": "NodeText",
 									"Data": "関連するショートカットは以下をご覧ください"
+								},
+								{
+									"Type": "NodeText",
+									"Data": "。設定したショートカットで、選択したマインドマップブロックを対応するリストに変換することもできます"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "マインドマップブロック"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "未割り当て"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "マインドマップを挿入、または選択したリストやカーソル位置のリストをマインドマップに変換。"
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "設定"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "ショートカット"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " - "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "エディタ"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -11458,7 +11927,7 @@
 			"Properties": {
 				"ID": "20240530101000-xpeqztf",
 				"id": "20240530101000-emapwbq",
-				"updated": "20260926131843"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -11487,7 +11956,7 @@
 			"Properties": {
 				"colgroup": "|",
 				"id": "20240530101000-x5nggv1",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -11995,7 +12464,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -12004,7 +12473,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -12013,7 +12482,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -12048,7 +12517,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -12057,7 +12526,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -12066,7 +12535,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -12141,7 +12610,7 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260924173802-3l46zgy",
-				"updated": "20260926131843"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -12173,7 +12642,7 @@
 				},
 				{
 					"Type": "NodeText",
-					"Data": "（または別の見出しレベル）を選ぶと、選択した項目の箇条書き記号やチェックボックスが取り除かれ、最初のブロックが独立した見出しになります。後続の段落と子リストの順序は保たれ、選択していない項目はリストのまま残ります。リスト全体を選択した場合は直下の項目だけが対象です。最初のブロックを通常の段落にするには、段落のショートカットを使うか、"
+					"Data": " （または別の見出しレベル）を選ぶと、選択した項目の箇条書き記号やチェックボックスが取り除かれ、最初のブロックが独立した見出しになります。後続の段落と子リストの順序は保たれ、選択していない項目はリストのまま残ります。リスト全体を選択した場合は直下の項目だけが対象です。最初のブロックを通常の段落にするには、段落のショートカットを使うか、"
 				},
 				{
 					"Type": "NodeTextMark",
@@ -12707,7 +13176,7 @@
 			"Type": "NodeHeading",
 			"Properties": {
 				"id": "20260921105011-icqlkb6",
-				"updated": "20260926152753"
+				"updated": "20261026090134"
 			},
 			"HeadingLevel": 3,
 			"Children": [
@@ -12718,11 +13187,39 @@
 			]
 		},
 		{
+			"ID": "20261018163000-3gwfc4c",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261018163000-3gwfc4c",
+				"updated": "20261022132341"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "キャンバス上で Esc を押すと閲覧に戻り、ホイールで文書をスクロールできます。ノード編集中や関連線のドラッグ中は、まず現在の操作を終了またはキャンセルします。複数選択モードも終了します。全画面表示では Esc で全画面表示を終了します。"
+				}
+			]
+		},
+		{
+			"ID": "20261018200107-euyzteb",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261018200107-euyzteb",
+				"updated": "20261018200107"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "マウスの中央ボタンを押しながらドラッグしても一時的に移動でき、離すと終了します。手のひらツールへの切り替えは不要です。Ctrl（macOS では Command）を押しながらマウスの右ボタンでキャンバスをドラッグすると、キーボードフォーカスや閲覧状態を変えずに一時的に移動できます。その後も通常のホイール操作で文書をスクロールできます。表示ロック中は使えません。通常モードでは空白部分を左ボタンでドラッグしてもキャンバスは移動しません。手のひらツールでは左ボタンでのドラッグも使えます。"
+				}
+			]
+		},
+		{
 			"ID": "20260921105011-01k7syf",
 			"Type": "NodeTable",
 			"Properties": {
 				"id": "20260921105011-01k7syf",
-				"updated": "20260925094732",
+				"updated": "20261026090134",
 				"colgroup": "|"
 			},
 			"TableAligns": [
@@ -12825,7 +13322,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "子ノードを作成"
+									"Data": "選択中に子ノードを作成"
 								}
 							]
 						},
@@ -12852,7 +13349,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "同階層のノードを作成"
+									"Data": "選択中に同階層のノードを作成"
 								}
 							]
 						},
@@ -12864,6 +13361,168 @@
 									"Type": "NodeTextMark",
 									"TextMarkType": "kbd",
 									"TextMarkTextContent": "Enter"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "最初の段落をカーソル位置で分割して同階層のノードを作成"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Enter"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "編集中の分岐を直前の同階層ノードの子にする"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Tab"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "編集中の分岐を1階層上げる"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Shift+Tab"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "編集中に段落内で改行"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Shift+Enter"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "最初の段落の先頭で本文を直前の同階層ノードに結合"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Backspace"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "最後の段落の末尾で次の同階層ノードの本文を結合"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Delete"
 								}
 							]
 						}
@@ -13041,7 +13700,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "同じ親を持つ前のノードを選択"
+									"Data": "親をまたいで同じ深さの前の可視ノードを選択"
 								}
 							]
 						},
@@ -13068,7 +13727,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "同じ親を持つ次のノードを選択"
+									"Data": "親をまたいで同じ深さの次の可視ノードを選択"
 								}
 							]
 						},
@@ -13209,6 +13868,309 @@
 							]
 						}
 					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "ノードの折りたたみボタンで同じ親ノード配下の兄弟ブランチを折りたたみ／展開"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Alt+クリック"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " / "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "⌥クリック"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "選択したノードの分岐をコピー"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Ctrl+C"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " / "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "⌘C"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "選択したノードの分岐を切り取り"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Ctrl+X"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " / "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "⌘X"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "子ノードとして貼り付け"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Ctrl+V"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " / "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "⌘V"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "同階層のノードとして貼り付け"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Ctrl+Shift+V"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " / "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "⇧⌘V"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20261026090134-ly6n91j",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261026090134-ly6n91j",
+				"updated": "20261026090134"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "ノードの最初の段落を編集中に Enter を押すと、同階層のノードを作成して編集を続けます。カーソル以降の文字と後続のコンテンツブロックは新しいノードに移ります。空でない最初の段落の先頭では、現在のノードの前に空のノードを挿入します。Tab と Shift+Tab は子ノードを保持したまま分岐全体の階層を変更します。先頭で Backspace、末尾で Delete を押すと隣接ノードの本文を結合でき、1つのノードに複数の段落を保持できます。他のコンテンツブロックでは通常の Enter の動作を使います。コードブロック、表、入力メソッド、候補メニューの編集操作は維持され、既存のカスタム編集ショートカットが優先されます。"
+				}
+			]
+		},
+		{
+			"ID": "20261020162345-6y84piz",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261020162345-6y84piz",
+				"updated": "20261020162345"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "キャンバスの空白部分をマウスの左ボタンでドラッグすると、複数のノードを範囲選択できます。"
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Ctrl"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "（macOS では "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Command"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "）を押しながらノードをクリックすると、選択状態を切り替えられます。タッチ画面ではノードを選択し、下部の "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "複数選択"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を有効にしてからノードを個別にタップします。もう一度ボタンを押すか "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Esc"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押すと、このモードを終了します。コピーと切り取りには子ツリー全体が含まれ、親と子を同時に選択しても重複しません。ノードのスタイル、分岐内の関連線、範囲全体が含まれる要約も保持します。ルートノードは切り取れません。クリップボードへの書き込みが失敗した場合やプレーンテキストしか扱えない環境では、元のノードを残します。"
+				}
+			]
+		},
+		{
+			"ID": "20260930234403-cyh3qk6",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20260930234403-cyh3qk6",
+				"updated": "20261020162345"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "ノードを 1 つ選択して "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Ctrl+V"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " / "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "⌘V"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押すと子ノードとして、"
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Ctrl+Shift+V"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " / "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "⇧⌘V"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押すと同階層のノードとして貼り付けます。下部の "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "詳細"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " メニューからもコピー、切り取り、これらの貼り付けを実行できます。マインドマップのノードは元の階層を保持し、通常のテキスト、画像、コンテンツブロックは新しいノードのエディタを通して挿入します。ノードのテキスト編集中は、通常の本文編集と同じ貼り付け動作になります。画像のアップロード中は完了を待ってからノードの編集を終了してください。"
 				}
 			]
 		},
@@ -13217,12 +14179,57 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260926152753-5vwcnw1",
-				"updated": "20260926152753"
+				"updated": "20261024124323"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
-					"Data": "要約範囲の選択中は上下の矢印キーで同じ親を持つ末端のノードを選び、Enter で確定、Esc でキャンセルします。要約テキストの編集中は Enter で保存、Esc でキャンセルします。選択中の要約は Delete または Backspace で削除できます。"
+					"Data": "1 つ以上のノードを選択してから、下部のノードメニューで "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "要約"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を実行すると、有効な全グループを一度に作成し、最初の新しい要約を編集できます。作成は一度の取り消しで元に戻せます。キャンバス上で Esc を押すと複数選択モードを終了します。要約テキストの編集中は Enter で保存、Esc でテキストの編集をキャンセルします。選択中の要約は Delete または Backspace で削除できます。"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "色または幅のパネルが開いているときは、Esc でパネルを閉じ、未保存の幅のプレビューを取り消します。"
+				}
+			]
+		},
+		{
+			"ID": "20261001015635-i5efca0",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261001015635-i5efca0",
+				"updated": "20261001015635"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "マインドマップのサイズ変更ハンドルにキーボードのフォーカスがあるとき、矢印キーで対応する幅または高さを 10 px ずつ変更できます。"
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Shift"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押しながら矢印キーを押すと 1 px ずつ変更します。これらのキーはフォーカス中のサイズ変更ハンドルにのみ作用します。ドラッグ中に "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Esc"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " を押すとサイズ変更をキャンセルします。"
 				}
 			]
 		},
@@ -13233,7 +14240,7 @@
 			"Properties": {
 				"ID": "20240530101000-uqhtil9",
 				"id": "20240530101000-9x0xqew",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -13292,6 +14299,20 @@
 			]
 		},
 		{
+			"ID": "20261010201951-pdtqvt3",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261010201951-pdtqvt3",
+				"updated": "20261010201951"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "テーブルのセルの端で矢印キーを押すと、隣のセルへ移動します。その方向にセルがない場合は、テーブルの外の隣接する文書内容へ移動します。文書の端ではセル内にフォーカスが留まります。"
+				}
+			]
+		},
+		{
 			"ID": "20240530101000-prxsqyv",
 			"Type": "NodeTable",
 			"TableAligns": [
@@ -13301,7 +14322,7 @@
 			"Properties": {
 				"colgroup": "|",
 				"id": "20240530101000-prxsqyv",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -13361,7 +14382,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -13370,7 +14391,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -13396,7 +14417,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -13405,7 +14426,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -13414,7 +14435,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -13440,7 +14461,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -13449,7 +14470,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -13458,7 +14479,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -13484,7 +14505,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -13493,7 +14514,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -13502,7 +14523,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ で設定できます"
+									"Data": " で設定できます"
 								}
 							]
 						}
@@ -13967,6 +14988,108 @@
 							]
 						}
 					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "セル内で編集：段落の作成、リスト項目の追加、コードブロック内の改行"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Enter"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "セル内の段落にソフト改行を挿入"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Shift+Enter"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "セルの編集を終了（候補を先に閉じる）"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Escape"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "通常の内容ではセル移動、リストやコードではインデント／アウトデント"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Tab / Shift+Tab"
+								}
+							]
+						}
+					]
 				}
 			]
 		},
@@ -13976,7 +15099,7 @@
 			"HeadingLevel": 3,
 			"Properties": {
 				"id": "20250423105545-q3l2fg0",
-				"updated": "20260811122156"
+				"updated": "20261016013311"
 			},
 			"Children": [
 				{
@@ -14049,7 +15172,7 @@
 			"Properties": {
 				"colgroup": "min-width: 60px;|min-width: 60px;",
 				"id": "20250423105545-be49765",
-				"updated": "20260811122156"
+				"updated": "20261002224733"
 			},
 			"Children": [
 				{
@@ -14136,6 +15259,128 @@
 							]
 						}
 					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "カーソル位置にインデントを挿入する、または選択行のインデントを増やす"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Tab"
+								}
+							]
+						}
+					]
+				},
+				{
+					"Type": "NodeTableRow",
+					"Data": "tr",
+					"Children": [
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeText",
+									"Data": "現在の行または選択行のインデントを減らす：行頭のタブを1つ、または "
+								},
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Tab スペースの数"
+								},
+								{
+									"Type": "NodeText",
+									"Data": " の設定数を上限として行頭のスペースを削除する（0の場合は最大4個）"
+								}
+							]
+						},
+						{
+							"Type": "NodeTableCell",
+							"Data": "td",
+							"Children": [
+								{
+									"Type": "NodeTextMark",
+									"TextMarkType": "kbd",
+									"TextMarkTextContent": "Shift+Tab"
+								}
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"ID": "20261002230607-6fbe978",
+			"Type": "NodeParagraph",
+			"Properties": {
+				"id": "20261002230607-6fbe978",
+				"updated": "20261016013311"
+			},
+			"Children": [
+				{
+					"Type": "NodeText",
+					"Data": "コードブロックに個別の "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Tab スペースの数"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " が設定されていない場合、インデントの追加・削除時に2行以上の空でないコードから一貫したインデントを検出し、そのブロックの設定として保存します。タブ、または最小幅が2・4・6・8個のスペースで、ほかのインデントもその幅の整数倍になっている場合に検出できます。タブとスペースが混在している場合や判定材料が不足している場合は、"
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "設定"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "エディタ"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "動作"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " - "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "Tab スペースの数"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " の値を使います。明示的なブロック設定が優先されます。検出によって既存のコードが再整形されることはありません。"
 				}
 			]
 		},
@@ -14259,7 +15504,7 @@
 			"Type": "NodeHeading",
 			"Properties": {
 				"id": "20260905124213-unrfwm9",
-				"updated": "20260906013806"
+				"updated": "20261010202520"
 			},
 			"HeadingLevel": 3,
 			"Children": [
@@ -14274,7 +15519,7 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260905124213-fem82m0",
-				"updated": "20260906013806"
+				"updated": "20261010202520"
 			},
 			"Children": [
 				{
@@ -14302,6 +15547,14 @@
 				{
 					"Type": "NodeText",
 					"Data": " を押すと編集を終了して本文に移動します。本文をクリックしてもタイトルの編集を終了できます。"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "上下の矢印キーで、隣接するブロック、現在のタブのタイトル、本文の間を移動できます。タブタイトルの先頭または末尾で左右の矢印キーを押しても、カーソルはタイトル内に留まります。"
+				},
+				{
+					"Type": "NodeText",
+					"Data": "タブタイトルの編集中に Esc を押すと、現在の文字を保持して編集を終了します。"
 				}
 			]
 		},
@@ -14453,7 +15706,7 @@
 			"Properties": {
 				"ID": "20240530101000-kibu4fp",
 				"id": "20240530101000-c14kljt",
-				"updated": "20260811122156"
+				"updated": "20261016202856"
 			},
 			"Children": [
 				{
@@ -14478,7 +15731,7 @@
 			"Properties": {
 				"ID": "20240530101000-qmre11a",
 				"id": "20240530101000-aavgxuh",
-				"updated": "20240530101000"
+				"updated": "20261016202856"
 			},
 			"Children": [
 				{
@@ -14492,7 +15745,7 @@
 				},
 				{
 					"Type": "NodeText",
-					"Data": "​: 以下のショートカットは検索画面でのみ有効です"
+					"Data": "​: 以下のショートカットは検索画面でのみ有効です。"
 				}
 			]
 		},
@@ -14859,7 +16112,7 @@
 			"Properties": {
 				"ID": "20240530101000-f610gee",
 				"id": "20240530101000-6otjesc",
-				"updated": "20260811122156"
+				"updated": "20261016202856"
 			},
 			"Children": [
 				{
@@ -14884,7 +16137,7 @@
 			"Properties": {
 				"ID": "20240530101000-0fnpvg4",
 				"id": "20240530101000-eqzrrlp",
-				"updated": "20240530101000"
+				"updated": "20261016202856"
 			},
 			"Children": [
 				{
@@ -14898,7 +16151,7 @@
 				},
 				{
 					"Type": "NodeText",
-					"Data": "​: 以下のショートカットは PDF にフォーカスが当たっているときに有効です"
+					"Data": "​: 以下のショートカットは PDF にフォーカスが当たっているときに有効です。"
 				}
 			]
 		},
@@ -15926,7 +17179,7 @@
 			"Properties": {
 				"ID": "20240530101000-vrk49kt",
 				"id": "20240530101000-lika2qh",
-				"updated": "20260919234652"
+				"updated": "20261024164629"
 			},
 			"Children": [
 				{
@@ -16888,7 +18141,7 @@
 			"Properties": {
 				"ID": "20240530101000-zk96zon",
 				"id": "20240530101000-ptljayp",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -16908,7 +18161,7 @@
 			"Properties": {
 				"colgroup": "||",
 				"id": "20240530101000-uhcv1tc",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
@@ -17002,7 +18255,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "バックグラウンドで開く"
+									"Data": "ブロック参照：バックグラウンドタブ／グラフノード：フローティングプレビュー"
 								}
 							]
 						},
@@ -17238,7 +18491,7 @@
 			"HeadingLevel": 3,
 			"Properties": {
 				"id": "20240530101000-mifghto",
-				"updated": "20260922150640"
+				"updated": "20261024164629"
 			},
 			"Children": [
 				{
@@ -17252,12 +18505,26 @@
 			"Type": "NodeParagraph",
 			"Properties": {
 				"id": "20260922150640-g5u649a",
-				"updated": "20260923212237"
+				"updated": "20261016202856"
 			},
 			"Children": [
 				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "文書アイコンをクリックしたとき"
+				},
+				{
 					"Type": "NodeText",
-					"Data": "親文書のタイトルをクリックして子文書を展開または折りたたむ設定が有効な場合、ドキュメントツリーやピン留めした文書で親文書のタイトルをクリックまたはタップすると、少し待ってから子文書を展開または折りたたみます。タイトルをダブルクリックまたはダブルタップすると、展開状態を変えずに親文書を開きます。子文書がない場合は、これまでどおり1回のクリックまたはタップで直接開きます"
+					"Data": " と "
+				},
+				{
+					"Type": "NodeTextMark",
+					"TextMarkType": "kbd",
+					"TextMarkTextContent": "親文書のタイトルをクリックしたとき"
+				},
+				{
+					"Type": "NodeText",
+					"Data": " では、ドキュメントツリーやピン留めした文書でクリック時の動作を選べます。「子文書を展開または折りたたむ」はその場で展開または折りたたみ、「子文書を展開または折りたたむ（ダブルクリックで親文書を開く）」はダブルクリックまたはダブルタップで展開状態を変えずに親文書を開き、シングルクリックまたはタップは約 300 ミリ秒待って判定します。親文書は文書メニューから引き続き開けます。子文書がない場合は、1 回のクリックまたはタップで直接開き、文書アイコンは開ける文書があれば開き、それ以外はアイコンを変更します。ノートブックのアイコンは常にアイコンの変更にのみ使われます。"
 				}
 			]
 		},
@@ -17272,7 +18539,7 @@
 			"Properties": {
 				"colgroup": "||",
 				"id": "20240530101000-4iuhg30",
-				"updated": "20260913160005"
+				"updated": "20261024164629"
 			},
 			"Children": [
 				{
@@ -17669,7 +18936,7 @@
 							"Children": [
 								{
 									"Type": "NodeText",
-									"Data": "​ "
+									"Data": ""
 								},
 								{
 									"Type": "NodeTextMark",
@@ -17678,7 +18945,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -17687,7 +18954,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": "​ - "
+									"Data": " - "
 								},
 								{
 									"Type": "NodeTextMark",
@@ -17696,7 +18963,7 @@
 								},
 								{
 									"Type": "NodeText",
-									"Data": " ​ が有効な場合"
+									"Data": " が有効な場合"
 								}
 							]
 						}
@@ -17721,17 +18988,9 @@
 							"Data": "td",
 							"Children": [
 								{
-									"Type": "NodeText",
-									"Data": "​"
-								},
-								{
 									"Type": "NodeTextMark",
 									"TextMarkType": "kbd",
-									"TextMarkTextContent": "⌥ドラッグ"
-								},
-								{
-									"Type": "NodeText",
-									"Data": "​"
+									"TextMarkTextContent": "ドラッグ"
 								}
 							]
 						},
@@ -17806,12 +19065,12 @@
 			"HeadingLevel": 3,
 			"Properties": {
 				"id": "20250407200617-qvyo3wq",
-				"updated": "20260811122156"
+				"updated": "20261024163013"
 			},
 			"Children": [
 				{
 					"Type": "NodeText",
-					"Data": "タブパネル"
+					"Data": "タグパネル"
 				}
 			]
 		},

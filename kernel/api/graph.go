@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
@@ -27,15 +15,13 @@ import (
 
 var resetGraph = contractHandler(apicontract.ResetGraph, func(c *gin.Context, request apicontract.EmptyRequest) apicontract.Response[apicontract.ResetGraphData] {
 	graph := conf.NewGlobalGraph()
-	model.Conf.Graph.Global = graph
-	model.Conf.Save()
+	model.UpdateGraphConf(func(g *conf.Graph) bool { g.Global = graph; return true })
 	return apicontract.Success(apicontract.ResetGraphData{Conf: globalGraphContract(graph)})
 })
 
 var resetLocalGraph = contractHandler(apicontract.ResetLocalGraph, func(c *gin.Context, request apicontract.EmptyRequest) apicontract.Response[apicontract.ResetLocalGraphData] {
 	graph := conf.NewLocalGraph()
-	model.Conf.Graph.Local = graph
-	model.Conf.Save()
+	model.UpdateGraphConf(func(g *conf.Graph) bool { g.Local = graph; return true })
 	return apicontract.Success(apicontract.ResetLocalGraphData{Conf: localGraphContract(graph)})
 })
 
@@ -60,8 +46,7 @@ var setGraphConf = contractHandler(apicontract.SetGraphConf, func(c *gin.Context
 			return apicontract.Failure[apicontract.GraphConfigurationData](-1, err.Error())
 		}
 		if model.IsAdminRoleContext(c) && !model.IsReadOnlyRoleContext(c) {
-			model.Conf.Graph.Global = global
-			model.Conf.Save()
+			model.UpdateGraphConf(func(g *conf.Graph) bool { g.Global = global; return true })
 		}
 		return apicontract.Success(apicontract.GlobalGraphConfiguration(globalGraphContract(global)))
 	case "local":
@@ -70,8 +55,7 @@ var setGraphConf = contractHandler(apicontract.SetGraphConf, func(c *gin.Context
 			return apicontract.Failure[apicontract.GraphConfigurationData](-1, err.Error())
 		}
 		if model.IsAdminRoleContext(c) && !model.IsReadOnlyRoleContext(c) {
-			model.Conf.Graph.Local = local
-			model.Conf.Save()
+			model.UpdateGraphConf(func(g *conf.Graph) bool { g.Local = local; return true })
 		}
 		return apicontract.Success(apicontract.LocalGraphConfiguration(localGraphContract(local)))
 	default:
@@ -95,8 +79,7 @@ var getGraph = contractHandler(apicontract.GetGraph, func(c *gin.Context, reques
 	}
 
 	if model.IsAdminRoleContext(c) && !model.IsReadOnlyRoleContext(c) {
-		model.Conf.Graph.Global = global
-		model.Conf.Save()
+		model.Conf.SaveGraphQueryConf(global, nil)
 	}
 
 	boxID, nodes, links := model.BuildGraph(query)
@@ -134,8 +117,7 @@ var getLocalGraph = contractHandler(apicontract.GetLocalGraph, func(c *gin.Conte
 	}
 
 	if model.IsAdminRoleContext(c) && !model.IsReadOnlyRoleContext(c) {
-		model.Conf.Graph.Local = local
-		model.Conf.Save()
+		model.Conf.SaveGraphQueryConf(nil, local)
 	}
 
 	boxID, nodes, links := model.BuildTreeGraph(id, keyword)

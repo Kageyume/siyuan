@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 type SystemAppConf struct {
@@ -22,6 +26,7 @@ type SystemAppConf struct {
 	Search         *SettingSearch        `json:"search" api:"optional,nullable"`
 	Flashcard      *SettingFlashcard     `json:"flashcard" api:"optional,nullable"`
 	AI             *SettingAI            `json:"ai" api:"optional,nullable"`
+	OCR            *SettingOCR           `json:"ocr" api:"optional,nullable"`
 	Secrets        *SettingSecrets       `json:"secrets" api:"optional,nullable"`
 	Variables      *SettingVariables     `json:"variables" api:"optional,nullable"`
 	Bazaar         *SettingBazaar        `json:"bazaar" api:"optional,nullable"`
@@ -134,6 +139,7 @@ type SystemSystem struct {
 	DisabledFeatures                  []string            `json:"disabledFeatures" api:"optional,nullable"`
 	MicrosoftDefenderExcluded         bool                `json:"microsoftDefenderExcluded" api:"optional,nullable"`
 	SafeMode                          bool                `json:"safeMode" api:"optional,nullable"`
+	SettingsWindow                    bool                `json:"settingsWindow" api:"optional,nullable"`
 }
 
 type SystemNetworkProxy struct {

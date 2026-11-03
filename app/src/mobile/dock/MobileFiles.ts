@@ -1,10 +1,12 @@
-import {hasClosestByClassName, hasClosestByTag, hasTopClosestByTag} from "../../protyle/util/hasClosest";
-import {escapeHtml} from "../../util/escape";
+import {config as configApi} from "../../config/util/configApi";
+import {hasClosestByClassName, hasTopClosestByTag} from "../../protyle/util/hasClosest";
+import {escapeHtml, escapeHtmlTextAndAttr} from "../../util/escape";
 import {getTreeItemTailHTML} from "../../util/treeItemTail";
 import {Model} from "../../layout/Model";
 import {Constants} from "../../constants";
 import {getDocDisplayName, isMoveTargetAllowed, pathPosix, setNoteBook} from "../../util/pathName";
 import {initFileMenu, initNavigationMenu, sortMenu} from "../../menus/navigation";
+import {toggleMenu} from "../../menus/menuToggle";
 import {
     getPublishAccessLevel,
     getPublishAccessOptionByLevel,
@@ -12,6 +14,8 @@ import {
 } from "../../protyle/util/publishAccess";
 import {fetchPost, fetchSyncPost} from "../../util/fetch";
 import {restoreFileTreePaths} from "../../util/fileTreeRestore";
+import {saveOpenFileTreePaths} from "../../util/fileTreePaths";
+import {removeFileTreeItems} from "../../util/fileTreeRemove";
 import {reorderSortedFileTree} from "../../util/fileTreeReorder";
 import {genUUID} from "../../util/genID";
 import {openMobileFileById} from "../editor";
@@ -27,7 +31,6 @@ import {MenuItem} from "../../menus/Menu";
 import type {App} from "../../index";
 import {refreshFileTree} from "../../dialog/processSystem";
 import {confirmDialog} from "../../dialog/confirmDialog";
-import {setStorageVal} from "../../protyle/util/compatibility";
 import {showMessage} from "../../dialog/message";
 import {dragOverScroll, stopScrollAnimation} from "../../boot/globalEvent/dragover";
 import {
@@ -62,6 +65,7 @@ import {MobileOpenedFileSelection} from "./mobileOpenedFileSelection";
 import {insertMobileMultiSelectMenu, renderMultiSelectToolbar, updateMultiSelectToolbar} from "../util/multiSelectToolbar";
 import {PinnedDocs} from "../../layout/dock/PinnedDocs";
 import {ParentDocClick} from "../../layout/dock/parentDocClick";
+import {emitToPlugins} from "../../plugin/EventBusCore";
 
 export class MobileFiles extends Model {
     public element: HTMLElement;
@@ -93,7 +97,7 @@ export class MobileFiles extends Model {
             type: "filetree",
             msgCallback: this.handleMsgCallback.bind(this)
         });
-        filesElement.innerHTML = `<div class="toolbar toolbar--border toolbar--dark">
+        filesElement.innerHTML = `<div class="toolbar toolbar--dark">
     <div class="fn__space"></div>
     <div class="toolbar__text">${window.siyuan.languages.fileTree}</div>
     <div class="fn__space"></div>
@@ -164,7 +168,7 @@ export class MobileFiles extends Model {
             let target = event.target as HTMLElement;
             const parentTitle = target.closest<HTMLElement>(".b3-list-item__text");
             const parentRow = parentTitle?.parentElement;
-            const isParentTitle = window.siyuan.config.fileTree.parentDocClickExpand &&
+            const isParentTitle = window.siyuan.config.fileTree.parentDocTitleClickMode !== 0 &&
                 !!parentRow?.getAttribute("data-node-id") && Number(parentRow.getAttribute("data-count")) > 0;
             if (!isParentTitle) {
                 this.parentDocClick.cancel();
@@ -296,15 +300,23 @@ export class MobileFiles extends Model {
                             if (type === "new") {
                                 newFileInTree(app, notebookId, pathString);
                             } else if (type === "more-root") {
-                                initNavigationMenu(app, target.parentElement);
-                                this.insertMultiSelectMenu(target.parentElement);
-                                window.siyuan.menus.menu.fullscreen("bottom");
+                                toggleMenu({
+                                    target: target, build: () => {
+                                        initNavigationMenu(app, target.parentElement);
+                                        this.insertMultiSelectMenu(target.parentElement);
+                                        window.siyuan.menus.menu.fullscreen("bottom");
+                                    }
+                                });
                             }
                         }
                         if (type === "more-file") {
-                            initFileMenu(app, notebookId, pathString, target.parentElement);
-                            this.insertMultiSelectMenu(target.parentElement);
-                            window.siyuan.menus.menu.fullscreen("bottom");
+                            toggleMenu({
+                                target: target, build: () => {
+                                    initFileMenu(app, notebookId, pathString, target.parentElement);
+                                    this.insertMultiSelectMenu(target.parentElement);
+                                    window.siyuan.menus.menu.fullscreen("bottom");
+                                }
+                            });
                         }
                     }
                     event.preventDefault();
@@ -315,7 +327,7 @@ export class MobileFiles extends Model {
                     const ulElement = hasTopClosestByTag(target, "UL");
                     const notebookId = ulElement ? ulElement.getAttribute("data-url") : "";
                     if (target.getAttribute("data-type") === "navigation-file") {
-                        if (window.siyuan.config.fileTree.parentDocClickExpand && Number(target.getAttribute("data-count")) > 0) {
+                        if (window.siyuan.config.fileTree.parentDocTitleClickMode !== 0 && Number(target.getAttribute("data-count")) > 0) {
                             if (parentRow === target) {
                                 this.handleParentDocClick(target, notebookId);
                             } else {
@@ -328,7 +340,7 @@ export class MobileFiles extends Model {
                     } else if (target.getAttribute("data-type") === "navigation-root") {
                         const boxDocID = target.getAttribute("data-node-id");
                         if (boxDocID) {
-                            if (window.siyuan.config.fileTree.parentDocClickExpand && Number(target.getAttribute("data-count")) > 0) {
+                            if (window.siyuan.config.fileTree.parentDocTitleClickMode !== 0 && Number(target.getAttribute("data-count")) > 0) {
                                 if (parentRow === target) {
                                     this.handleParentDocClick(target, notebookId);
                                 } else {
@@ -355,6 +367,7 @@ export class MobileFiles extends Model {
 
             const touch = event.touches[0];
             const target = touch.target as HTMLElement;
+            if (this.pinnedDocs.element.contains(target)) return;
             const liElement = target.closest(".b3-list-item") as HTMLElement;
             if (!liElement) return;
 
@@ -707,6 +720,7 @@ export class MobileFiles extends Model {
                     break;
                 case "mount":
                     this.onMount(data);
+                    emitToPlugins("opened-notebook", data);
                     break;
                 case "createnotebook":
                     setNoteBook((notebooks) => {
@@ -728,6 +742,9 @@ export class MobileFiles extends Model {
                     break;
                 case "closeBox":
                 case "removeBox":
+                    this.onRemove(data);
+                    emitToPlugins("closed-notebook", data);
+                    break;
                 case "removeDoc":
                     this.onRemove(data);
                     break;
@@ -829,35 +846,30 @@ export class MobileFiles extends Model {
     }
 
     private genSort() {
-        window.siyuan.menus.menu.remove();
-        const subMenu = sortMenu("notebooks", window.siyuan.config.fileTree.sort, (sort) => {
-            if (sort === null) {
-                return;
-            }
-            fetchPost("/api/setting/setFiletree", {
-                ...window.siyuan.config.fileTree,
-                sort,
-            }, (response) => {
-                if (response.code !== 0) {
-                    return;
-                }
-                window.siyuan.config.fileTree = {
-                        ...response.data,
-                        tabStartupMode: response.data.tabStartupMode === 1 ? 1 : response.data.tabStartupMode === 2 ? 2 : 0,
-                    };
-                this.onDocSortModeChanged({
-                    scope: "global",
-                    box: "",
-                    id: "",
-                    path: "/",
-                    sortMode: sort,
+        toggleMenu({
+            target: this.element.querySelector("[data-type=sort]"),
+            build: (_menu, session) => {
+                const subMenu = sortMenu("notebooks", window.siyuan.config.fileTree.sort, (sort) => {
+                    if (sort === null) {
+                        return;
+                    }
+                    configApi.set("fileTree.sort", sort, () => {
+                        this.onDocSortModeChanged({
+                            scope: "global",
+                            box: "",
+                            id: "",
+                            path: "/",
+                            sortMode: sort,
+                        });
+                    });
                 });
-            });
+                subMenu.forEach((item) => {
+                    window.siyuan.menus.menu.append(new MenuItem(item).element);
+                });
+                session.show(() => window.siyuan.menus.menu.fullscreen("bottom"));
+
+            },
         });
-        subMenu.forEach((item) => {
-            window.siyuan.menus.menu.append(new MenuItem(item).element);
-        });
-        window.siyuan.menus.menu.fullscreen("bottom");
     }
 
     private updateItemArrow(notebookId: string, filePath: string) {
@@ -988,7 +1000,7 @@ export class MobileFiles extends Model {
     ${emojiHTML}
     ${switchHTML}
     <span class="b3-list-item__text${item.closed ? " ft__on-surface" : ""}">${escapeHtml(item.name)}</span>
-    <span data-type="more-root" class="b3-list-item__action${(window.siyuan.config.readonly || item.closed) ? " fn__none" : ""}">
+    <span data-type="more-root" data-menu="true" class="b3-list-item__action${(window.siyuan.config.readonly || item.closed) ? " fn__none" : ""}">
         <svg><use xlink:href="#iconMore"></use></svg>
     </span>
     <span data-type="new" class="b3-list-item__action${(window.siyuan.config.readonly || item.closed) ? " fn__none" : ""}">
@@ -1177,65 +1189,12 @@ export class MobileFiles extends Model {
     }
 
     private onRemove(data: IWebSocketData) {
-        // "doc2heading" 后删除文件或挂载帮助文档前的 unmount
-        if (data.cmd === "closeBox" || data.cmd === "removeBox") {
-            setNoteBook((notebooks) => {
-                const targetElement = this.element.querySelector(`ul[data-url="${data.data.box}"] li[data-path="${"/"}"]`);
-                if (targetElement) {
-                    targetElement.parentElement.remove();
-                    if (data.cmd === "closeBox") {
-                        let closeHTML = "";
-                        notebooks.find(item => {
-                            if (item.closed) {
-                                closeHTML += this.genNotebook(item);
-                            }
-                        });
-                        this.closeElement.lastElementChild.innerHTML = closeHTML;
-                        const counterElement = this.closeElement.querySelector(".counter");
-                        counterElement.textContent = (parseInt(counterElement.textContent) + 1).toString();
-                        this.closeElement.classList.remove("fn__none");
-                    }
-                }
-            });
-            if (data.cmd === "removeBox") {
-                const removeElement = this.closeElement.querySelector(`li[data-url="${data.data.box}"]`);
-                if (removeElement) {
-                    removeElement.remove();
-                    const counterElement = this.closeElement.querySelector(".counter");
-                    counterElement.textContent = (parseInt(counterElement.textContent) - 1).toString();
-                    if (counterElement.textContent === "0") {
-                        this.closeElement.classList.add("fn__none");
-                    }
-                }
-            }
-            return;
-        }
-        data.data.ids.forEach((item: string) => {
-            const targetElement = this.element.querySelector(`li.b3-list-item[data-node-id="${item}"]`);
-            if (targetElement) {
-                // 子节点展开则删除
-                if (targetElement.nextElementSibling?.tagName === "UL") {
-                    targetElement.nextElementSibling.remove();
-                }
-                // 移除当前节点
-                const parentElement = targetElement.parentElement.previousElementSibling as HTMLElement;
-                if (targetElement.parentElement.childElementCount === 1) {
-                    if (parentElement) {
-                        const iconElement = parentElement.querySelector("svg");
-                        iconElement.classList.remove("b3-list-item__arrow--open");
-                        if (parentElement.dataset.type !== "navigation-root" || parentElement.dataset.nodeId) {
-                            iconElement.parentElement.classList.add("fn__hidden");
-                        }
-                        parentElement.setAttribute("data-count", "0");
-                        this.updateDocActionElement(parentElement);
-                        syncFileTreeItemDefaultIcon(parentElement);
-                    }
-                    targetElement.parentElement.remove();
-                } else {
-                    targetElement.remove();
-                }
-            }
-        });
+        removeFileTreeItems({
+            element: this.element,
+            closeElement: this.closeElement,
+            genNotebook: (notebook) => this.genNotebook(notebook),
+            updateDocActionElement: (element) => this.updateDocActionElement(element),
+        }, data);
     }
 
     public onRename(data: { path: string, title: string, box: string }) {
@@ -1426,25 +1385,17 @@ export class MobileFiles extends Model {
     }
 
     private async onLsSelect(data: IFileTreeList, filePath: string, setStorage: boolean, isSetCurrent: boolean) {
-        let fileHTML = "";
-        data.files.forEach((item: IFile) => {
-            fileHTML += this.genFileHTML(item);
-        });
-        if (fileHTML === "") {
+        if (data.files.length === 0) {
             return;
         }
         const liElement = this.element.querySelector(`ul[data-url="${data.box}"] li[data-path="${data.path}"]`);
-        if (liElement.nextElementSibling && liElement.nextElementSibling.tagName === "UL") {
-            // 文件展开时，刷新
-            liElement.nextElementSibling.remove();
+        if (!liElement) {
+            return;
         }
         const arrowElement = liElement.querySelector(".b3-list-item__arrow");
-        arrowElement.classList.add("b3-list-item__arrow--open");
         arrowElement.parentElement.classList.remove("fn__hidden");
         syncFileTreeItemDefaultIcon(liElement as HTMLElement);
-        const effectiveSortMode = getResponseEffectiveSortMode(data, data.box);
-        liElement.insertAdjacentHTML("afterend", `<ul ${FILE_TREE_EFFECTIVE_SORT_MODE}="${effectiveSortMode}">${fileHTML}</ul>`);
-        this.restoreMovedExpandedItems(liElement.nextElementSibling, data.box);
+        this.onLsHTML(data);
         let newLiElement;
         for (let i = 0; i < data.files.length; i++) {
             const item = data.files[i];
@@ -1483,11 +1434,34 @@ export class MobileFiles extends Model {
 
     private handleParentDocClick(item: HTMLElement, notebookId: string) {
         const docId = item.getAttribute("data-node-id");
-        this.parentDocClick.click(item, async () => () => {
-            if (window.siyuan.config.fileTree.parentDocClickExpand && item.getAttribute("data-node-id") === docId &&
-                Number(item.getAttribute("data-count")) > 0) {
-                this.toggleTreeItem(item);
-            }
+        // 单击展开且不双击打开时立即切换，无需等待双击判定
+        if (window.siyuan.config.fileTree.parentDocTitleClickMode !== 2) {
+            this.parentDocClick.cancel();
+            this.toggleTreeItem(item);
+            return;
+        }
+        this.parentDocClick.click(item, async () => {
+            const expanded = !!item.querySelector(".b3-list-item__arrow--open");
+            const path = item.getAttribute("data-path");
+            const response = expanded ? undefined : await fetchSyncPost("/api/filetree/listDocsByPath", {
+                notebook: notebookId,
+                path,
+                app: Constants.SIYUAN_APPID,
+            });
+            return () => {
+                if (window.siyuan.config.fileTree.parentDocTitleClickMode !== 2 ||
+                    item.getAttribute("data-node-id") !== docId || item.getAttribute("data-path") !== path ||
+                    Number(item.getAttribute("data-count")) <= 0 ||
+                    !!item.querySelector(".b3-list-item__arrow--open") !== expanded) { return; }
+                if (expanded) {
+                    this.toggleTreeItem(item);
+                } else if (response.code === 0) {
+                    this.onLsHTML(response.data);
+                    this.getOpenPaths();
+                    this.setCurrent(item, false);
+                    window.siyuan.menus.menu.remove();
+                }
+            };
         }, () => openMobileFileById(this.app, docId, [Constants.CB_GET_SCROLL], undefined, notebookId));
     }
 
@@ -1662,38 +1636,7 @@ export class MobileFiles extends Model {
     }
 
     private getOpenPaths() {
-        const filesPaths: IFilesPath[] = [];
-        this.element.querySelectorAll(".b3-list[data-url]").forEach((item: HTMLElement) => {
-            const notebookPaths: IFilesPath = {
-                notebookId: item.getAttribute("data-url"),
-                openPaths: []
-            };
-            item.querySelectorAll(".b3-list-item__arrow--open").forEach((openItem) => {
-                const liElement = hasClosestByTag(openItem, "LI");
-                if (liElement) {
-                    notebookPaths.openPaths.push(liElement.getAttribute("data-path"));
-                }
-            });
-            if (notebookPaths.openPaths.length > 0) {
-                for (let i = 0; i < notebookPaths.openPaths.length; i++) {
-                    for (let j = i + 1; j < notebookPaths.openPaths.length; j++) {
-                        if (notebookPaths.openPaths[j].startsWith(notebookPaths.openPaths[i].replace(".sy", ""))) {
-                            notebookPaths.openPaths.splice(i, 1);
-                            j--;
-                        }
-                    }
-                }
-                notebookPaths.openPaths.forEach((openPath, index) => {
-                    const nextPath = this.element.querySelector(`[data-url="${notebookPaths.notebookId}"] li[data-path="${openPath}"]`)?.nextElementSibling?.firstElementChild?.getAttribute("data-path");
-                    if (nextPath) {
-                        notebookPaths.openPaths[index] = nextPath;
-                    }
-                });
-                filesPaths.push(notebookPaths);
-            }
-        });
-        window.siyuan.storage[Constants.LOCAL_FILESPATHS] = filesPaths;
-        setStorageVal(Constants.LOCAL_FILESPATHS, filesPaths);
+        saveOpenFileTreePaths(this.element);
     }
 
     private genFileHTML = (item: IFile) => {
@@ -1704,13 +1647,13 @@ export class MobileFiles extends Model {
         const paddingLeft = (item.path.split("/").length - 1) * 20;
         const editingPublishAccess = this.actionsElement.querySelector('[data-type="publish-access"]').classList.contains("block__icon--active");
         const defaultIcon = item.subFileCount === 0 ? "file" : "folder";
-        const actionHTML = `<span data-type="more-file" class="b3-list-item__action b3-tooltips b3-tooltips__nw" aria-label="${window.siyuan.languages.more}">
+        const actionHTML = `<span data-type="more-file" data-menu="true" class="b3-list-item__action b3-tooltips b3-tooltips__nw" aria-label="${window.siyuan.languages.more}">
         <svg><use xlink:href="#iconMore"></use></svg>
     </span>
     <span data-type="new" class="b3-list-item__action b3-tooltips b3-tooltips__nw${window.siyuan.config.readonly ? " fn__none" : ""}" aria-label="${window.siyuan.languages.newSubDoc}">
         <svg><use xlink:href="#iconAdd"></use></svg>
     </span>`;
-        return `<li data-node-id="${item.id}" data-name="${Lute.EscapeHTMLStr(item.name)}" data-count="${item.subFileCount}" ${FILE_TREE_CHILDREN_SORT_MODE}="${item.childrenSortMode ?? ""}" data-type="navigation-file"
+        return `<li data-node-id="${item.id}" data-name="${escapeHtmlTextAndAttr(item.name)}" data-count="${item.subFileCount}" ${FILE_TREE_CHILDREN_SORT_MODE}="${item.childrenSortMode ?? ""}" data-type="navigation-file"
 class="b3-list-item" data-path="${item.path}" style="--file-toggle-width:${paddingLeft + 20}px"${getFileTreeDefaultIconAttr(item.icon, defaultIcon)}>
     <span style="padding-left: ${paddingLeft}px" class="b3-list-item__toggle${item.subFileCount === 0 ? " fn__hidden" : ""}">
         <svg class="b3-list-item__arrow"><use xlink:href="#iconRight"></use></svg>

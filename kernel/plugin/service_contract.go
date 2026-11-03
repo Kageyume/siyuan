@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package plugin
 
 import (
@@ -76,10 +80,10 @@ func preparePluginService(c *gin.Context, scope AccessScope) apicontract.Respons
 	if response == nil {
 		return pluginServiceStream(apicontract.PluginServiceEmpty, 500, func() { c.Status(500) })
 	}
-	return pluginServiceHTTPResponse(c, name, response)
+	return pluginServiceHTTPResponse(p, c, name, response)
 }
 
-func pluginServiceHTTPResponse(c *gin.Context, name string, response *HttpResponse) apicontract.Response[apicontract.PluginServiceContent] {
+func pluginServiceHTTPResponse(p *KernelPlugin, c *gin.Context, name string, response *HttpResponse) apicontract.Response[apicontract.PluginServiceContent] {
 
 	// 插件头的重复值依次覆盖，Cookie 则逐个追加。
 	for headerKey, headerValues := range response.Headers {
@@ -144,6 +148,8 @@ func pluginServiceHTTPResponse(c *gin.Context, name string, response *HttpRespon
 			return pluginServiceStream(apicontract.PluginServiceRedirect, response.StatusCode, func() { c.Redirect(response.StatusCode, response.Body.Redirect.Location) })
 		} else if response.Body.Proxy != nil {
 			return pluginServiceStream(apicontract.PluginServiceProxy, 200, func() { writeProxyResponse(c, response.Body.Proxy) })
+		} else if response.Body.Stream != nil {
+			return pluginServiceStream(apicontract.PluginServiceStream, response.StatusCode, func() { p.writeStreamResponse(c, response.StatusCode, response.Body.Stream) })
 		}
 	}
 	return pluginServiceStream(apicontract.PluginServiceEmpty, response.StatusCode, func() { c.Status(response.StatusCode) })

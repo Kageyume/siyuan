@@ -1,14 +1,44 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 	"testing"
 )
 
+func TestRepoSnapshotTimeRangeContract(t *testing.T) {
+	for _, body := range []string{`{"page":1}`, `{"page":1.75,"startTime":0,"endTime":0}`,
+		`{"page":1,"startTime":1790000000000}`, `{"page":1,"endTime":1790000000000}`,
+		`{"page":1,"startTime":1790000000000,"endTime":1790086400000}`} {
+		local, err := GetRepoSnapshots.Decode(strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("local range: %s %v", body, err)
+		}
+		cloud, err := GetCloudRepoSnapshots.Decode(strings.NewReader(body))
+		if err != nil || local.RepoSnapshotTimeRange != cloud.RepoSnapshotTimeRange || local.Page != cloud.Page {
+			t.Fatalf("cloud range: %s %v", body, err)
+		}
+	}
+	for _, body := range []string{`{"page":1,"startTime":null}`, `{"page":1,"endTime":"1"}`,
+		`{"page":1,"startTime":-1}`, `{"page":1,"endTime":1.5}`, `{"page":1,"startTime":true}`,
+		`{"page":1,"startTime":2,"endTime":1}`, `{"page":1,"startTime":1,"endTime":1}`} {
+		if _, err := GetRepoSnapshots.Decode(strings.NewReader(body)); err == nil {
+			t.Fatalf("local range accepted: %s", body)
+		}
+		if _, err := GetCloudRepoSnapshots.Decode(strings.NewReader(body)); err == nil {
+			t.Fatalf("cloud range accepted: %s", body)
+		}
+	}
+}
+
 func TestRepoSnapshotIDContract(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
-		body, _ := json.Marshal(map[string]interface{}{"page": 1, "includeFiles": enabled})
+		body, _ := json.Marshal(map[string]any{"page": 1, "includeFiles": enabled})
 		request, err := GetRepoSnapshots.Decode(strings.NewReader(string(body)))
 		if err != nil || request.IncludeFiles != enabled {
 			t.Fatalf("includeFiles: %+v %v", request, err)
@@ -40,6 +70,21 @@ func TestSnapshotContracts(t *testing.T) {
 	for _, body := range []string{`{}`, `{"memo":""}`, `{"memo":"note"}`} {
 		if _, err := CreateSnapshot.Decode(strings.NewReader(body)); err != nil {
 			t.Fatalf("optional memo rejected: %s %v", body, err)
+		}
+	}
+	for _, full := range []bool{false, true} {
+		body, err := json.Marshal(map[string]any{"memo": "note", "fullCheck": full})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request, err := CreateSnapshot.Decode(bytes.NewReader(body))
+		if err != nil || request.FullCheck != full {
+			t.Fatalf("full check decoding: %+v %v", request, err)
+		}
+	}
+	for _, body := range []string{`{"fullCheck":null}`, `{"fullCheck":"true"}`, `{"fullCheck":1}`} {
+		if _, err := CreateSnapshot.Decode(strings.NewReader(body)); err == nil {
+			t.Fatalf("invalid full check accepted: %s", body)
 		}
 	}
 	for _, body := range []string{`{"memo":null}`, `{"memo":1}`, `[]`} {

@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
@@ -28,7 +16,12 @@ var loadPetals = contractHandler(apicontract.LoadPetals, func(c *gin.Context, re
 	if model.IsReadOnlyRoleContext(c) {
 		c.Header("Cache-Control", "private, no-store")
 	}
-	values := model.LoadPetals(request.Frontend, model.IsReadOnlyRoleContext(c))
+	var values []*model.Petal
+	if request.SettingsWindow {
+		values = model.LoadSettingsWindowPetals(request.Frontend, model.IsReadOnlyRoleContext(c))
+	} else {
+		values = model.LoadPetals(request.Frontend, model.IsReadOnlyRoleContext(c))
+	}
 	var result []*apicontract.Petal
 	if values != nil {
 		result = make([]*apicontract.Petal, len(values))

@@ -1,22 +1,56 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package tools
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/88250/lute/ast"
 	"github.com/siyuan-note/siyuan/kernel/av"
+	"github.com/siyuan-note/siyuan/kernel/conf"
 	"github.com/siyuan-note/siyuan/kernel/model"
 	"github.com/siyuan-note/siyuan/kernel/util"
 )
+
+func TestDatabaseToolsRejectIncompleteUnusedScan(t *testing.T) {
+	previousConf, previousData, previousWorkspace := model.Conf, util.DataDir, util.WorkspaceDir
+	model.Conf = model.NewAppConf()
+	model.Conf.FileTree.Store(conf.NewFileTree())
+	util.WorkspaceDir = t.TempDir()
+	util.DataDir = filepath.Join(util.WorkspaceDir, "data")
+	t.Cleanup(func() { model.Conf, util.DataDir, util.WorkspaceDir = previousConf, previousData, previousWorkspace })
+	box := &model.Box{ID: "20260918000000-abcdefg"}
+	if err := box.SaveConf(conf.NewBoxConf()); err != nil {
+		t.Fatal(err)
+	}
+	docPath := filepath.Join(util.DataDir, box.ID, "20260918000001-abcdefg.sy")
+	if err := os.WriteFile(docPath, []byte(`{"Type":"NodeDocument","Spec":"99"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	const id = "20260913000000-unused1"
+	avPath := filepath.Join(util.DataDir, "storage", "av", id+".json")
+	if err := os.MkdirAll(filepath.Dir(avPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(avPath, []byte(`{"id":"`+id+`","spec":2,"name":"Protected"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range []map[string]any{{"action": "unused"}, {"action": "clean"}, {"action": "clean", "id": id}} {
+		result, err := DatabaseTool.Handler(args)
+		if err != nil || !result.IsError || len(result.Content) == 0 || !strings.Contains(result.Content[0].Text, filepath.Base(docPath)) {
+			t.Fatalf("database scan failure was hidden: args=%v result=%+v err=%v", args, result, err)
+		}
+	}
+	if _, err := os.Stat(avPath); err != nil {
+		t.Fatalf("rejected cleanup removed the database: %v", err)
+	}
+}
 
 func TestDatabaseStructuredRenderOutput(t *testing.T) {
 	attrView := &av.AttributeView{ID: "20260806000000-avtest1", Name: "Tasks"}

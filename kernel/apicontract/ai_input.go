@@ -1,8 +1,13 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -61,6 +66,26 @@ func aiProviderFields(fields fileTreeFields) AIProviderRequest {
 }
 
 func init() {
+	// 空请求兼容已保存配置测试；草稿仍使用契约字段校验，不能吞掉损坏的 JSON。
+	AITestDecisionModel.decodeRequest = func(reader io.Reader) (request AIDecisionTestRequest, err error) {
+		var fields map[string]json.RawMessage
+		decoder := json.NewDecoder(reader)
+		if err = decoder.Decode(&fields); err != nil {
+			if errors.Is(err, io.EOF) {
+				return request, nil
+			}
+			return request, err
+		}
+		var trailing json.RawMessage
+		if err = decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+			return request, errors.New("decision test requires a single JSON object")
+		}
+		_, providerPresent := fields["provider"]
+		_, profilePresent := fields["profile"]
+		request.draft = providerPresent || profilePresent
+		err = decodeRequestFields(reflect.ValueOf(&request).Elem(), fields)
+		return
+	}
 	aiStructDecoder(&AIEditorChat, "aiEditorChatReq")
 	aiStructDecoder(&AIAgentChat, "agentChatReq")
 	aiStructDecoder(&AIGetSession, "agentSessionGetReq")

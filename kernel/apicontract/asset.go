@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -12,6 +16,23 @@ type AssetPathRequest struct {
 	Path string `json:"path"`
 }
 
+type UnusedAssetsRequest struct {
+	Keyword string `json:"keyword" api:"optional,nullable"`
+	All     bool   `json:"all" api:"optional,nullable"`
+}
+
+// EncryptedBoxAssetsRequest 只接受当前已解锁的加密笔记本，不回退到全局资源。
+type EncryptedBoxAssetsRequest struct {
+	Notebook string `json:"notebook"`
+}
+
+// RemoveEncryptedBoxAssetsRequest 仅删除用户确认的 assets 相对路径，空列表不删除任何资源。
+// 删除前完整重新扫描；新增引用或任意读取、认证、解析错误均中止整批操作。
+type RemoveEncryptedBoxAssetsRequest struct {
+	Notebook string   `json:"notebook"`
+	Paths    []string `json:"paths"`
+}
+
 type AssetOCRTextRequest struct {
 	Path *string `json:"path" api:"optional"`
 }
@@ -21,6 +42,9 @@ type SetAssetOCRTextRequest struct {
 	Text string `json:"text"`
 }
 
+// RenameAssetRequest 重命名普通笔记本资源，并同步字面量及百分号编码的文档、数据库引用。
+// 引用及成功返回的 newPath 保留查询参数和片段；源资源解析失败返回 -1 和 5000 毫秒错误提示。
+// 加密笔记本资源仍拒绝重命名；空名称或与原文件名相同的名称保留成功但 newPath 为空的响应。
 type RenameAssetRequest struct {
 	OldPath string `json:"oldPath"`
 	NewName string `json:"newName"`
@@ -36,8 +60,9 @@ type AssetDocumentAssetsRequest struct {
 }
 
 type SetAssetAnnotationRequest struct {
-	Path string `json:"path"`
-	Data string `json:"data"`
+	Path     string  `json:"path"`
+	Data     string  `json:"data"`
+	BaseData *string `json:"baseData,omitempty" api:"optional"`
 }
 
 type AssetCloudUploadRequest struct {
@@ -50,6 +75,9 @@ type AssetPathsCloudUploadRequest struct {
 	IgnorePushMsg bool     `json:"ignorePushMsg" api:"optional,nullable"`
 }
 
+// InsertLocalAssetsRequest 在 fromHTMLPaste 为 true 时上传剪贴板引用的本地资源。
+// 允许系统临时目录及用户文档中的普通文件，仍拒绝凭据、工作空间私有路径及加密笔记本原始文件。
+// 单个文件失败通过 failedFiles 返回，其他文件的成功结果保留在 succFiles 中。
 type InsertLocalAssetsRequest struct {
 	AssetPaths    []string `json:"assetPaths"`
 	IsUpload      *bool    `json:"isUpload" api:"optional"`
@@ -82,7 +110,13 @@ type AssetTextData struct {
 	Text string `json:"text"`
 }
 
-// AssetOCRData 的列名来自识别工具的 TSV 表头，单元格均为文本。
+type ImageOCRTextData struct {
+	Text   string `json:"text"`
+	Failed bool   `json:"failed"`
+}
+
+// AssetOCRData 的列名沿用 Tesseract TSV 表头，所有提供商的单元格均为文本。
+// AI 提供商仅返回原样 text，ocrJSON 为空数组，不生成坐标或置信度。
 type AssetOCRData struct {
 	Text    string              `json:"text"`
 	OCRJSON []map[string]string `json:"ocrJSON"`

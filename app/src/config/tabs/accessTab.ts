@@ -1,3 +1,6 @@
+import {config as configApi} from "../util/configApi";
+import {fetchWithAppId} from "../../util/fetchWithAppId";
+import {escapeHtmlTextAndAttr} from "../../util/escape";
 import type {SettingTabBuilder} from "../setting/builder";
 import {fetchPost, fetchSyncPost} from "../../util/fetch";
 import {ContractFormData} from "../../util/contractFormData";
@@ -24,6 +27,8 @@ import {sendAppSetting} from "./appRuntime";
 import zxcvbn = require("zxcvbn");
 import {canOpenExternalURL, getHostCapabilities} from "../../util/hostCapabilities";
 import {openNotebookArchiveDialog, openNotebookArchiveImportDialog} from "../notebookArchive";
+import {genLockScreenWallpaperHtml, mountLockScreenWallpaper} from "./lockScreenWallpaper";
+import {remountOpenSettingTab} from "../setting/mount";
 
 const getPasswordStrength = (password: string) => {
     const score = zxcvbn(password).score;
@@ -56,7 +61,7 @@ const confirmWeakPassword = (password: string, confirm: () => void) => {
 };
 
 const registerAccessAuthGroup = (tab: SettingTabBuilder) => {
-    const group = tab.group("authentication", window.siyuan.languages.authentication);
+    const group = tab.group("authentication", window.siyuan.languages.configGroupSignInTokens);
     const onWeb = isBrowser() && !isInMobileApp();
 
     if (!window.siyuan.config.readonly && !onWeb) {
@@ -74,6 +79,14 @@ const registerAccessAuthGroup = (tab: SettingTabBuilder) => {
             title: window.siyuan.languages.about7,
             desc: window.siyuan.languages.about8,
             save: (value) => sendAppSetting("system.lockScreenMode", value),
+        });
+    }
+    if (!window.siyuan.config.readonly && (window.siyuan.config.accessAuthCode || window.siyuan.config.oidc.enabled)) {
+        group.slot({
+            key: "lockScreenWallpaper",
+            keywords: [window.siyuan.languages.lockScreenWallpaper, window.siyuan.languages.lockScreenWallpaperTip],
+            html: genLockScreenWallpaperHtml,
+            afterMount: mountLockScreenWallpaper,
         });
     }
     if (!window.siyuan.config.readonly && getHostCapabilities().oidcAuthentication) {
@@ -95,14 +108,19 @@ const registerAccessAuthGroup = (tab: SettingTabBuilder) => {
     });
 };
 
+const applyActivatedOIDC = (config: Config.IOIDC) => {
+    window.siyuan.config.oidc = config;
+    void remountOpenSettingTab("access");
+};
+
 const mountOIDCButton = (root: HTMLElement) => {
     if (!getHostCapabilities().oidcAuthentication) {
         return;
     }
     root.querySelector("#oidcConfig")?.addEventListener("click", () => {
         const config = window.siyuan.config.oidc;
-        const escape = (value: string) => Lute.EscapeHTMLStr(value);
-        let destroyOIDCDialog: () => void = () => undefined;
+        const escape = (value: string) => escapeHtmlTextAndAttr(value);
+        let destroyOIDCDialog: () => void = (): undefined => undefined;
         const dialog = new Dialog({
             title: window.siyuan.languages.oidcLogin,
             content: `<div class="b3-dialog__content" id="oidcConfigForm">
@@ -227,7 +245,7 @@ const mountOIDCButton = (root: HTMLElement) => {
             if (validationPollToken && !validationActivating) {
                 void fetchSyncPost("/api/system/oidc/validateCancel", {
                     pollToken: validationPollToken,
-                }, undefined, false).catch(() => undefined);
+                }, undefined, false).catch((): undefined => undefined);
             }
             validationPollToken = "";
         };
@@ -339,7 +357,7 @@ const mountOIDCButton = (root: HTMLElement) => {
                 }
                 validationPollToken = "";
                 restoreMobileCallback();
-                window.siyuan.config.oidc = activation.data.config;
+                applyActivatedOIDC(activation.data.config);
                 showMessage(window.siyuan.languages.oidcVerificationSuccess);
                 dialog.destroy();
             } catch (error) {
@@ -399,7 +417,7 @@ const mountOIDCButton = (root: HTMLElement) => {
                             if (response.code === 0 && response.data.pollToken) {
                                 void fetchSyncPost("/api/system/oidc/validateCancel", {
                                     pollToken: response.data.pollToken,
-                                }, undefined, false).catch(() => undefined);
+                                }, undefined, false).catch((): undefined => undefined);
                             }
                             return;
                         }
@@ -408,7 +426,7 @@ const mountOIDCButton = (root: HTMLElement) => {
                             if (response.code === 0 && response.data.pollToken) {
                                 void fetchSyncPost("/api/system/oidc/validateCancel", {
                                     pollToken: response.data.pollToken,
-                                }, undefined, false).catch(() => undefined);
+                                }, undefined, false).catch((): undefined => undefined);
                             }
                             return;
                         }
@@ -425,8 +443,7 @@ const mountOIDCButton = (root: HTMLElement) => {
                     }).catch((error) => validationFailed(error instanceof Error ? error.message : String(error), attempt));
                     return;
                 }
-                fetchPost("/api/system/setOIDC", nextConfig, (response) => {
-                    window.siyuan.config.oidc = response.data;
+                configApi.set("oidc", nextConfig, () => {
                     dialog.destroy();
                 });
             } catch (error) {
@@ -444,7 +461,7 @@ const mountAuthCodeButton = (root: HTMLElement) => {
             placeholder: window.siyuan.languages.about5,
             description: window.siyuan.languages.about6,
             onConfirm: (value) => {
-                fetchPost("/api/system/setAccessAuthCode", {accessAuthCode: value});
+                configApi.set("accessAuthCode", value);
             },
         });
         dialog.element.setAttribute("data-key", Constants.DIALOG_ACCESSAUTHCODE);
@@ -502,7 +519,7 @@ const registerAccessServerGroup = (tab: SettingTabBuilder) => {
             title: window.siyuan.languages.exportCACert,
             desc: window.siyuan.languages.exportCACertTip,
             label: window.siyuan.languages.export,
-            icon: "iconUpload",
+            icon: "iconDownload",
             afterMount: (root) => {
                 root.querySelector("#exportCACert")?.addEventListener("click", () => {
                     fetchPost("/api/system/exportTLSCACert", {}, (response) => {
@@ -516,7 +533,7 @@ const registerAccessServerGroup = (tab: SettingTabBuilder) => {
             title: window.siyuan.languages.exportCABundle,
             desc: window.siyuan.languages.exportCABundleTip,
             label: window.siyuan.languages.export,
-            icon: "iconUpload",
+            icon: "iconDownload",
             afterMount: (root) => {
                 root.querySelector("#exportCABundle")?.addEventListener("click", () => {
                     fetchPost("/api/system/exportTLSCABundle", {}, (response) => {
@@ -530,7 +547,7 @@ const registerAccessServerGroup = (tab: SettingTabBuilder) => {
             title: window.siyuan.languages.importCABundle,
             desc: window.siyuan.languages.importCABundleTip,
             label: window.siyuan.languages.import,
-            icon: "iconDownload",
+            icon: "iconUpload",
             afterMount: (root) => {
                 root.querySelector("#importCABundle")?.addEventListener("click", () => {
                     const input = document.createElement("input");
@@ -540,7 +557,7 @@ const registerAccessServerGroup = (tab: SettingTabBuilder) => {
                         if (input.files && input.files[0]) {
                             const formData = new FormData();
                             formData.append("file", input.files[0]);
-                            fetch("/api/system/importTLSCABundle", {
+                            fetchWithAppId("/api/system/importTLSCABundle", {
                                 method: "POST",
                                 body: formData,
                             }).then(res => res.json()).then((response) => {
@@ -654,12 +671,13 @@ const registerAccessPublishGroup = (tab: SettingTabBuilder) => {
             window.siyuan.languages.memo,
             window.siyuan.languages.delete,
         ],
-        html: () => '<div class="b3-label config-item"><div class="fn__flex-1" id="publishAuthAccounts" style="overflow: visible;"></div></div>',
+        html: () => '<div class="b3-label config-item fn__none"><div class="fn__flex-1" id="publishAuthAccounts" style="overflow: visible;"></div></div>',
         afterMount: mountPublishAuthAccounts,
     });
 };
 
 const mountPublishAuthAccounts = (root: HTMLElement) => {
+    renderPublishAuthAccounts(root);
     const publishAuthAccounts = root.querySelector("#publishAuthAccounts");
     publishAuthAccounts?.addEventListener("change", (event) => {
         const input = event.target as HTMLInputElement;
@@ -735,13 +753,13 @@ const registerEncryptedNotebookGroup = (tab: SettingTabBuilder) => {
             </button>
             <span class="fn__space"></span>
             <button class="b3-button b3-button--outline fn__flex-center fn__size200${disableImportExport ? " fn__none" : ""}" id="exportCryptoBackupBtn">
-                <svg class="svg"><use xlink:href="#iconUpload"></use></svg>
+                <svg class="svg"><use xlink:href="#iconDownload"></use></svg>
                 ${window.siyuan.languages.exportNotebookCryptoBackup}
             </button>
             <span class="fn__space"></span>
         </div>
         <button class="b3-button b3-button--outline fn__flex-center fn__size200${disableImportExport ? " fn__none" : ""}" id="importCryptoBackupBtn">
-            <svg class="svg"><use xlink:href="#iconDownload"></use></svg>
+            <svg class="svg"><use xlink:href="#iconUpload"></use></svg>
             ${window.siyuan.languages.importNotebookCryptoBackup}
         </button>
     </div>
@@ -754,7 +772,7 @@ const registerEncryptedNotebookGroup = (tab: SettingTabBuilder) => {
             title: window.siyuan.languages.archiveEncryptedNotebooks,
             desc: window.siyuan.languages.archiveEncryptedNotebooksTip,
             label: window.siyuan.languages.archiveEncryptedNotebooks,
-            icon: "iconUpload",
+            icon: "iconDownload",
             afterMount: (root) => root.querySelector("#archiveEncryptedNotebooks")?.addEventListener("click", () => {
                 openNotebookArchiveDialog(() => refreshEncryptedNotebookStatus(root));
             }),
@@ -764,7 +782,7 @@ const registerEncryptedNotebookGroup = (tab: SettingTabBuilder) => {
             title: window.siyuan.languages.restoreEncryptedNotebooks,
             desc: window.siyuan.languages.restoreEncryptedNotebooksTip,
             label: window.siyuan.languages.import,
-            icon: "iconDownload",
+            icon: "iconUpload",
             afterMount: (root) => root.querySelector("#restoreEncryptedNotebooks")?.addEventListener("click", () => {
                 openNotebookArchiveImportDialog(() => {});
             }),
@@ -789,7 +807,9 @@ const registerEncryptedNotebookGroup = (tab: SettingTabBuilder) => {
             desc: window.siyuan.languages.encryptedNotebookFollowSystemLockDesc,
             save: (value) => {
                 if (typeof value === "boolean") {
-                    fetchPost("/api/notebook/setEncryptedNotebookFollowSystemLock", {enabled: value});
+                    fetchPost("/api/notebook/setEncryptedNotebookFollowSystemLock", {enabled: value}, () => {
+                        window.siyuan.config.system.encryptedNotebookFollowSystemLock = value;
+                    });
                 }
             },
         });

@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -190,12 +178,6 @@ func AddSession(username, credentialVersion string) string {
 	return sessionID
 }
 
-func DeleteSession(sessionID string) {
-	sessionLock.Lock()
-	defer sessionLock.Unlock()
-	delete(sessionsMap, sessionID)
-}
-
 // purgeExpiredPublishSessions 删除空闲超过 publishSessionTTL 的会话，调用方需持有 sessionLock。
 func purgeExpiredPublishSessions(now time.Time) {
 	for id, session := range sessionsMap {
@@ -244,18 +226,18 @@ func countPublishSessionsByUsername(username string) int {
 }
 
 func InitPublishAccounts() {
-	if nil == Conf.Publish {
-		Conf.Publish = conf.NewPublish()
+	if nil == Conf.Publish.Load() {
+		Conf.Publish.Store(conf.NewPublish())
 	}
-	if nil == Conf.Publish.Auth {
+	if nil == Conf.Publish.Load().Auth {
 		// 防御 conf.json 中 auth 为 null 的历史坏配置，避免启动时解引用空指针崩溃
 		// https://github.com/siyuan-note/siyuan/security/advisories/GHSA-rp9f-c2fj-h648
-		Conf.Publish.Auth = conf.NewPublish().Auth
+		UpdatePublishConf(func(s *conf.Publish) { s.Auth = conf.NewPublish().Auth })
 	}
 	accounts := AccountsMap{
 		"": &Account{}, // 匿名用户
 	}
-	for _, account := range Conf.Publish.Auth.Accounts {
+	for _, account := range Conf.Publish.Load().Auth.Accounts {
 		accounts[account.Username] = &Account{
 			Username: account.Username,
 			Password: account.Password,

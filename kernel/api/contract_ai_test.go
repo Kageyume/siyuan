@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -24,9 +28,9 @@ func aiContractConfiguration(t *testing.T) {
 	t.Helper()
 	previous, dir := model.Conf, util.DataDir
 	model.Conf = model.NewAppConf()
-	model.Conf.AI = conf.NewAI()
-	model.Conf.AI.Embedding = nil
-	model.Conf.AI.Rerank = nil
+	model.Conf.AI.Store(conf.NewAI())
+	model.Conf.AI.Load().Embedding = nil
+	model.Conf.AI.Load().Rerank = nil
 	util.DataDir = t.TempDir()
 	t.Cleanup(func() { model.Conf = previous; util.DataDir = dir })
 }
@@ -41,7 +45,7 @@ func (body aiUnreadBody) Close() error { return nil }
 
 func TestAPIContractAIProviderAdmissionBeforeBody(t *testing.T) {
 	aiContractConfiguration(t)
-	model.Conf.AI.Providers = nil
+	model.Conf.AI.Load().Providers = nil
 	engine := gin.New()
 	engine.POST("/api/ai/editor/chat", aiEditorChat)
 	engine.POST("/api/ai/agent/chat", agentChat)
@@ -137,7 +141,9 @@ func TestAPIContractAIResponses(t *testing.T) {
 	}{
 		{"/api/ai/testEmbeddingModel", "ignored", 200, "embedding model not configured"},
 		{"/api/ai/testRerankModel", "ignored", 200, "rerank model not configured"},
-		{"/api/ai/testDecisionModel", "ignored", 200, "decision model not configured"},
+		{"/api/ai/testDecisionModel", "", 200, "decision model not configured"},
+		{"/api/ai/testDecisionModel", `{}`, 200, "decision model not configured"},
+		{"/api/ai/testDecisionModel", "ignored", 200, "invalid character"},
 		{"/api/ai/agent/confirm", `{"confirmID":"expired"}`, 409, "agent confirmation expired"},
 		{"/api/ai/agent/question", `{"questionID":"expired"}`, 409, "agent question expired"},
 		{"/api/ai/agent/browserCapabilityResult", `{"callID":"expired","structuredContent":{"nested":[1,true,null]}}`, 409, "agent browser capability call expired"},
@@ -200,6 +206,47 @@ func TestAPIContractAISessionExtensions(t *testing.T) {
 	}
 }
 
+func TestAPIContractAIPDFImageAttachment(t *testing.T) {
+	aiContractConfiguration(t)
+	engine := gin.New()
+	engine.POST("/api/ai/agent/saveSession", saveSession)
+	engine.POST("/api/ai/agent/getSession", getSession)
+	body := `{"id":"20261028120000-pdfsess","entries":[{"type":"assistant","toolCalls":[{"name":"pdf","arguments":{"action":"preview"},"attachments":[{"type":"image","path":"assets/figures.pdf","documentId":"20261028120001-pdfdoc1","pdfImage":{"revision":"digest","page":2,"object":10}}]}]}]}`
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, httptest.NewRequest("POST", "/api/ai/agent/saveSession", strings.NewReader(body)))
+	if recorder.Code != 200 || !strings.Contains(recorder.Body.String(), `"code":0`) {
+		t.Fatalf("save PDF session: %s", recorder.Body.String())
+	}
+	recorder = httptest.NewRecorder()
+	engine.ServeHTTP(recorder, httptest.NewRequest("POST", "/api/ai/agent/getSession", strings.NewReader(`{"id":"20261028120000-pdfsess"}`)))
+	var response struct {
+		Data struct {
+			Entries []struct {
+				ToolCalls []struct {
+					Attachments []apicontract.AIAgentAttachment
+				}
+			}
+		}
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Data.Entries) != 1 || len(response.Data.Entries[0].ToolCalls) != 1 || len(response.Data.Entries[0].ToolCalls[0].Attachments) != 1 {
+		t.Fatalf("PDF attachments lost: %s", recorder.Body.String())
+	}
+	source := response.Data.Entries[0].ToolCalls[0].Attachments[0].PDFImage
+	if source == nil || source.Revision != "digest" || source.Page != 2 || source.Object != 10 {
+		t.Fatalf("PDF source metadata lost: %s", recorder.Body.String())
+	}
+	bundle, err := apicontract.BuildBundle()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = bundle.ValidateHTTPResponse("POST", "/api/ai/agent/getSession", 200, recorder.Header().Get("Content-Type"), recorder.Body.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAPIContractAIEditorSSE(t *testing.T) {
 	aiContractConfiguration(t)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -207,8 +254,8 @@ func TestAPIContractAIEditorSSE(t *testing.T) {
 		fmt.Fprint(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello\",\"reasoning_content\":\"reason\"},\"finish_reason\":\"length\"}]}\n\ndata: [DONE]\n\n")
 	}))
 	defer upstream.Close()
-	model.Conf.AI.Providers = []*conf.Provider{{ID: "provider", Enabled: true, BaseURL: upstream.URL + "/v1", Protocol: "openai", APIKey: "test", Models: []*conf.Model{{ID: "model", Name: "model", Enabled: true}}}}
-	model.Conf.AI.Editing.ModelID = "model"
+	model.Conf.AI.Load().Providers = []*conf.Provider{{ID: "provider", Enabled: true, BaseURL: upstream.URL + "/v1", Protocol: "openai", APIKey: "test", Models: []*conf.Model{{ID: "model", Name: "model", Enabled: true}}}}
+	model.Conf.AI.Load().Editing.ModelID = "model"
 	engine := gin.New()
 	engine.POST("/api/ai/editor/chat", aiEditorChat)
 	recorder := httptest.NewRecorder()
@@ -220,7 +267,7 @@ func TestAPIContractAIEditorSSE(t *testing.T) {
 	if err = bundle.ValidateHTTPResponse("POST", "/api/ai/editor/chat", recorder.Code, recorder.Header().Get("Content-Type"), recorder.Body.Bytes()); err != nil {
 		t.Fatalf("%v: %s", err, recorder.Body.String())
 	}
-	for _, frame := range strings.Split(strings.TrimSpace(recorder.Body.String()), "\n\n") {
+	for frame := range strings.SplitSeq(strings.TrimSpace(recorder.Body.String()), "\n\n") {
 		lines := strings.SplitN(frame, "\n", 2)
 		if len(lines) != 2 {
 			t.Fatalf("invalid frame: %s", frame)
@@ -279,8 +326,8 @@ func TestAPIContractAIEditorStreamCancellation(t *testing.T) {
 		close(closed)
 	}))
 	defer upstream.Close()
-	model.Conf.AI.Providers = []*conf.Provider{{ID: "provider", Enabled: true, BaseURL: upstream.URL + "/v1", Protocol: "openai", APIKey: "test", Models: []*conf.Model{{ID: "model", Name: "model", Enabled: true}}}}
-	model.Conf.AI.Editing.ModelID = "model"
+	model.Conf.AI.Load().Providers = []*conf.Provider{{ID: "provider", Enabled: true, BaseURL: upstream.URL + "/v1", Protocol: "openai", APIKey: "test", Models: []*conf.Model{{ID: "model", Name: "model", Enabled: true}}}}
+	model.Conf.AI.Load().Editing.ModelID = "model"
 	engine := gin.New()
 	engine.POST("/api/ai/editor/chat", aiEditorChat)
 	server := httptest.NewServer(engine)

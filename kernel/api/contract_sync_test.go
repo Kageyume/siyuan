@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -26,9 +30,9 @@ func syncTestConfiguration(t *testing.T) {
 	t.Helper()
 	previous, previousReadonly, previousTemp := model.Conf, util.ReadOnly, util.TempDir
 	model.Conf = model.NewAppConf()
-	model.Conf.Sync = conf.NewSync()
-	model.Conf.Sync.S3 = &conf.S3{}
-	model.Conf.Sync.WebDAV = &conf.WebDAV{}
+	model.Conf.Sync.Store(conf.NewSync())
+	model.Conf.Sync.Load().S3 = &conf.S3{}
+	model.Conf.Sync.Load().WebDAV = &conf.WebDAV{}
 	util.ReadOnly = true
 	util.TempDir = t.TempDir()
 	t.Cleanup(func() { model.Conf, util.ReadOnly, util.TempDir = previous, previousReadonly, previousTemp })
@@ -48,8 +52,8 @@ func compareSyncDecode[Request, Data, Value any](t *testing.T, endpoint apicontr
 		context.Request = httptest.NewRequest("POST", endpoint.Definition().Path, strings.NewReader(body))
 		expected := gulu.Ret.NewResult()
 		var value Value
-		if args, ok := util.JsonArg(context, expected); ok {
-			util.ParseJsonArgs(args, expected, util.BindJsonArg(key, &value, required, rejectEmpty))
+		if args, ok := legacyJSONArg(context, expected); ok {
+			legacyParseArgs(args, expected, legacyBind(key, &value, required, rejectEmpty))
 		}
 		request, err := endpoint.Decode(strings.NewReader(body))
 		if expected.Code != 0 {
@@ -64,7 +68,7 @@ func compareSyncDecode[Request, Data, Value any](t *testing.T, endpoint apicontr
 
 func TestAPIContractSyncProviderConfigCompatibility(t *testing.T) {
 	for _, raw := range []string{`{}`, `{"ENDPOINT":" example ","timeout":1.0,"concurrentReqs":9007199254740993}`, `{"endpoint":false}`, `{"timeout":1.5}`, `{"pathStyle":null}`, `{"endpoint":"first","endpoint":"second"}`} {
-		var object map[string]interface{}
+		var object map[string]any
 		if err := json.Unmarshal([]byte(raw), &object); err != nil {
 			t.Fatal(err)
 		}
@@ -87,7 +91,7 @@ func TestAPIContractSyncProviderConfigCompatibility(t *testing.T) {
 
 func TestAPIContractSyncHTTPResponses(t *testing.T) {
 	syncTestConfiguration(t)
-	model.Conf.Sync.Mode = 3
+	model.Conf.Sync.Load().Mode = 3
 	engine := gin.New()
 	for path, handler := range map[string]gin.HandlerFunc{
 		"getBootSync": getBootSync, "getSyncInfo": getSyncInfo, "getSyncLANStatus": getSyncLANStatus,
@@ -115,10 +119,14 @@ func TestAPIContractSyncHTTPResponses(t *testing.T) {
 		{"setSyncProviderS3", `{"s3":null}`, -1, 0},
 		{"setSyncProviderS3", `{"s3":{"timeout":1.5}}`, -1, 5000},
 		{"setSyncProviderWebDAV", `{"webdav":{"username":false}}`, -1, 5000},
+		{"setSyncProviderWebDAV", `{"webdav":{"endpoint":" "}}`, -1, 5000},
+		{"setSyncProviderWebDAV", `{"webdav":{"endpoint":"ftp://example.com"}}`, -1, 5000},
+		{"setSyncProviderLocal", `{"local":{"endpoint":" "}}`, -1, 5000},
 		{"setSyncProviderLocal", `{"local":{"timeout":1.5}}`, -1, 5000},
 		{"setSyncProviderS3", `{"s3":{"bucket":"","endpoint":" example "}}`, -1, 5000},
 		{"setSyncProviderS3", `{"s3":{"bucket":"notes","endpoint":" example ","accessKey":"key","secretKey":"secret","region":"auto"}}`, 0, 0},
 		{"setSyncProviderWebDAV", `{"webdav":{"endpoint":" example ","username":" user "}}`, 0, 0},
+		{"setSyncProviderWebDAV", `{"webdav":{"endpoint":"https://example.com","username":"","password":""}}`, 0, 0},
 	} {
 		recorder := httptest.NewRecorder()
 		path := "/api/sync/" + entry.path
@@ -134,8 +142,8 @@ func TestAPIContractSyncHTTPResponses(t *testing.T) {
 			t.Fatalf("response changed for %s: %s (%v)", path, recorder.Body.String(), err)
 		}
 	}
-	if model.Conf.Sync.Mode != 3 || model.Conf.Sync.Interval != 31 {
-		t.Fatalf("numeric truncation changed: %+v", model.Conf.Sync)
+	if model.Conf.Sync.Load().Mode != 3 || model.Conf.Sync.Load().Interval != 31 {
+		t.Fatalf("numeric truncation changed: %+v", model.Conf.Sync.Load())
 	}
 }
 
@@ -144,7 +152,7 @@ func TestAPIContractSyncBootRole(t *testing.T) {
 	previous := model.BootSyncSucc.Load()
 	model.BootSyncSucc.Store(1)
 	t.Cleanup(func() { model.BootSyncSucc.Store(previous) })
-	model.Conf.Sync.Enabled = true
+	model.Conf.Sync.Load().Enabled = true
 	for _, role := range []model.Role{model.RoleAdministrator, model.RoleReader} {
 		engine := gin.New()
 		engine.Use(func(c *gin.Context) { c.Set(model.RoleContextKey, role) })
@@ -171,8 +179,9 @@ func TestAPIContractSyncBootRole(t *testing.T) {
 func TestAPIContractSyncPermissionBeforeBody(t *testing.T) {
 	syncTestConfiguration(t)
 	for path, handler := range map[string]gin.HandlerFunc{
-		"/api/sync/setSyncProviderS3": setSyncProviderS3,
-		"/api/sync/setSyncProvider":   setSyncProvider,
+		"/api/sync/setSyncProviderS3":       setSyncProviderS3,
+		"/api/sync/clearSyncProviderConfig": clearSyncProviderConfig,
+		"/api/sync/setSyncProvider":         setSyncProvider,
 	} {
 		for _, role := range []model.Role{model.RoleAdministrator, model.RoleReader} {
 			engine := gin.New()
@@ -213,7 +222,7 @@ func TestAPIContractSyncProviderMultipart(t *testing.T) {
 		for _, count := range []int{0, 1, 2} {
 			var body bytes.Buffer
 			writer := multipart.NewWriter(&body)
-			for i := 0; i < count; i++ {
+			for range count {
 				part, err := writer.CreateFormFile("file", "config.txt")
 				if err != nil {
 					t.Fatal(err)
@@ -247,16 +256,17 @@ func TestAPIContractSyncProviderMultipart(t *testing.T) {
 
 func TestAPIContractSyncProviderExportContents(t *testing.T) {
 	syncTestConfiguration(t)
-	model.Conf.Sync.S3 = &conf.S3{Endpoint: " endpoint ", AccessKey: "key", SecretKey: " secret ", Bucket: "bucket", Region: "auto", Timeout: 35}
-	model.Conf.Sync.WebDAV = &conf.WebDAV{Endpoint: " endpoint ", Password: " password ", Timeout: 36}
+	model.Conf.Sync.Load().S3 = &conf.S3{Endpoint: " endpoint ", AccessKey: "key", SecretKey: " secret ", Bucket: "bucket", Region: "auto", Timeout: 35}
+	model.Conf.Sync.Load().WebDAV = &conf.WebDAV{Endpoint: " endpoint ", Password: " password ", Timeout: 36}
 	for _, entry := range []struct {
 		name     string
 		handler  gin.HandlerFunc
-		expected []byte
+		expected func() []byte
 	}{
-		{"exportSyncProviderS3", exportSyncProviderS3, syncMarshal(t, model.Conf.Sync.S3)},
-		{"exportSyncProviderWebDAV", exportSyncProviderWebDAV, syncMarshal(t, model.Conf.Sync.WebDAV)},
+		{"exportSyncProviderS3", exportSyncProviderS3, func() []byte { return syncMarshal(t, model.Conf.Sync.Load().S3) }},
+		{"exportSyncProviderWebDAV", exportSyncProviderWebDAV, func() []byte { return syncMarshal(t, model.Conf.Sync.Load().WebDAV) }},
 	} {
+		expected := entry.expected()
 		engine := gin.New()
 		path := "/api/sync/" + entry.name
 		engine.POST(path, entry.handler)
@@ -290,8 +300,8 @@ func TestAPIContractSyncProviderExportContents(t *testing.T) {
 			t.Fatal(err)
 		}
 		plain, err := hex.DecodeString(string(util.AESDecrypt(string(encrypted))))
-		if err != nil || !bytes.Equal(plain, entry.expected) {
-			t.Fatalf("export encryption or JSON changed: %s != %s (%v)", plain, entry.expected, err)
+		if err != nil || !bytes.Equal(plain, expected) {
+			t.Fatalf("export encryption or JSON changed: %s != %s (%v)", plain, expected, err)
 		}
 		archiveData, err := os.ReadFile(filepath.Join(util.TempDir, filepath.FromSlash(strings.TrimPrefix(response.Data.Zip, "/"))))
 		if err != nil {
@@ -330,6 +340,44 @@ func TestAPIContractSyncProviderExportContents(t *testing.T) {
 			if err = json.Unmarshal(importRecorder.Body.Bytes(), &imported); err != nil || imported.Code != 0 {
 				t.Fatalf("provider package import changed: %s (%v)", importRecorder.Body.String(), err)
 			}
+		}
+	}
+}
+
+func TestAPIContractSyncWebDAVImportAddressValidation(t *testing.T) {
+	syncTestConfiguration(t)
+	previous := &conf.WebDAV{Endpoint: "https://dav.example", Username: "user", Password: "secret"}
+	model.Conf.Sync.Load().WebDAV = previous
+	model.Conf.Sync.Load().Enabled = true
+	engine := gin.New()
+	const path = "/api/sync/importSyncProviderWebDAV"
+	engine.POST(path, importSyncProviderWebDAV)
+	for _, endpoint := range []string{"", " \t ", "ftp://dav.example", "https://"} {
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		part, err := writer.CreateFormFile("file", "siyuan-webdav.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = io.WriteString(part, util.AESEncrypt(string(syncMarshal(t, &conf.WebDAV{Endpoint: endpoint})))); err != nil {
+			t.Fatal(err)
+		}
+		if err = writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest("POST", path, &body)
+		request.Header.Set("Content-Type", writer.FormDataContentType())
+		recorder := httptest.NewRecorder()
+		engine.ServeHTTP(recorder, request)
+		requireAPIContract(t, "POST", path, recorder)
+		var response struct {
+			Code int `json:"code"`
+		}
+		if err = json.Unmarshal(recorder.Body.Bytes(), &response); err != nil || response.Code != -1 {
+			t.Fatalf("invalid imported address %q was accepted: %s (%v)", endpoint, recorder.Body.String(), err)
+		}
+		if model.Conf.Sync.Load().WebDAV != previous || !model.Conf.Sync.Load().Enabled {
+			t.Fatal("rejected import replaced the existing configuration")
 		}
 	}
 }

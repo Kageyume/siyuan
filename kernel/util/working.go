@@ -1,24 +1,11 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package util
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"mime"
 	"net/http"
@@ -47,7 +34,7 @@ var Mode = "prod"
 // SystemTempDir 保存工作空间初始化重定向之前的系统临时目录。
 var SystemTempDir = os.TempDir()
 
-const Ver = "3.8.6"
+const Ver = "3.8.9"
 
 // IsReleaseVer 判断是否为正式版（不含 alpha、beta、rc 等预发布标识）。
 func IsReleaseVer(ver string) bool {
@@ -74,6 +61,7 @@ var (
 	bootProgress = atomic.Int32{} // 启动进度，从 0 到 100
 	bootDetails  string           // 启动细节描述
 	HttpServer   *http.Server     // HTTP 伺服器实例
+	HttpsServer  *http.Server     // HTTPS 伺服器实例
 	HttpServing  = false          // 是否 HTTP 伺服已经可用
 
 	SafeMode = false // 是否以安全模式启动：禁用代码片段、插件、自定义主题与图标
@@ -97,7 +85,12 @@ func InitWorkspace(workspacePath, wdPath string) {
 	initHttpClient()
 
 	if "" != wdPath {
-		WorkingDir = wdPath
+		absPath, err := filepath.Abs(wdPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "resolve --wd [%s] failed: %s\n", wdPath, err)
+			os.Exit(logging.ExitCodeInitWorkspaceErr)
+		}
+		WorkingDir = absPath
 	}
 
 	Container = ContainerStd
@@ -115,27 +108,7 @@ func InitWorkspace(workspacePath, wdPath string) {
 	LogPath = filepath.Join(TempDir, "siyuan.log")
 }
 
-func Boot() {
-	IncBootProgress(3, BootL10n(299, "Booting kernel..."))
-
-	// 由标准库 flag 解析 os.Args，再走统一的 BootWithFlags。
-	workspacePath := flag.String("workspace", "", "dir path of the workspace, default to ~/SiYuan/")
-	wdPath := flag.String("wd", WorkingDir, "working directory of SiYuan")
-	port := flag.String("port", "0", "port of the HTTP server")
-	readOnly := flag.String("readonly", "false", "read-only mode")
-	accessAuthCode := flag.String("accessAuthCode", "", "access auth code")
-	ssl := flag.Bool("ssl", false, "for https and wss")
-	attachUI := flag.Bool("attach-ui", false, "attach kernel lifecycle to desktop UI process (used by Electron)")
-	lang := flag.String("lang", "", "ar/de/en/es/fr/he/hi/id/it/ja/ko/nl/pl/pt-BR/ru/sk/sr/th/tr/uk/zh-CN/zh-TW")
-	mode := flag.String("mode", "prod", "dev/prod")
-	enablePprof := flag.Bool("enable-pprof", false, "enable unauthenticated /debug/pprof/ endpoints (dev only, never on a network-exposed instance)")
-	safeMode := flag.Bool("safe-mode", false, "boot in safe mode")
-	flag.Parse()
-
-	BootWithFlags(*workspacePath, *wdPath, *port, *readOnly, *accessAuthCode, *lang, *mode, *ssl, *attachUI, *safeMode, *enablePprof)
-}
-
-// BootWithFlags 接收已解析好的启动参数，完成环境变量回退、全局变量赋值、工作空间初始化与加锁等启动收尾工作。Boot()（标准库 flag 解析）和 serve 子命令（cobra 解析）都走这个统一入口。
+// BootWithFlags 接收已解析的启动参数，完成环境变量回退、全局变量赋值、工作空间初始化与加锁。
 func BootWithFlags(workspacePath, wdPath, port, readOnly, accessAuthCode, lang, mode string, ssl, attachUI, safeMode, enablePprof bool) {
 	SafeMode = safeMode
 	EnablePprof = enablePprof
@@ -178,6 +151,7 @@ func BootWithFlags(workspacePath, wdPath, port, readOnly, accessAuthCode, lang, 
 
 	// 工作空间仅允许被一个内核进程伺服
 	tryLockWorkspace()
+	clearWorkspaceStartupTemp()
 
 	bootBanner := figure.NewColorFigure("SiYuan", "isometric3", "green", true)
 	logging.LogInfo("\n" + bootBanner.String())
@@ -247,8 +221,10 @@ func SetBooted() {
 }
 
 var (
-	HomeDir, _    = gulu.OS.Home()
-	WorkingDir, _ = os.Getwd()
+	systemHomeDir, _  = gulu.OS.Home()
+	HomeDir           = systemHomeDir
+	homeDirOverridden bool
+	WorkingDir, _     = os.Getwd()
 
 	WorkspaceDir       string        // 工作空间目录路径
 	WorkspaceName      string        // 工作空间名称
@@ -274,6 +250,35 @@ var (
 	UIProcessIDs = sync.Map{} // UI 进程 ID
 )
 
+// SetHomeDir 设置用户配置基路径，配置仍保存在其 .config/siyuan 子目录中。
+// 空参数保留默认目录；显式路径必须能创建配置目录，失败时不回退到系统用户主目录。
+func SetHomeDir(homeDir string) error {
+	if homeDir == "" {
+		return nil
+	}
+	absPath, err := filepath.Abs(homeDir)
+	if err != nil {
+		return fmt.Errorf("resolve --home-dir [%s] failed: %w", homeDir, err)
+	}
+	if err = os.MkdirAll(filepath.Join(absPath, ".config", "siyuan"), 0755); err != nil {
+		return fmt.Errorf("initialize --home-dir [%s] failed: %w", absPath, err)
+	}
+	HomeDir = absPath
+	homeDirOverridden = true
+	return nil
+}
+
+// defaultWorkspacePath 保留各平台默认布局，显式配置主目录时不再使用 Windows USERPROFILE。
+func defaultWorkspacePath(homeDir, goos, userProfile string, homeDirOverridden bool) string {
+	if goos == "windows" && !homeDirOverridden && userProfile != "" {
+		return filepath.Join(userProfile, "SiYuan")
+	}
+	if goos == "darwin" {
+		return filepath.Join(homeDir, "Library", "Application Support", "SiYuan")
+	}
+	return filepath.Join(homeDir, "SiYuan")
+}
+
 // MaxUIProcessCount UI 进程注册表条目数上限。
 const MaxUIProcessCount = 64
 
@@ -298,16 +303,7 @@ func initWorkspaceDir(workspaceArg string) {
 		}
 	}
 
-	defaultWorkspaceDir := filepath.Join(HomeDir, "SiYuan")
-	if gulu.OS.IsWindows() {
-		// 改进 Windows 端默认工作空间路径 https://github.com/siyuan-note/siyuan/issues/5622
-		if userProfile := os.Getenv("USERPROFILE"); "" != userProfile {
-			defaultWorkspaceDir = filepath.Join(userProfile, "SiYuan")
-		}
-	} else if gulu.OS.IsDarwin() {
-		// Change the initial workspace path to ~/Library/Application Support/SiYuan on macOS https://github.com/siyuan-note/siyuan/issues/17095
-		defaultWorkspaceDir = filepath.Join(HomeDir, "Library", "Application Support", "SiYuan")
-	}
+	defaultWorkspaceDir := defaultWorkspacePath(HomeDir, runtime.GOOS, os.Getenv("USERPROFILE"), homeDirOverridden)
 
 	var workspacePaths []string
 	if !gulu.File.IsExist(workspaceConf) {
@@ -352,15 +348,10 @@ func initWorkspaceDir(workspaceArg string) {
 	TempDir = filepath.Join(WorkspaceDir, "temp")
 	QueueDir = filepath.Join(TempDir, "queue")
 	osTmpDir := filepath.Join(TempDir, "os")
-	os.RemoveAll(osTmpDir)
 	if err := os.MkdirAll(osTmpDir, 0755); err != nil {
 		logging.LogErrorf("create os tmp dir [%s] failed: %s", osTmpDir, err)
 		os.Exit(logging.ExitCodeInitWorkspaceErr)
 	}
-	os.RemoveAll(filepath.Join(TempDir, "repo"))
-	// export 目录只保存临时文件，启动时统一清理；插件不得依赖其中的文件跨进程存续。
-	os.RemoveAll(filepath.Join(TempDir, "export"))
-	os.RemoveAll(filepath.Join(TempDir, "clipboard"))
 	os.Setenv("TMPDIR", osTmpDir)
 	os.Setenv("TEMP", osTmpDir)
 	os.Setenv("TMP", osTmpDir)
@@ -370,6 +361,18 @@ func initWorkspaceDir(workspaceArg string) {
 	BlockTreeDBPath = filepath.Join(TempDir, "blocktree.db")
 	SnippetsPath = filepath.Join(DataDir, "snippets")
 	ShortcutsPath = filepath.Join(userHomeConfDir, "shortcuts")
+}
+
+// Only the kernel holding the workspace lock may discard previous-session files.
+func clearWorkspaceStartupTemp() {
+	for _, dir := range []string{"os", "repo", "export", "clipboard"} {
+		os.RemoveAll(filepath.Join(TempDir, dir))
+	}
+	osTmpDir := filepath.Join(TempDir, "os")
+	if err := os.MkdirAll(osTmpDir, 0755); err != nil {
+		logging.LogErrorf("create os tmp dir [%s] failed: %s", osTmpDir, err)
+		os.Exit(logging.ExitCodeInitWorkspaceErr)
+	}
 }
 
 func DeduplicateWorkspacePaths(paths []string) []string {
@@ -587,9 +590,9 @@ func initMime() {
 func GetDataAssetsAbsPath() (ret string) {
 	ret = filepath.Join(DataDir, "assets")
 	if IsSymlinkPath(ret) {
-		// 跟随符号链接 https://github.com/siyuan-note/siyuan/issues/5480
+		// 跟随资源目录的符号链接和目录联接。
 		var err error
-		ret, err = filepath.EvalSymlinks(ret)
+		ret, err = ResolveRealPath(ret)
 		if err != nil {
 			logging.LogErrorf("read assets link failed: %s", err)
 		}
@@ -612,6 +615,7 @@ func tryLockWorkspace() {
 	WorkspaceLock = flock.New(filepath.Join(WorkspaceDir, ".lock"))
 	ok, err := WorkspaceLock.TryLock()
 	if ok {
+		ClearWorkspaceExitMarker()
 		return
 	}
 	if err != nil {
@@ -651,10 +655,8 @@ func UnlockWorkspace() {
 		return
 	}
 
-	if err := os.Remove(filepath.Join(WorkspaceDir, ".lock")); err != nil {
-		logging.LogErrorf("remove workspace lock failed: %s", err)
-		return
-	}
+	// Keep the lock file identity stable: a new kernel may already hold this file.
+	// Unlinking it would let another kernel create and lock a different file.
 }
 
 func LogDatabaseSize(dbPath string) {

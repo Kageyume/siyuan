@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package plugin
 
@@ -39,6 +27,9 @@ import (
 	"github.com/siyuan-note/siyuan/kernel/apicontract"
 	"github.com/siyuan-note/siyuan/kernel/mcp/tools"
 	"github.com/siyuan-note/siyuan/kernel/model"
+	"github.com/siyuan-note/siyuan/kernel/plugin/formdata"
+	"github.com/siyuan-note/siyuan/kernel/plugin/gojaext"
+	"github.com/siyuan-note/siyuan/kernel/plugin/streams"
 	"github.com/siyuan-note/siyuan/kernel/util"
 	"github.com/smallnest/chanx"
 )
@@ -103,9 +94,16 @@ type KernelPlugin struct {
 	worker  Worker               // Worker for serializing plugin js-call-go (e.g. logger) and go-call-js (e.g. RPC calls) tasks on a single goroutine
 	runtime *eventloop.EventLoop // goja event loop runtime for this plugin
 
+	formDataHost *formdata.Host // 当前 runtime 中 Blob、File 与 FormData 的宿主状态，由 EnableExtendModules 设置
+	streamsHost  *streams.Host  // 当前 runtime 中 ReadableStream/WritableStream/TransformStream 的宿主状态，由 EnableExtendModules 设置
+
 	watcherMu   sync.Mutex
 	watcher     *fsnotify.Watcher // watcher for kernel plugin storage file changes
 	watcherDone chan struct{}
+
+	storageWritesMu     sync.Mutex
+	storageWrites       sync.WaitGroup
+	storageWritesClosed bool
 
 	state atomic.Int64 //  PluginState
 
@@ -115,6 +113,7 @@ type KernelPlugin struct {
 	bus EventBus.Bus // Event bus for plugin events and RPC request/response dispatch
 
 	rpcMethods        sync.Map // string -> *RpcMethod, registered JSON-RPC methods
+	rpcWriteLeases    sync.Map // *rpcWriteLease -> struct{}, pending RPC executions
 	agentCapabilities sync.Map // string -> *tools.Tool, Agent capabilities registered by this plugin
 
 	socketsMu sync.RWMutex       // mutex for gwsSockets map
@@ -229,13 +228,32 @@ func (p *KernelPlugin) close() (err error) {
 		}
 	}()
 
+	p.storageWritesMu.Lock()
+	p.storageWritesClosed = true
+	p.storageWritesMu.Unlock()
+
 	runtime := p.runtime
 	p.runtime = nil
 	if runtime != nil {
 		runtime.Stop() // Stops the event loop and waits for it to finish.
 		// p.runtime.Terminate() // Interrupts the runtime and causes all executing code to throw an exception.
 	}
+	// Detached file I/O can continue after the event loop stops. Keep the stop
+	// boundary (and pending RPC leases) until every admitted mutation has ended.
+	p.storageWrites.Wait()
+	// Promise 可能永不完成；运行时停止后已无法继续写入，释放其剩余租约。
+	p.releaseRPCWrites()
 	return
+}
+
+func (p *KernelPlugin) beginStorageWrite() (func(), error) {
+	p.storageWritesMu.Lock()
+	defer p.storageWritesMu.Unlock()
+	if p.storageWritesClosed || (p.context != nil && p.context.Err() != nil) {
+		return nil, fmt.Errorf("plugin storage is stopping")
+	}
+	p.storageWrites.Add(1)
+	return p.storageWrites.Done, nil
 }
 
 // error sets the plugin state to errored and frees the goja runtime.
@@ -470,7 +488,11 @@ func (p *KernelPlugin) pluginEventHandler(event any) {
 func (p *KernelPlugin) subscribeEventHandlers() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = r.(error)
+			if recoveredErr, ok := r.(error); ok {
+				err = recoveredErr
+			} else {
+				err = fmt.Errorf("%v", r)
+			}
 		}
 	}()
 
@@ -483,7 +505,11 @@ func (p *KernelPlugin) subscribeEventHandlers() (err error) {
 func (p *KernelPlugin) unsubscribeEventHandlers() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = r.(error)
+			if recoveredErr, ok := r.(error); ok {
+				err = recoveredErr
+			} else {
+				err = fmt.Errorf("%v", r)
+			}
 		}
 	}()
 
@@ -674,10 +700,16 @@ func (p *KernelPlugin) callRpcMethod(ctx context.Context, method string, params 
 	}
 
 	done := make(chan *TaskResult, 1)
+	var lease *rpcWriteLease
 	var completeOnce sync.Once
 	complete := func(result *TaskResult) {
 		// 仅接收首次结果，等待者退出后的回调也不会阻塞事件循环。
-		completeOnce.Do(func() { done <- result })
+		completeOnce.Do(func() {
+			if lease != nil {
+				lease.release()
+			}
+			done <- result
+		})
 	}
 
 	runErr := p.worker.Run(func(rt *goja.Runtime) (result any, err error) {
@@ -689,10 +721,15 @@ func (p *KernelPlugin) callRpcMethod(ctx context.Context, method string, params 
 			return nil, p.context.Err()
 		default:
 		}
+		var admissionErr error
+		lease, admissionErr = p.acquireRPCWrite()
+		if admissionErr != nil {
+			return nil, admissionErr
+		}
 
 		rpcParams := []goja.Value{}
 		jsParams := rt.ToValue(params)
-		if isJsArray(rt, jsParams) {
+		if gojaext.IsArray(rt, jsParams) {
 			// If params is an array, convert to []goja.Value for variadic JS function calls.
 			rt.ForOf(jsParams, func(cur goja.Value) bool {
 				rpcParams = append(rpcParams, cur)
@@ -872,7 +909,7 @@ func storageWatchOperations(event fsnotify.Event) (ret []string) {
 	return
 }
 
-// invokeHook calls a lifecycle hook (e.g. onload) if it exists, awaiting if it returns a Promise.
+// invokeHook 调用已绑定的生命周期钩子，等待其返回的 Promise；未实现的可选钩子直接跳过。
 func (p *KernelPlugin) invokeHook(name string) {
 	var err error
 	defer func() {
@@ -904,6 +941,10 @@ func (p *KernelPlugin) invokeHook(name string) {
 		}
 
 		hookValue := pluginObj.Get(name)
+		if hookValue == nil || goja.IsNull(hookValue) || goja.IsUndefined(hookValue) {
+			done <- TaskResult{}
+			return
+		}
 		hook, ok := goja.AssertFunction(hookValue)
 		if !ok {
 			err = fmt.Errorf("globalThis.siyuan.plugin.lifecycle.%s not bound to a function", name)
@@ -959,20 +1000,35 @@ func (p *KernelPlugin) handleHttpRequest(c *gin.Context, request *Request, scope
 				return
 			}
 
-			// convert response.body?.raw?.data from (string | Buffer | ArrayBuffer) to []byte
+			// convert response.body?.raw?.data from (string | Buffer | ArrayBuffer) to []byte, and pull out
+			// response.body?.stream?.stream (a ReadableStream instance) before the JSON round trip below:
+			// 两者都不能走 JSON 编解码，前者要转换成 []byte，后者是活的流对象，序列化不出有意义的结果。
 			var raw *[]byte
-			if bodyValue := responseObj.Get("body"); isJsValueNotNull(bodyValue) {
+			var stream *goja.Object
+			if bodyValue := responseObj.Get("body"); gojaext.IsValueNotNull(bodyValue) {
 				// response.body
 				if bodyObj := bodyValue.ToObject(rt); bodyObj != nil {
-					if rawValue := bodyObj.Get("raw"); isJsValueNotNull(rawValue) {
+					if rawValue := bodyObj.Get("raw"); gojaext.IsValueNotNull(rawValue) {
 						// response.body.raw
 						if rawObj := rawValue.ToObject(rt); rawObj != nil {
-							if dataValue := rawObj.Get("data"); isJsValueNotNull(dataValue) {
+							if dataValue := rawObj.Get("data"); gojaext.IsValueNotNull(dataValue) {
 								// response.body.raw.data
 								dataBytes, convertErr := jsValueToBytes(rt, dataValue)
 								if convertErr == nil {
 									raw = &dataBytes
 									rawObj.Set("data", goja.Null())
+								}
+							}
+						}
+					}
+					if streamValue := bodyObj.Get("stream"); gojaext.IsValueNotNull(streamValue) {
+						// response.body.stream
+						if streamObj := streamValue.ToObject(rt); streamObj != nil {
+							if innerValue := streamObj.Get("stream"); gojaext.IsValueNotNull(innerValue) {
+								// response.body.stream.stream
+								if innerObj := innerValue.ToObject(rt); innerObj != nil && p.streamsHost.IsReadableStream(innerObj) {
+									stream = innerObj
+									streamObj.Set("stream", goja.Null())
 								}
 							}
 						}
@@ -1001,6 +1057,9 @@ func (p *KernelPlugin) handleHttpRequest(c *gin.Context, request *Request, scope
 
 			if raw != nil && response.Body != nil && response.Body.Raw != nil {
 				response.Body.Raw.Data = *raw
+			}
+			if stream != nil && response.Body != nil && response.Body.Stream != nil {
+				response.Body.Stream.Stream = stream
 			}
 
 			done <- &handleResult{Value: &response}
@@ -1273,10 +1332,10 @@ func (p *KernelPlugin) handleWebSocketRequest(c *gin.Context, request *Request, 
 			closeRunErr := p.worker.Run(func(rt *goja.Runtime) (result any, err error) {
 				code := uint16(1000)
 				var reason []byte
-				if isJsValueNotNull(closeCall.Argument(0)) {
+				if gojaext.IsValueNotNull(closeCall.Argument(0)) {
 					code = uint16(closeCall.Argument(0).ToInteger())
 				}
-				if isJsValueNotNull(closeCall.Argument(1)) {
+				if gojaext.IsValueNotNull(closeCall.Argument(1)) {
 					reason = []byte(closeCall.Argument(1).String())
 				}
 				setPortReadyState(rt, WebSocketReadyStateClosing)
@@ -1404,11 +1463,11 @@ func (p *KernelPlugin) handleServerSentEventRequest(c *gin.Context, request *Req
 		}
 
 		port_send := rt.ToValue(func(call goja.FunctionCall, rt *goja.Runtime) goja.Value {
-			if eventJs := call.Argument(0); isJsValueNotNull(eventJs) {
+			if eventJs := call.Argument(0); gojaext.IsValueNotNull(eventJs) {
 				if eventObj := eventJs.ToObject(rt); eventObj != nil {
 					e := sse.Event{}
 
-					if data := eventObj.Get("data"); isJsValueNotUndefined(data) {
+					if data := eventObj.Get("data"); gojaext.IsValueNotUndefined(data) {
 						e.Data = data.Export()
 					} else {
 						panic(rt.NewGoError(fmt.Errorf("event.data is required")))
@@ -1426,7 +1485,10 @@ func (p *KernelPlugin) handleServerSentEventRequest(c *gin.Context, request *Req
 						e.Retry = uint(retry.ToInteger())
 					}
 
-					events.In <- e
+					select {
+					case events.In <- e:
+					case <-ctx.Done():
+					}
 					return goja.Undefined()
 				}
 			}

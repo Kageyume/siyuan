@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package tools
 
@@ -20,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/siyuan-note/siyuan/kernel/model"
+	"github.com/88250/lute/ast"
 )
 
 var TodoWriteTool = &Tool{
@@ -47,6 +35,11 @@ var TodoWriteTool = &Tool{
 	Handler: todoWriteHandler,
 }
 
+type agentTodoItem struct {
+	Content string
+	Status  string
+}
+
 func init() {
 	register(TodoWriteTool)
 }
@@ -68,7 +61,7 @@ func todoWriteHandler(args map[string]any) (CallToolResult, error) {
 		}, nil
 	}
 
-	todos := make([]model.AgentTodoItem, 0, len(items))
+	todos := make([]agentTodoItem, 0, len(items))
 	for _, item := range items {
 		obj, ok := item.(map[string]any)
 		if !ok {
@@ -82,7 +75,7 @@ func todoWriteHandler(args map[string]any) (CallToolResult, error) {
 		if status != "pending" && status != "in_progress" && status != "completed" && status != "cancelled" {
 			status = "pending"
 		}
-		todos = append(todos, model.AgentTodoItem{Content: content, Status: status})
+		todos = append(todos, agentTodoItem{Content: content, Status: status})
 	}
 
 	sessionID, ok := args["_sessionID"].(string)
@@ -92,9 +85,9 @@ func todoWriteHandler(args map[string]any) (CallToolResult, error) {
 			IsError: true,
 		}, nil
 	}
-	if err := model.SaveAgentTodos(sessionID, todos); err != nil {
+	if !ast.IsNodeIDPattern(sessionID) {
 		return CallToolResult{
-			Content: []ContentItem{{Type: "text", Text: "todo_write error: " + err.Error()}},
+			Content: []ContentItem{{Type: "text", Text: "todo_write error: invalid Agent session ID"}},
 			IsError: true,
 		}, nil
 	}
@@ -105,7 +98,8 @@ func todoWriteHandler(args map[string]any) (CallToolResult, error) {
 	}, nil
 }
 
-func formatTodoResult(todos []model.AgentTodoItem) string {
+// formatTodoResult 生成待办展示内容，由会话工具结果统一持久化与恢复。
+func formatTodoResult(todos []agentTodoItem) string {
 	if len(todos) == 0 {
 		return "Todo list is empty."
 	}
@@ -115,13 +109,13 @@ func formatTodoResult(todos []model.AgentTodoItem) string {
 	for _, t := range todos {
 		switch t.Status {
 		case "completed":
-			sb.WriteString(fmt.Sprintf("- [x] %s\n", t.Content))
+			fmt.Fprintf(&sb, "- [x] %s\n", t.Content)
 		case "in_progress":
-			sb.WriteString(fmt.Sprintf("- [/] %s\n", t.Content))
+			fmt.Fprintf(&sb, "- [/] %s\n", t.Content)
 		case "cancelled":
-			sb.WriteString(fmt.Sprintf("- [-] %s\n", t.Content))
+			fmt.Fprintf(&sb, "- [-] %s\n", t.Content)
 		default:
-			sb.WriteString(fmt.Sprintf("- [ ] %s\n", t.Content))
+			fmt.Fprintf(&sb, "- [ ] %s\n", t.Content)
 		}
 	}
 	return sb.String()

@@ -1,4 +1,4 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -42,7 +42,7 @@ func (view *View) GetTableLayout() *LayoutTable {
 	return view.Table
 }
 
-// TableFromViewable 获取表格或列表实例的行列数据。
+// TableFromViewable 获取表格、列表或日历实例的行列数据。
 func TableFromViewable(viewable Viewable) *Table {
 	switch instance := viewable.(type) {
 	case *Table:
@@ -57,9 +57,6 @@ func TableFromViewable(viewable Viewable) *Table {
 
 // ValidateListLayouts 校验列表布局的结构，拒绝损坏数据并保留原始文件。
 func (attrView *AttributeView) ValidateListLayouts() error {
-	if err := attrView.ValidateCalendarLayouts(); nil != err {
-		return err
-	}
 	var validate func(*View) error
 	validate = func(view *View) error {
 		if nil == view {

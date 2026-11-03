@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -74,7 +78,7 @@ func (w *mcpOAuthChallengeWriter) WriteHeader(status int) {
 func CheckMCPAuth(c *gin.Context) {
 	header := strings.Fields(c.GetHeader("Authorization"))
 	isBearer := len(header) == 2 && strings.EqualFold(header[0], "Bearer")
-	if isBearer && util.AuthCodeEquals(Conf.Api.Token, header[1]) {
+	if isBearer && util.AuthCodeEquals(Conf.Api.Load().Token, header[1]) {
 		CheckAuth(c)
 		return
 	}

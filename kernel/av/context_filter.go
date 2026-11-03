@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package av
 
@@ -95,9 +83,7 @@ func (filter *AttributeViewContextFilter) Validate(attrView *AttributeView) erro
 	if nil == filter || AttributeViewContextFilterSpec != filter.Spec || nil == attrView {
 		return ErrInvalidAttributeViewContextFilter
 	}
-	key, err := attrView.GetKey(filter.KeyID)
-	if nil != err || nil == key || KeyTypeRelation != key.Type || nil == key.Relation ||
-		"" == strings.TrimSpace(key.Relation.AvID) {
+	if _, err := attrView.ResolveRelationKey(filter.KeyID, nil); nil != err {
 		return ErrInvalidAttributeViewContextFilter
 	}
 	return nil
@@ -116,21 +102,35 @@ func (filter *AttributeViewContextFilter) Marshal() (string, error) {
 }
 
 // ContextFilterFields 返回整个数据库中可用于上下文筛选的关联字段，不受当前视图布局限制。
-func (av *AttributeView) ContextFilterFields() (ret []*AttributeViewContextFilterField) {
+func (av *AttributeView) ContextFilterFields(loaders ...func(string) (*AttributeView, error)) (ret []*AttributeViewContextFilterField) {
 	ret = []*AttributeViewContextFilterField{}
 	if nil == av {
 		return
+	}
+	load := ParseAttributeView
+	if 0 < len(loaders) && nil != loaders[0] {
+		load = loaders[0]
+	}
+	cache := map[string]*AttributeView{}
+	loadCached := func(id string) (*AttributeView, error) {
+		if target, ok := cache[id]; ok {
+			return target, nil
+		}
+		target, err := load(id)
+		cache[id] = target
+		return target, err
 	}
 	for _, keyValues := range av.KeyValues {
 		if nil == keyValues || nil == keyValues.Key {
 			continue
 		}
 		key := keyValues.Key
-		if KeyTypeRelation != key.Type || nil == key.Relation || "" == strings.TrimSpace(key.Relation.AvID) {
+		relation, err := av.ResolveRelationKey(key.ID, loadCached)
+		if nil != err {
 			continue
 		}
 		ret = append(ret, &AttributeViewContextFilterField{
-			ID: key.ID, Name: key.Name, Icon: key.Icon, TargetAvID: key.Relation.AvID,
+			ID: key.ID, Name: key.Name, Icon: key.Icon, TargetAvID: relation.Relation.AvID,
 		})
 	}
 	return

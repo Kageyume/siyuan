@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -82,8 +86,11 @@ type SettingPetalDisabledData struct {
 	GlobalPetalRevision uint64   `json:"globalPetalRevision"`
 	GlobalPetalChanged  bool     `json:"globalPetalChanged"`
 }
+
+// SettingKeymapRequest 承载完整的快捷键配置，data 与 conf.json 的 keymap 段同构且必须提交。
+// 内置快捷键由前端按平台补全，内核只保留提交的内容。
 type SettingKeymapRequest struct {
-	Data map[string]JSONValue `json:"data" api:"optional,nullable"`
+	Data map[string]JSONValue `json:"data"`
 }
 type SettingIconRequest struct {
 	Icon string `json:"icon" api:"trim"`

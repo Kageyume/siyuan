@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -18,7 +22,7 @@ import (
 
 func TestAPIContractAISkillManagement(t *testing.T) {
 	aiContractConfiguration(t)
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 	engine := gin.New()
 	engine.POST("/api/ai/agent/manageSkills", manageSkills)
 	call := func(body string, code int) apicontract.AISkillFileData {

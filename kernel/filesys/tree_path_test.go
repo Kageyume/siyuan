@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package filesys
 
 import (
@@ -34,6 +38,10 @@ func TestTreeIOPreservesNonDocumentFiles(t *testing.T) {
 					_, err := LoadTreeByData(original, box, p, luteEngine)
 					return err
 				},
+				"snapshot": func() error {
+					_, _, err := LoadTreeSnapshot(box, p, luteEngine)
+					return err
+				},
 				"cached load": func() error {
 					id := util.GetTreeID(p)
 					cache.SetTreeDataInBox(id, box, original)
@@ -52,7 +60,7 @@ func TestTreeIOPreservesNonDocumentFiles(t *testing.T) {
 					return err
 				},
 				"repair": func() error {
-					_, _, err := fixTreeJSONData(box, p, original, luteEngine, nil, false)
+					_, _, err := fixTreeJSONData(box, p, original, luteEngine, nil, false, true)
 					return err
 				},
 				"write": func() error {

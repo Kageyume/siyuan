@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -18,10 +22,10 @@ func TestPrepareClipboardPasteAssets(t *testing.T) {
 	util.WorkspaceDir = t.TempDir()
 	util.DataDir = filepath.Join(util.WorkspaceDir, "data")
 	Conf = NewAppConf()
-	Conf.Sync = conf.NewSync()
-	Conf.FileTree = conf.NewFileTree()
-	Conf.Editor = conf.NewEditor()
-	Conf.Editor.VirtualBlockRef = false
+	Conf.Sync.Store(conf.NewSync())
+	Conf.FileTree.Store(conf.NewFileTree())
+	Conf.Editor.Store(conf.NewEditor())
+	Conf.Editor.Load().VirtualBlockRef = false
 	boxID, otherBox := "20260928120000-abcdefg", "20260928120000-hijklmn"
 	t.Cleanup(func() {
 		LockBox(boxID)

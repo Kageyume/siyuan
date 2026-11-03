@@ -128,12 +128,12 @@ export const showDocVersionDiff = (app: App, firstRef: IDocVersionRef, secondRef
     <div class="history__compare-scroll fn__flex-1">
         <div class="history__compare-editors fn__flex">
             <div class="history__compare-panel fn__flex-column">
-                <div class="history__compare-label ft__on-surface ft__ellipsis"></div>
+                <div class="history__compare-label ft__on-surface fn__ellipsis"></div>
                 <div class="protyle-title__input ft__center ft__breakword"></div>
                 <div class="history__compare-content fn__flex-1"></div>
             </div>
             <div class="history__compare-panel fn__flex-column">
-                <div class="history__compare-label ft__on-surface ft__ellipsis"></div>
+                <div class="history__compare-label ft__on-surface fn__ellipsis"></div>
                 <div class="protyle-title__input ft__center ft__breakword"></div>
                 <div class="history__compare-content fn__flex-1"></div>
             </div>
@@ -196,7 +196,7 @@ export const showDocVersionDiff = (app: App, firstRef: IDocVersionRef, secondRef
             panel.querySelector(".history__compare-label").textContent = index === 0 ? leftRef.label : rightRef.label;
             panel.querySelector(".protyle-title__input").textContent = "";
             panel.querySelector(".history__compare-content").innerHTML =
-                '<div class="fn__loading"><img style="height: 64px;width: 64px" src="/stage/loading-pure.svg"></div>';
+                '<div class="fn__loading"><span class="b3-loading" aria-hidden="true"></span></div>';
         });
     };
 

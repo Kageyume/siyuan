@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package tools
 
@@ -67,15 +55,15 @@ func refBacklinks(args map[string]any) (CallToolResult, error) {
 		sortMode = int(v)
 	}
 
-	_, backlinks, _, _, _ := model.GetBacklink2(id, keyword, "", sortMode, 0, model.Conf.Editor.BacklinkContainChildren)
+	_, backlinks, _, _, _ := model.GetBacklink2(id, keyword, "", sortMode, 0, model.Conf.Editor.Load().BacklinkContainChildren)
 	if len(backlinks) == 0 {
 		return CallToolResult{Content: []ContentItem{{Type: "text", Text: "no backlinks found"}}}, nil
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Backlinks (%d):\n\n", len(backlinks)))
+	fmt.Fprintf(&sb, "Backlinks (%d):\n\n", len(backlinks))
 	for _, p := range backlinks {
-		sb.WriteString(fmt.Sprintf("- [%s] %s (id: %s)\n", p.NodeType, p.HPath, p.ID))
+		fmt.Fprintf(&sb, "- [%s] %s (id: %s)\n", p.NodeType, p.HPath, p.ID)
 	}
 	return CallToolResult{Content: []ContentItem{{Type: "text", Text: sb.String()}}}, nil
 }
@@ -88,15 +76,15 @@ func refMentions(args map[string]any) (CallToolResult, error) {
 		sortMode = int(v)
 	}
 
-	_, _, mentions, _, _ := model.GetBacklink2(id, "", keyword, 0, sortMode, model.Conf.Editor.BacklinkContainChildren)
+	_, _, mentions, _, _ := model.GetBacklink2(id, "", keyword, 0, sortMode, model.Conf.Editor.Load().BacklinkContainChildren)
 	if len(mentions) == 0 {
 		return CallToolResult{Content: []ContentItem{{Type: "text", Text: "no mentions found"}}}, nil
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Mentions (%d):\n\n", len(mentions)))
+	fmt.Fprintf(&sb, "Mentions (%d):\n\n", len(mentions))
 	for _, p := range mentions {
-		sb.WriteString(fmt.Sprintf("- [%s] %s (id: %s)\n", p.NodeType, p.HPath, p.ID))
+		fmt.Fprintf(&sb, "- [%s] %s (id: %s)\n", p.NodeType, p.HPath, p.ID)
 	}
 	return CallToolResult{Content: []ContentItem{{Type: "text", Text: sb.String()}}}, nil
 }

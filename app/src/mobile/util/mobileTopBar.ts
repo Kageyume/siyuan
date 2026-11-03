@@ -1,3 +1,5 @@
+import {isMobileLandscape} from "./orientation";
+
 const MOBILE_TOP_BAR_ELEMENT_IDS = ["toolbarSidebarLeft", "toolbarName", "toolbarNameReadonly", "toolbarSync", "toolbarSidebarRight"] as const;
 
 let topBarElements: HTMLElement[];
@@ -36,8 +38,9 @@ export const updateMobileTopBarLayout = () => {
         return;
     }
 
-    const breadcrumbSpace = editorElement.querySelector<HTMLElement>(".protyle-breadcrumb__space");
-    const merged = window.matchMedia("(orientation: landscape)").matches &&
+    const breadcrumbSpace = editorElement.querySelector<HTMLElement>(".protyle-breadcrumb__space") ||
+        document.querySelector<HTMLElement>(".protyle-breadcrumb--fullscreen .protyle-breadcrumb__space");
+    const merged = isMobileLandscape() &&
         !editorElement.classList.contains("fn__none") && Boolean(breadcrumbSpace);
     const targetElement = merged ? breadcrumbSpace : topBarElement;
     if (!targetElement) {

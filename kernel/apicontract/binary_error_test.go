@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import "testing"
@@ -5,7 +9,7 @@ import "testing"
 func TestBinarySharedStatusErrors(t *testing.T) {
 	previous := definitions
 	t.Cleanup(func() { definitions = previous })
-	endpoint := define[EmptyRequest, BinaryContent]("sharedBinaryStatus", "/test/shared-binary-status", NoBody, ResponseOptions{Output: BinaryOutput, ErrorStatus: 200}, "POST")
+	endpoint := define[EmptyRequest, BinaryContent]("sharedBinaryStatus", "/test/shared-binary-status", PublicAccess, NoBody, ResponseOptions{Output: BinaryOutput, ErrorStatus: 200}, "POST")
 	bundle, err := BuildBundle()
 	if err != nil {
 		t.Fatal(err)

@@ -10,8 +10,13 @@ const sources = () => {
     }).outputText;
     return {
         clipboard: compile("protyle/util/markdownClipboard.ts"),
+        mathPaste: compile("protyle/util/mathPaste.ts"),
         paste: compile("protyle/util/paste.ts"),
+        pictureImages: compile("protyle/util/pictureImages.ts"),
+        localAssets: compile("protyle/upload/htmlLocalAssets.ts"),
+        uploadResult: compile("protyle/upload/uploadResult.ts"),
         fixture: JSON.parse(readFileSync(path.join(__dirname, "fixtures/doubao-clipboard.json"), "utf8")),
+        mathFixture: JSON.parse(readFileSync(path.join(__dirname, "fixtures/chatgpt-math-clipboard.json"), "utf8")),
     };
 };
 
@@ -77,6 +82,7 @@ const runCases = async source => {
     lute.SetProtyleWYSIWYG(true);
     lute.SetTextMark(true);
     lute.SetHTMLTag2TextMark(true);
+    lute.SetKramdownIAL(true);
     const validateResult = result => {
         const root = document.createElement("div");
         root.innerHTML = result;
@@ -90,9 +96,13 @@ const runCases = async source => {
     };
 
     // 执行共享入口，覆盖桌面剪贴板事件、移动端读取结果以及保留来源格式选项。
-    const paste = async (mobile, preserveSourceFormat = false, restricted = false) => {
+    const paste = async (mobile, preserveSourceFormat = false, restricted = false, localAssetStatus, switched = false, clipboardOverride) => {
         let inserted;
         let htmlConversions = 0;
+        let convertedSource;
+        const pasteHTML = clipboardOverride ? clipboardOverride.html : localAssetStatus ? '<p>Before<img src="file:///tmp/missing.png"></p>' +
+            '<table><tr><td>Table cell</td></tr></table><p><img src="file:///tmp/good.png"></p><p>After</p>' : html;
+        const pasteText = clipboardOverride ? clipboardOverride.text : localAssetStatus ? "" : text;
         let checkedBlockDOM;
         const validated = new Error("validated restricted content");
         const block = document.createElement("div");
@@ -103,10 +113,12 @@ const runCases = async source => {
         const mocks = {
             "../../constants": {Constants: {ZWSP: "\u200b"}},
             "./markdownClipboard": clipboard,
+            "./mathPaste": load(source.mathPaste),
+            "./pictureImages": load(source.pictureImages),
             "../runtimeCapabilities": {
                 getProtyleBlockDOMSanitizer: () => restricted ? value => value : undefined,
                 isProtyleRichHTMLPasteEnabled: () => restricted,
-                isProtyleUploadDisabled: () => true,
+                isProtyleUploadDisabled: () => !localAssetStatus,
                 areProtylePluginExtensionsEnabled: () => false,
                 getProtyleUnsupportedPasteBlocks: () => value => {
                     checkedBlockDOM = value;
@@ -116,8 +128,10 @@ const runCases = async source => {
             "../upload/insertPosition": {
                 createUploadInsertPosition: () => ({range}), captureUploadDocument: () => ({}),
                 isUploadInsertPositionAvailable: () => true, getAvailableUploadInsertRange: () => range,
+                isUploadDocumentAvailable: () => !switched,
             },
             "./selection": {getEditorRange: () => range},
+            "./tableCellRichContext": {getTableCellRichContext: () => undefined},
             "./hasClosest": {hasClosestBlock: () => block},
             "./wpsPresentation": {extractWPSPresentationClipboard: () => undefined},
             "./compatibility": {isInHarmony: () => false,
@@ -127,13 +141,34 @@ const runCases = async source => {
             "./pasteSource": {extractCrossBlockPasteContext: value => ({html: value})},
             "./processCode": {processPasteCode: () => false, processRender: noop},
             "./inlineElementMarker": {stripSemanticMarkersFromRangeText: () => ""},
-            "../upload/htmlLocalAssets": {resolveHTMLAssetURLs: noop, getHTMLAssetSourceURL: () => undefined,
-                collectHTMLLocalAssets: () => [], removeHTMLLocalAssetPaths: noop},
-            "../upload/htmlEmbeddedAssets": {hasHTMLEmbeddedAssets: () => false, collectHTMLEmbeddedAssets: () => []},
-            "../../util/hostCapabilities": {getHostCapabilities: () => ({localFileSystem: false})},
+            "../upload/htmlLocalAssets": load(source.localAssets),
+            "../upload/uploadResult": load(source.uploadResult),
+            "../upload/htmlEmbeddedAssets": {hasHTMLEmbeddedAssets: () => false, collectHTMLEmbeddedAssets: () => [],
+                validateHTMLEmbeddedAssetSizes: noop},
+            "../../util/hostCapabilities": {getHostCapabilities: () => ({localFileSystem: !mobile && Boolean(localAssetStatus)})},
+            "../../dialog/message": {showMessage: noop},
+            "../upload": {uploadLocalFiles: (files, _protyle, _upload, options, success, complete) => {
+                check.equal(files.length, 2);
+                check.equal(options.fromHTMLPaste, true);
+                const result = {status: localAssetStatus, succFiles: localAssetStatus === "partial" ?
+                    [{index: 1, name: "good.png", path: "assets/good.png"}] : []};
+                if (localAssetStatus === "partial") {
+                    success({}, result);
+                }
+                complete(false, result);
+            }},
             "../../util/fetch": {fetchSyncPost: async (_url, request) => {
+                if (request.preflight) {
+                    return {code: 0, data: {converted: true, useHTML: true, normalizedHTML: request.dom}};
+                }
                 htmlConversions++;
-                return {code: 0, data: lute.HTML2BlockDOM(request.dom)};
+                convertedSource = request.dom;
+                lute.SetLatexMath(window.siyuan.config.editor.mathDelimiterCompatibility !== false);
+                try {
+                    return {code: 0, data: lute.HTML2BlockDOM(request.dom)};
+                } finally {
+                    lute.SetLatexMath(false);
+                }
             }},
             "./insertHTML": {insertHTML: value => { inserted = value; }},
             "../ui/hideElements": {hideElements: noop},
@@ -143,12 +178,13 @@ const runCases = async source => {
             "../../util/highlightById": {scrollCenter: noop},
             "electron": {ipcRenderer: {invoke: async () => ""}},
         };
-        window.siyuan = {config: {editor: {pasteURLAutoConvert: false}}};
+        window.siyuan = {config: {editor: {pasteURLAutoConvert: false,
+            mathDelimiterCompatibility: clipboardOverride?.enabled !== false}}, languages: {uploadError: "upload failed"}};
         const protyle = {lute, hint: {}, options: {upload: {max: 1024 * 1024}},
             wysiwyg: {element: block}, toolbar: {getCurrentType: () => []}};
-        const event = mobile ? {textHTML: html, textPlain: text, siyuanHTML: "", target: block, preserveSourceFormat} : {
+        const event = mobile ? {textHTML: pasteHTML, textPlain: pasteText, siyuanHTML: "", target: block, preserveSourceFormat} : {
             target: block, stopPropagation: noop, preventDefault: noop, preserveSourceFormat,
-            clipboardData: {files: [], types: [], getData: type => ({"text/html": html, "text/plain": text}[type] || "")},
+            clipboardData: {files: [], types: [], getData: type => ({"text/html": pasteHTML, "text/plain": pasteText}[type] || "")},
         };
         try {
             await load(source.paste, mocks).paste(protyle, event);
@@ -158,9 +194,60 @@ const runCases = async source => {
                 throw error;
             }
         }
-        return {inserted, htmlConversions, checkedBlockDOM};
+        return {inserted, htmlConversions, checkedBlockDOM, convertedSource};
     };
     for (const mobile of [false, true]) {
+        for (const preserve of [false, true]) {
+            for (const enabled of [true, false]) {
+                const captured = await paste(mobile, preserve, false, undefined, false,
+                    {...source.mathFixture, enabled});
+                const root = document.createElement("div");
+                let dom = captured.inserted;
+                for (let round = 0; round < 3; round++) {
+                    root.innerHTML = dom;
+                    check.equal(root.querySelectorAll('[data-type="inline-math"]').length, enabled ? 3 : 0);
+                    check.equal(root.querySelectorAll('[data-type="NodeMathBlock"]').length, enabled ? 2 : 0);
+                    const cells = Array.from(root.querySelectorAll("tbody tr"), row => row.lastElementChild);
+                    check.equal(cells.length, 2, `mobile=${mobile} preserve=${preserve} enabled=${enabled}: ${root.innerHTML}`);
+                    const formulas = ["x=\\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}", "e^{i\\pi}+1=0"];
+                    cells.forEach((cell, index) => {
+                        if (enabled) {
+                            check.equal(cell.querySelector('[data-type="inline-math"]').dataset.content, formulas[index]);
+                        } else {
+                            check.ok(cell.textContent.includes(formulas[index]));
+                        }
+                    });
+                    dom = lute.SpinBlockDOM(dom);
+                }
+            }
+        }
+        for (const enabled of [true, false]) {
+            for (const preserve of [true, false]) {
+                const restricted = await paste(mobile, preserve, true, undefined, false, {
+                    html: "<p><strong>\\(x+y\\)</strong></p><p>\\[z\\]</p><pre><code>\\(code\\)</code></pre>",
+                    text: "\\(x+y\\)\n\n\\[z\\]\n\n`\\(code\\)`", enabled,
+                });
+                const root = document.createElement("div");
+                let dom = restricted.checkedBlockDOM;
+                for (let round = 0; round < 3; round++) {
+                    root.innerHTML = dom;
+                    check.equal(root.querySelectorAll('[data-type~="inline-math"]').length, enabled ? 1 : 0);
+                    check.equal(root.querySelectorAll('[data-type="NodeMathBlock"]').length, enabled ? 1 : 0);
+                    check.ok(root.textContent.includes("code"));
+                    dom = lute.SpinBlockDOM(dom);
+                }
+                check.doesNotMatch(lute.Md2BlockDOM("\\(typed\\)"), /data-type="inline-math"/);
+            }
+            for (const html of ["", "<p>\\(x+y\\)</p><p>\\[z\\]</p>"]) {
+                const externalMath = await paste(mobile, false, false, undefined, false,
+                    {html, text: "\\(x+y\\)\n\n\\[z\\]", enabled});
+                const root = document.createElement("div");
+                root.innerHTML = externalMath.inserted;
+                check.equal(root.querySelectorAll('[data-type="inline-math"]').length, enabled ? 1 : 0);
+                check.equal(root.querySelectorAll('[data-type="NodeMathBlock"]').length, enabled ? 1 : 0);
+                check.doesNotMatch(lute.Md2BlockDOM("\\(typed\\)"), /data-type="inline-math"/);
+            }
+        }
         const result = await paste(mobile);
         check.equal(result.htmlConversions, 0);
         validateResult(result.inserted);
@@ -171,6 +258,28 @@ const runCases = async source => {
         const restrictedPreserved = await paste(mobile, true, true);
         check.doesNotMatch(restrictedPreserved.checkedBlockDOM, /data-type="inline-math"/);
     }
+    for (const status of ["partial", "failed", "canceled"]) {
+        const result = await paste(false, true, false, status);
+        if (status === "canceled") {
+            check.equal(result.inserted, undefined);
+            check.equal(result.htmlConversions, 0);
+            continue;
+        }
+        check.match(result.inserted, /Before/);
+        check.match(result.inserted, /After/);
+        check.match(result.inserted, /Table cell/);
+        check.match(result.inserted, /data-type="NodeTable"/);
+        check.doesNotMatch(result.convertedSource, /file:\/\//);
+        if (status === "partial") {
+            check.match(result.convertedSource, /src="assets\/good.png"/);
+        }
+    }
+    const mobileLocal = await paste(true, true, false, "failed");
+    check.match(mobileLocal.inserted, /Table cell/);
+    check.doesNotMatch(mobileLocal.convertedSource, /file:\/\//);
+    const switched = await paste(false, true, false, "partial", true);
+    check.equal(switched.inserted, undefined);
+    check.equal(switched.htmlConversions, 0);
     return "Markdown clipboard cases passed";
 };
 

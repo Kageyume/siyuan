@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -30,7 +18,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/88250/lute/parse"
 	"github.com/siyuan-note/siyuan/kernel/util"
 	"golang.org/x/image/bmp"
 )
@@ -127,15 +114,13 @@ func TestImportedSYRootIDs(t *testing.T) {
 }
 
 func TestImportedTreeRootIDs(t *testing.T) {
-	trees := []*parse.Tree{
-		{ID: "root-b", Path: "/target/root-b.sy"},
-		nil,
-		{ID: "child", Path: "/target/root-b/child.sy"},
-		{ID: "root-a", Path: "/target/root-a.sy"},
-		{ID: "other", Path: "/other.sy"},
-	}
-
-	got := importedTreeRootIDs(trees, "/target")
+	spool := &markdownImportSpool{entries: []markdownImportEntry{
+		{id: "root-b", path: "/target/root-b.sy"},
+		{id: "child", path: "/target/root-b/child.sy"},
+		{id: "root-a", path: "/target/root-a.sy"},
+		{id: "other", path: "/other.sy"},
+	}}
+	got := spool.rootIDs("/target")
 	assertStringSlice(t, got, []string{"root-a", "root-b"})
 }
 

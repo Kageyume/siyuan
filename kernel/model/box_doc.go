@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -92,7 +80,9 @@ func writeBoxDocID(boxID string) error {
 }
 
 func IsBoxDocEnabled() bool {
-	return nil != Conf && nil != Conf.FileTree && nil != Conf.FileTree.BoxDocEnabled && *Conf.FileTree.BoxDocEnabled
+	confFileTreeSnapshot := Conf.LoadFileTree()
+
+	return nil != Conf && nil != confFileTreeSnapshot && confFileTreeSnapshot.BoxDocEnabled
 }
 
 func hiddenBoxDocRootIDs() (ret []string) {
@@ -247,7 +237,7 @@ func reconcileBoxDoc(box *Box, boxDocID string) error {
 	if "" == title {
 		title = Conf.Language(16)
 	}
-	titleChanged := tree.Root.IALAttr("title") != title
+	titleChanged := treenode.ReadDocumentTitle(tree.Root).Text != title
 	changed := titleChanged || tree.HPath != "/"+title || tree.Root.IALAttr(DocHiddenAttr) != "true" ||
 		tree.Root.IALAttr("icon") != boxConf.Icon
 	if !changed {
@@ -289,7 +279,8 @@ func BoxDocSubFileCountForPublishAt(boxID, docPath string, publishAccess Publish
 
 func boxDocSubFileCount(boxID, parentPath string, include func(docPath string) bool) int {
 	ret, _ := visibleDocCount(boxID, parentPath, func(p string) map[string]string {
-		return filesys.DocIAL(filepath.Join(util.DataDir, boxID, p))
+		ial, _ := filesys.DocIAL(filepath.Join(util.DataDir, boxID, p))
+		return ial
 	}, include)
 	return ret
 }
@@ -310,8 +301,8 @@ func normalizeBoxDocPath(boxID, p string) string {
 		return p
 	}
 	prefix := "/" + box.ID + "/"
-	if strings.HasPrefix(p, prefix) {
-		return "/" + strings.TrimPrefix(p, prefix)
+	if after, ok := strings.CutPrefix(p, prefix); ok {
+		return "/" + after
 	}
 	return p
 }

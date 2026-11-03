@@ -1,4 +1,4 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -32,10 +33,10 @@ func ResolveAssetPathWithMissingLeaf(absPath string) (string, error) {
 	current := filepath.Clean(absPath)
 	var missing []string
 	for {
-		resolved, err := ResolveRealPath(current)
+		resolved, err := util.ResolveRealPath(current)
 		if err == nil {
-			for i := len(missing) - 1; i >= 0; i-- {
-				resolved = filepath.Join(resolved, missing[i])
+			for _, m := range slices.Backward(missing) {
+				resolved = filepath.Join(resolved, m)
 			}
 			return resolved, nil
 		}
@@ -100,12 +101,12 @@ func deferredAssetPathFromFiles(relativePath, boxID string, includeEncrypted boo
 		} else {
 			resolvedBoxID := boxID
 			if resolvedBoxID == "" {
-				resolvedBoxID = ExtractBoxIDFromAssetsPath(absPath)
+				resolvedBoxID = util.BoxIDFromDataPath(absPath)
 			}
 			root, rootErr := ResolveAssetPathWithMissingLeaf(filepath.Join(util.DataDir, resolvedBoxID, "assets"))
 			resolved, resolveErr := ResolveAssetPathWithMissingLeaf(absPath)
-			notebookRoot, notebookErr := ResolveRealPath(filepath.Join(util.DataDir, resolvedBoxID))
-			dataRoot, dataErr := ResolveRealPath(util.DataDir)
+			notebookRoot, notebookErr := util.ResolveRealPath(filepath.Join(util.DataDir, resolvedBoxID))
+			dataRoot, dataErr := util.ResolveRealPath(util.DataDir)
 			if rootErr != nil || resolveErr != nil || notebookErr != nil || dataErr != nil ||
 				!gulu.File.IsSubPath(dataRoot, notebookRoot) ||
 				!gulu.File.IsSubPath(notebookRoot, root) || !gulu.File.IsSubPath(root, resolved) {
@@ -126,7 +127,7 @@ func deferredAssetPathFromFiles(relativePath, boxID string, includeEncrypted boo
 
 // ensureReadableAssetLocal 先检查加密笔记本准入，再下载原始密文；实际读取仍须认证解密。
 func ensureReadableAssetLocal(absPath string) error {
-	boxID := ExtractBoxIDFromAssetsPath(absPath)
+	boxID := util.BoxIDFromDataPath(absPath)
 	if boxID != "" && IsEncryptedBox(boxID) && !IsBoxUnlocked(boxID) {
 		return errors.New(Conf.Language(314))
 	}
@@ -145,6 +146,8 @@ func prepareExportAssets(boxID string, docPaths []string, includeFootnotes ...bo
 
 // prepareExportAssetsInScope 在单块导出时按块范围收集依赖，文档导出仍按文档路径收集。
 func prepareExportAssetsInScope(boxID string, docPaths []string, includeFootnotes bool, blockID string) error {
+	confExportSnapshot := Conf.LoadExport()
+
 	if boxID != "" && IsEncryptedBox(boxID) && !IsBoxUnlocked(boxID) {
 		return errors.New(Conf.Language(314))
 	}
@@ -187,7 +190,7 @@ func prepareExportAssetsInScope(boxID string, docPaths []string, includeFootnote
 			}
 			trees[blockID] = selectExportTree(tree, block)
 		} else {
-			exportRefTrees(tree, &[]string{}, trees)
+			exportRefTreesWithConfig(tree, &[]string{}, trees, resolveExportOptions(nil))
 		}
 	}
 	// 查询嵌入的资源属于导出依赖，按笔记本边界展开并去重，避免循环嵌入反复读取。
@@ -212,16 +215,16 @@ func prepareExportAssetsInScope(boxID string, docPaths []string, includeFootnote
 			if err := treenode.MaterializeTableCellRichExport(tree.Root); err != nil {
 				return err
 			}
-			defer treenode.MaterializeTabTitles(tree.Root)()
+			defer treenode.MaterializeInlineTitles(tree.Root)()
 		}
-		if includeFootnotes && Conf.Export.BlockRefMode == 4 && tree.Root.Type == ast.NodeDocument {
+		if includeFootnotes && confExportSnapshot.BlockRefMode == 4 && tree.Root.Type == ast.NodeDocument {
 			// 按单文件导出的脚注展开规则收集资源，不受是否另行导出关联文档影响
 			order := []string{}
 			footnotes := map[string]*refAsFootnotes{}
 			depth := 0
-			collectFootnotesDefs0(tree, tree.Root, &order, footnotes, &depth)
+			collectFootnotesDefs0(tree, tree.Root, &order, footnotes, &depth, nil)
 			defs, defsErr := resolveFootnotesDefs(&order, footnotes, tree, map[string]bool{},
-				Conf.Export.BlockRefTextLeft, Conf.Export.BlockRefTextRight, false)
+				confExportSnapshot.BlockRefTextLeft, confExportSnapshot.BlockRefTextRight, false)
 			if defsErr != nil {
 				return defsErr
 			}
@@ -232,16 +235,18 @@ func prepareExportAssetsInScope(boxID string, docPaths []string, includeFootnote
 				trees[footnoteTree.ID] = &footnoteTree
 			}
 		}
-		treenode.WalkWithTabTitles(tree.Root, func(node *ast.Node, entering bool) ast.WalkStatus {
+		treenode.WalkWithInlineTitles(tree.Root, func(node *ast.Node, entering bool) ast.WalkStatus {
+			confSearchSnapshot := Conf.LoadSearch()
+
 			if !entering || node.Type != ast.NodeBlockQueryEmbedScript {
 				return ast.WalkContinue
 			}
 			stmt := strings.ReplaceAll(html.UnescapeString(node.TokensStr()), editor.IALValEscNewLine, "\n")
 			var blocks []*sql.Block
 			if IsEncryptedBox(tree.Box) {
-				blocks = sql.SelectBlocksRawStmtInBox(stmt, 1, Conf.Search.Limit, tree.Box)
+				blocks = sql.SelectBlocksRawStmtInBox(stmt, 1, confSearchSnapshot.Limit, tree.Box)
 			} else {
-				blocks = sql.SelectBlocksRawStmt(stmt, 1, Conf.Search.Limit)
+				blocks = sql.SelectBlocksRawStmt(stmt, 1, confSearchSnapshot.Limit)
 			}
 			for _, block := range blocks {
 				if embedded, loadErr := loadExportRelatedTree(block.ID, tree.Box); loadErr == nil {
@@ -254,7 +259,7 @@ func prepareExportAssetsInScope(boxID string, docPaths []string, includeFootnote
 							trees[block.ID] = selectExportTree(embedded, bt)
 						}
 					} else {
-						exportRefTrees(embedded, &[]string{}, trees)
+						exportRefTreesWithConfig(embedded, &[]string{}, trees, resolveExportOptions(nil))
 					}
 				}
 			}
@@ -270,12 +275,19 @@ func prepareExportAssetsInScope(boxID string, docPaths []string, includeFootnote
 			avBoxID = tree.Box
 		}
 		avIDs := hashset.New()
-		treenode.WalkWithTabTitles(tree.Root, func(node *ast.Node, entering bool) ast.WalkStatus {
+		var relationErr error
+		treenode.WalkWithInlineTitles(tree.Root, func(node *ast.Node, entering bool) ast.WalkStatus {
 			if entering && node.Type == ast.NodeAttributeView && node.AttributeViewID != "" {
-				walkRelationAvs(node.AttributeViewID, avBoxID, avIDs)
+				relationErr = walkRelationAvs(node.AttributeViewID, avBoxID, avIDs)
+				if relationErr != nil {
+					return ast.WalkStop
+				}
 			}
 			return ast.WalkContinue
 		})
+		if relationErr != nil {
+			return relationErr
+		}
 		for _, id := range avIDs.Values() {
 			attrView, parseErr := av.ParseAttributeViewInBox(id.(string), avBoxID)
 			if parseErr != nil {

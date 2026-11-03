@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 import (
@@ -10,6 +14,9 @@ import (
 
 type CreateSnapshotRequest struct {
 	Memo string `json:"memo" api:"optional"`
+	// FullCheck 为 true 时读取全部已落盘文件，检查大小及修改时间均未变化的内容修改。
+	// 默认为 false，复用本机已确认的文件属性；未下载资源保留逻辑版本，不为校验主动下载。
+	FullCheck bool `json:"fullCheck" api:"optional"`
 }
 
 type CreateSnapshotData struct {
@@ -59,6 +66,7 @@ type UploadCloudSnapshotRequest struct {
 }
 type GetRepoSnapshotsRequest struct {
 	Page float64 `json:"page"`
+	RepoSnapshotTimeRange
 	// ID 可选，去除首尾空白后按 7 至 40 位十六进制快照 ID 前缀查询本地仓库，不区分大小写，忽略分页。
 	// 前缀匹配多个快照时全部返回，按创建时间降序排列。
 	// 省略或留空时保留分页列表；未找到返回空列表，格式错误及仓库读取失败返回错误。
@@ -79,7 +87,36 @@ type ExportRepoFileRequest struct {
 }
 type GetCloudRepoSnapshotsRequest struct {
 	Page float64 `json:"page"`
+	RepoSnapshotTimeRange
 }
+
+// RepoSnapshotTimeRange 在分页前按创建时间筛选，省略或为 0 表示该端无界。
+// 本地 ID 查询同样筛选时间，但仍忽略分页；云端会遍历索引页，错误时不返回部分结果。
+type RepoSnapshotTimeRange struct {
+	// StartTime 为包含在范围内的起始 Unix 毫秒时间戳，必须是非负整数。
+	StartTime int64 `json:"startTime" api:"optional"`
+	// EndTime 为不包含在范围内的结束 Unix 毫秒时间戳，必须是非负整数。
+	// 两端均非 0 时，EndTime 必须大于 StartTime。
+	EndTime int64 `json:"endTime" api:"optional"`
+}
+
+func decodeRepoSnapshotTimeRange(fields map[string]json.RawMessage) (ret RepoSnapshotTimeRange, err error) {
+	for key, target := range map[string]*int64{"startTime": &ret.StartTime, "endTime": &ret.EndTime} {
+		if raw, exists := fields[key]; exists {
+			if string(raw) == "null" {
+				return ret, fmt.Errorf("%s must be a non-negative integer", key)
+			}
+			if err = json.Unmarshal(raw, target); err != nil || *target < 0 {
+				return ret, fmt.Errorf("%s must be a non-negative integer", key)
+			}
+		}
+	}
+	if ret.EndTime != 0 && ret.StartTime >= ret.EndTime {
+		return ret, errors.New("endTime must be greater than startTime")
+	}
+	return ret, nil
+}
+
 type RemoveCloudRepoTagSnapshotRequest struct {
 	Tag string `json:"tag" api:"trim"`
 }
@@ -208,19 +245,6 @@ func repoRequestFields(reader io.Reader, path string) (map[string]json.RawMessag
 	}
 	return fields, nil
 }
-func repoRequestString(fields map[string]json.RawMessage, key string, required, trim bool) (string, error) {
-	value, err := legacyField[string](fields, key, "String", required)
-	if err != nil {
-		return "", err
-	}
-	if trim && len(fields[key]) > 0 && string(fields[key]) != "null" {
-		value = strings.TrimSpace(value)
-		if value == "" {
-			return "", fmt.Errorf("Field [%s] must not be empty", key)
-		}
-	}
-	return value, nil
-}
 func init() {
 	SetRepoIndexRetentionDays.decodeRequest = func(reader io.Reader) (request SetRepoIndexRetentionDaysRequest, err error) {
 		fields, err := repoRequestFields(reader, "/api/repo/setRepoIndexRetentionDays")
@@ -247,7 +271,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -257,7 +281,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -267,7 +291,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -277,10 +301,10 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.Left, err = repoRequestString(fields, "left", true, true); err != nil {
+		if request.Left, err = requestFieldString(fields, "left", true, true); err != nil {
 			return request, err
 		}
-		if request.Right, err = repoRequestString(fields, "right", true, true); err != nil {
+		if request.Right, err = requestFieldString(fields, "right", true, true); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -290,10 +314,10 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
-		if request.SessionID, err = repoRequestString(fields, "sessionID", false, false); err != nil {
+		if request.SessionID, err = requestFieldString(fields, "sessionID", false, false); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -303,10 +327,10 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
-		if request.Tag, err = repoRequestString(fields, "tag", true, false); err != nil {
+		if request.Tag, err = requestFieldString(fields, "tag", true, false); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -316,10 +340,10 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
-		if request.Tag, err = repoRequestString(fields, "tag", true, false); err != nil {
+		if request.Tag, err = requestFieldString(fields, "tag", true, false); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -330,6 +354,9 @@ func init() {
 			return request, err
 		}
 		if request.Page, err = legacyField[float64](fields, "page", "Number", true); err != nil {
+			return request, err
+		}
+		if request.RepoSnapshotTimeRange, err = decodeRepoSnapshotTimeRange(fields); err != nil {
 			return request, err
 		}
 		if request.ID, err = legacyField[string](fields, "id", "String", false); err != nil {
@@ -351,7 +378,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.Keyword, err = repoRequestString(fields, "keyword", true, true); err != nil {
+		if request.Keyword, err = requestFieldString(fields, "keyword", true, true); err != nil {
 			return request, err
 		}
 		if request.Page, err = legacyField[float64](fields, "page", "Number", true); err != nil {
@@ -364,7 +391,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
 		if request.Page, err = legacyField[float64](fields, "page", "Number", true); err != nil {
@@ -377,7 +404,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -390,6 +417,9 @@ func init() {
 		if request.Page, err = legacyField[float64](fields, "page", "Number", true); err != nil {
 			return request, err
 		}
+		if request.RepoSnapshotTimeRange, err = decodeRepoSnapshotTimeRange(fields); err != nil {
+			return request, err
+		}
 		return request, nil
 	}
 	RemoveCloudRepoTagSnapshot.decodeRequest = func(reader io.Reader) (request RemoveCloudRepoTagSnapshotRequest, err error) {
@@ -397,7 +427,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.Tag, err = repoRequestString(fields, "tag", true, true); err != nil {
+		if request.Tag, err = requestFieldString(fields, "tag", true, true); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -407,7 +437,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.Tag, err = repoRequestString(fields, "tag", true, true); err != nil {
+		if request.Tag, err = requestFieldString(fields, "tag", true, true); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -417,10 +447,10 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.ID, err = repoRequestString(fields, "id", true, true); err != nil {
+		if request.ID, err = requestFieldString(fields, "id", true, true); err != nil {
 			return request, err
 		}
-		if request.Name, err = repoRequestString(fields, "name", true, false); err != nil {
+		if request.Name, err = requestFieldString(fields, "name", true, false); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -430,7 +460,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.Key, err = repoRequestString(fields, "key", true, false); err != nil {
+		if request.Key, err = requestFieldString(fields, "key", true, false); err != nil {
 			return request, err
 		}
 		return request, nil
@@ -440,7 +470,7 @@ func init() {
 		if err != nil {
 			return request, err
 		}
-		if request.Pass, err = repoRequestString(fields, "pass", true, false); err != nil {
+		if request.Pass, err = requestFieldString(fields, "pass", true, false); err != nil {
 			return request, err
 		}
 		return request, nil

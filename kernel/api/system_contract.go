@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -16,6 +20,9 @@ func systemConfPayload(value *model.AppConf) (result *apicontract.SystemAppConf,
 	encoded, err := json.Marshal(value)
 	if err == nil {
 		err = json.Unmarshal(encoded, &result)
+	}
+	if err == nil && result != nil && value.AI.Load() != nil && result.AI != nil {
+		result.AI.Decision = settingDecisionPayload(value.AI.Load().Decision)
 	}
 	return
 }

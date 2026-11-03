@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -23,6 +11,29 @@ import (
 	"github.com/88250/lute/ast"
 )
 
+func TestUndoLogClearReportsLinkedDocuments(t *testing.T) {
+	log := newUndoLog(64)
+	linked := &UndoEntry{id: "linked", mutatedRootIDs: []string{"source", "target"}}
+	kept := &UndoEntry{id: "kept", mutatedRootIDs: []string{"target"}}
+	log.stacks["source"] = &undoStack{undoStack: []*UndoEntry{linked}, redoStack: []*UndoEntry{linked}}
+	log.stacks["target"] = &undoStack{undoStack: []*UndoEntry{kept, linked}, redoStack: []*UndoEntry{linked}}
+	log.stacks["unrelated"] = &undoStack{undoStack: []*UndoEntry{kept}}
+	affected := log.clear("source")
+	slices.Sort(affected)
+	if !slices.Equal(affected, []string{"source", "target"}) {
+		t.Fatalf("affected document states: %v", affected)
+	}
+	if canUndo, canRedo, _ := log.State("source"); canUndo || canRedo {
+		t.Fatal("rewritten document retained history")
+	}
+	if log.Peek("target") != kept || log.Peek("unrelated") != kept {
+		t.Fatal("unrelated operations were removed")
+	}
+	if _, canRedo, _ := log.State("target"); canRedo {
+		t.Fatal("linked redo survived invalidation")
+	}
+}
+
 func TestUndoLogClearAttributeView(t *testing.T) {
 	avID := "affected-database"
 	snapshot := &attributeViewFieldsSnapshot{changes: map[string]*attributeViewFieldChange{avID: {}}}
@@ -30,6 +41,7 @@ func TestUndoLogClearAttributeView(t *testing.T) {
 		{Action: "updateAttrViewCell", AvID: avID},
 		{Action: "addAttrViewCol", AvID: "related-database", attributeViewFields: snapshot},
 		{Action: "insertAttrViewBlock", AvID: "related-database", attributeViewItems: &attributeViewItemsSnapshot{relatedChanges: snapshot}},
+		{Action: "convertList", listConversion: &listConversionState{bindings: []*listConversionBinding{{avID: avID}}}},
 	} {
 		t.Run(operation.Action, func(t *testing.T) {
 			log := newUndoLog(64)

@@ -20,6 +20,9 @@ import {saveScroll} from "./saveScroll";
 import {getScrollIndexFromPointer} from "./slider";
 import {refreshSyntheticDragTarget} from "../../util/touchDragBridge";
 import {waitForPendingTransactions} from "../util/transactionQueue";
+import {getKeymapBindings} from "../../util/keymapBindings";
+import {scrollPageWithLoading} from "./page";
+import {isPageScrollButtonsEnabled, PAGE_SCROLL_BUTTONS_CHANGED_EVENT} from "./pageButtons";
 
 export class Scroll {
     public element: HTMLElement;
@@ -37,15 +40,50 @@ export class Scroll {
     constructor(protyle: IProtyle) {
         this.parentElement = document.createElement("div");
         this.parentElement.classList.add("protyle-scroll", "fn__none");
-        this.parentElement.innerHTML = `<div class="protyle-scroll__up ariaLabel" data-position="north" aria-label="${updateHotkeyTip("⌘Home")}">
+        this.parentElement.innerHTML = `<div class="protyle-scroll__up ariaLabel" data-position="north">
     <svg><use xlink:href="#iconUp"></use></svg>
 </div>
 <div class="protyle-scroll__bar ariaLabel" data-position="2west" aria-label="Blocks 1/1">
     <input class="b3-slider" type="range" max="1" min="1" step="1" value="1" />
 </div>
-<div class="protyle-scroll__down ariaLabel" aria-label="${updateHotkeyTip("⌘End")}">
+<div class="protyle-scroll__down ariaLabel">
     <svg><use xlink:href="#iconDown"></use></svg>
+</div>
+<div class="protyle-scroll__page fn__none">
+    <button type="button" data-direction="up" class="block__icon block__icon--show block__icon--touch block__icon--subtle ariaLabel" data-position="west">
+        <svg class="protyle-scroll__page-up"><use xlink:href="#iconArrowDown"></use></svg>
+    </button>
+    <button type="button" data-direction="down" class="block__icon block__icon--show block__icon--touch block__icon--subtle ariaLabel" data-position="west">
+        <svg><use xlink:href="#iconArrowDown"></use></svg>
+    </button>
 </div>`;
+        this.updateHotkeyLabels();
+
+        const pageElement = this.parentElement.querySelector<HTMLElement>(".protyle-scroll__page");
+        const updatePageButtons = () => {
+            const enabled = !!protyle.options.render.scroll && isPageScrollButtonsEnabled();
+            pageElement.classList.toggle("fn__none", !enabled);
+            const changed = protyle.element.classList.contains("protyle--page-scroll") !== enabled;
+            protyle.element.classList.toggle("protyle--page-scroll", enabled);
+            if (changed && protyle.contentElement) {
+                protyle.getInstance().resize();
+            }
+        };
+        pageElement.addEventListener(PAGE_SCROLL_BUTTONS_CHANGED_EVENT, updatePageButtons);
+        updatePageButtons();
+        // 阻止鼠标和触屏按下时转移焦点，保留正文选区并避免唤起软键盘。
+        pageElement.addEventListener("pointerdown", event => {
+            event.preventDefault();
+            event.stopPropagation();
+        });
+        pageElement.addEventListener("click", event => {
+            event.stopPropagation();
+            const button = (event.target as Element).closest<HTMLButtonElement>("button[data-direction]");
+            if (!button || pageElement.classList.contains("fn__none")) {
+                return;
+            }
+            scrollPageWithLoading(protyle, button.dataset.direction === "up" ? "up" : "down");
+        });
 
         this.element = this.parentElement.querySelector(".protyle-scroll__bar");
         this.element.classList.add("fn__none");
@@ -137,6 +175,7 @@ export class Scroll {
         beforeApply?: () => void,
         onFinish?: (success: boolean) => void,
         size?: number,
+        suppressFocus?: boolean,
     }) {
         const anchorElement = mode === 1 ?
             protyle.wysiwyg.element.firstElementChild : protyle.wysiwyg.element.lastElementChild;
@@ -178,6 +217,7 @@ export class Scroll {
             onGet({
                 data: getResponse,
                 protyle,
+                suppressFocus: options?.suppressFocus,
                 action: [
                     mode === 1 ? Constants.CB_GET_BEFORE : Constants.CB_GET_APPEND,
                     Constants.CB_GET_UNCHANGEID
@@ -190,7 +230,8 @@ export class Scroll {
         return true;
     }
 
-    public async loadAll(protyle: IProtyle) {
+    // 传入 messageId 时复用调用方的通知，由调用方负责关闭或恢复，避免覆盖后续提示。
+    public async loadAll(protyle: IProtyle, options?: { messageId?: string }) {
         const rootID = protyle.block.rootID;
         if (this.loadingAll || !rootID || protyle.block.showAll || !protyle.block.scroll) {
             return false;
@@ -198,7 +239,7 @@ export class Scroll {
 
         this.loadingAll = true;
         this.invalidateDynamicLoad(protyle);
-        const messageID = showMessage(window.siyuan.languages.loading, -1);
+        const messageID = showMessage(window.siyuan.languages.loading, -1, "info", options?.messageId);
         const size = Math.max(
             window.siyuan.config.editor.dynamicLoadBlocks,
             protyle.block.blockCount || 0
@@ -214,7 +255,7 @@ export class Scroll {
             return true;
         } finally {
             this.loadingAll = false;
-            if (messageID) {
+            if (messageID && !options?.messageId) {
                 hideMessage(messageID);
             }
         }
@@ -332,6 +373,20 @@ export class Scroll {
             if (this.indexAbortController === abortController) {
                 this.indexAbortController = undefined;
             }
+        });
+    }
+
+    public updateHotkeyLabels() {
+        const keymap = window.siyuan.config.keymap.editor.general;
+        [
+            {selector: ".protyle-scroll__up", key: "goToDocumentStart"},
+            {selector: ".protyle-scroll__down", key: "goToDocumentEnd"},
+            {selector: '.protyle-scroll__page [data-direction="up"]', key: "scrollPageUpWithoutMovingCaret", label: "pageScrollUp"},
+            {selector: '.protyle-scroll__page [data-direction="down"]', key: "scrollPageDownWithoutMovingCaret", label: "pageScrollDown"},
+        ].forEach(({selector, key, label}) => {
+            const hotkeys = getKeymapBindings(keymap[key]).map(updateHotkeyTip).join(" / ");
+            this.parentElement.querySelector(selector).setAttribute("aria-label",
+                window.siyuan.languages[label || key] + (hotkeys ? " " + hotkeys : ""));
         });
     }
 

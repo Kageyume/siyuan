@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package model
 
 import (
@@ -43,8 +47,10 @@ func syncCloudAlreadyApplied(repoPath, latestID string) (bool, error) {
 }
 
 func syncDataFromCloud() {
+	confSyncSnapshot := Conf.LoadSync()
+
 	defer logging.Recover()
-	if !Conf.Sync.Perception || conf.ProviderSiYuan != Conf.Sync.Provider || !checkSync(false, false, false) {
+	if !confSyncSnapshot.Perception || conf.ProviderSiYuan != confSyncSnapshot.Provider || !checkSync(false, false, false) {
 		return
 	}
 	scope := lanSyncScope()

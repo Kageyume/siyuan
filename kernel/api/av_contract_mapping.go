@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -135,6 +139,7 @@ func toContractAVValue(value *av.Value) *apicontract.AVValue {
 		URL:               toContractAVValueURL(value.URL),
 		Email:             toContractAVValueEmail(value.Email),
 		Phone:             toContractAVValuePhone(value.Phone),
+		Location:          toContractAVValueLocation(value.Location),
 		MAsset:            avContractSlice(value.MAsset, func(value *av.ValueAsset) *apicontract.AVValueAsset { return toContractAVValueAsset(value) }),
 		Template:          toContractAVValueTemplate(value.Template),
 		Created:           toContractAVValueCreated(value.Created),
@@ -166,6 +171,7 @@ func fromContractAVValue(value *apicontract.AVValue) *av.Value {
 		URL:             fromContractAVValueURL(value.URL),
 		Email:           fromContractAVValueEmail(value.Email),
 		Phone:           fromContractAVValuePhone(value.Phone),
+		Location:        fromContractAVValueLocation(value.Location),
 		MAsset:          avContractSlice(value.MAsset, func(value *apicontract.AVValueAsset) *av.ValueAsset { return fromContractAVValueAsset(value) }),
 		Template:        fromContractAVValueTemplate(value.Template),
 		Created:         fromContractAVValueCreated(value.Created),
@@ -181,12 +187,13 @@ func toContractAVValueBlock(value *av.ValueBlock) *apicontract.AVValueBlock {
 		return nil
 	}
 	return &apicontract.AVValueBlock{
-		ID:         value.ID,
-		Icon:       value.Icon,
-		Content:    value.Content,
-		RefSubtype: string(value.RefSubtype),
-		Created:    value.Created,
-		Updated:    value.Updated,
+		CollectionRuleID: value.CollectionRuleID,
+		ID:               value.ID,
+		Icon:             value.Icon,
+		Content:          value.Content,
+		RefSubtype:       string(value.RefSubtype),
+		Created:          value.Created,
+		Updated:          value.Updated,
 	}
 }
 func fromContractAVValueBlock(value *apicontract.AVValueBlock) *av.ValueBlock {
@@ -621,21 +628,22 @@ func toContractAVKey(value *av.Key) *apicontract.AVKey {
 		return nil
 	}
 	return &apicontract.AVKey{
-		ID:             value.ID,
-		Name:           value.Name,
-		Type:           string(value.Type),
-		Icon:           value.Icon,
-		Desc:           value.Desc,
-		Options:        avContractSlice(value.Options, func(value *av.SelectOption) *apicontract.AVSelectOption { return toContractAVSelectOption(value) }),
-		NumberFormat:   string(value.NumberFormat),
-		DateFormat:     string(value.DateFormat),
-		Template:       value.Template,
-		RenderTemplate: value.RenderTemplate,
-		Relation:       toContractAVRelation(value.Relation),
-		Rollup:         toContractAVRollup(value.Rollup),
-		Date:           toContractAVDate(value.Date),
-		Created:        toContractAVCreated(value.Created),
-		Updated:        toContractAVUpdated(value.Updated),
+		AttributePanelVisibility: value.AttributePanelVisibility,
+		ID:                       value.ID,
+		Name:                     value.Name,
+		Type:                     string(value.Type),
+		Icon:                     value.Icon,
+		Desc:                     value.Desc,
+		Options:                  avContractSlice(value.Options, func(value *av.SelectOption) *apicontract.AVSelectOption { return toContractAVSelectOption(value) }),
+		NumberFormat:             string(value.NumberFormat),
+		DateFormat:               string(value.DateFormat),
+		Template:                 value.Template,
+		RenderTemplate:           value.RenderTemplate,
+		Relation:                 toContractAVRelation(value.Relation),
+		Rollup:                   toContractAVRollup(value.Rollup),
+		Date:                     toContractAVDate(value.Date),
+		Created:                  toContractAVCreated(value.Created),
+		Updated:                  toContractAVUpdated(value.Updated),
 	}
 }
 func toContractAVSelectOption(value *av.SelectOption) *apicontract.AVSelectOption {
@@ -916,20 +924,6 @@ func toContractAVKeyValues(value *av.KeyValues) *apicontract.AVKeyValues {
 		Values: avContractSlice(value.Values, func(value *av.Value) *apicontract.AVValue { return toContractAVValue(value) }),
 	}
 }
-func toContractAVViewData(value *av.ViewData) *apicontract.AVViewData {
-	if value == nil {
-		return nil
-	}
-	return &apicontract.AVViewData{
-		ID:               value.ID,
-		Icon:             value.Icon,
-		Name:             value.Name,
-		Desc:             value.Desc,
-		HideAttrViewName: value.HideAttrViewName,
-		Type:             string(value.Type),
-		PageSize:         value.PageSize,
-	}
-}
 func toContractAVNewItemTemplate(value *av.NewItemTemplate) *apicontract.AVNewItemTemplate {
 	if value == nil {
 		return nil
@@ -946,6 +940,7 @@ func toContractAVNewItemTemplate(value *av.NewItemTemplate) *apicontract.AVNewIt
 		SaveLocation:        toContractAVNewItemSaveLocation(value.SaveLocation),
 		ContentTemplatePath: value.ContentTemplatePath,
 		HideInFileTree:      value.HideInFileTree,
+		OpenAfterCreate:     value.OpenAfterCreate,
 	}
 }
 func toContractAVNewItemFieldValue(value *av.NewItemFieldValue) *apicontract.AVNewItemFieldValue {
@@ -1005,6 +1000,7 @@ func toContractAVAttributeViewData(value *model.AttributeViewData) *apicontract.
 			return toContractAVNewItemTemplate(value)
 		}),
 		DefaultTemplateID: value.DefaultTemplateID,
+		Automations:       toContractAVAutomationConfig(value.Automations),
 		CardCoverPositions: avContractMap(value.CardCoverPositions, func(value map[string]*av.CardCoverPosition) map[string]*apicontract.AVCardCoverPosition {
 			return avContractMap(value, func(value *av.CardCoverPosition) *apicontract.AVCardCoverPosition {
 				return toContractAVCardCoverPosition(value)
@@ -1064,7 +1060,6 @@ func toContractAVLayoutTable(value *av.LayoutTable) *apicontract.AVLayoutTable {
 		Columns: avContractSlice(value.Columns, func(value *av.ViewTableColumn) *apicontract.AVViewTableColumn {
 			return toContractAVViewTableColumn(value)
 		}),
-		RowIDs: value.RowIDs,
 	}
 }
 func toContractAVBaseLayout(value *av.BaseLayout) *apicontract.AVBaseLayout {
@@ -1076,9 +1071,6 @@ func toContractAVBaseLayout(value *av.BaseLayout) *apicontract.AVBaseLayout {
 		ID:        value.ID,
 		ShowIcon:  value.ShowIcon,
 		WrapField: value.WrapField,
-		Filters:   avContractSlice(value.Filters, func(value *av.ViewFilter) *apicontract.AVViewFilter { return toContractAVViewFilter(value) }),
-		Sorts:     avContractSlice(value.Sorts, func(value *av.ViewSort) *apicontract.AVViewSort { return toContractAVViewSort(value) }),
-		PageSize:  value.PageSize,
 	}
 }
 func toContractAVViewTableColumn(value *av.ViewTableColumn) *apicontract.AVViewTableColumn {
@@ -1124,7 +1116,6 @@ func toContractAVLayoutGallery(value *av.LayoutGallery) *apicontract.AVLayoutGal
 		CardFields: avContractSlice(value.CardFields, func(value *av.ViewGalleryCardField) *apicontract.AVViewGalleryCardField {
 			return toContractAVViewGalleryCardField(value)
 		}),
-		CardIDs: value.CardIDs,
 	}
 }
 func toContractAVViewGalleryCardField(value *av.ViewGalleryCardField) *apicontract.AVViewGalleryCardField {
@@ -1317,11 +1308,12 @@ func toContractAVCreateAttributeViewItemResult(value *model.CreateAttributeViewI
 		return nil
 	}
 	return &apicontract.AVCreateAttributeViewItemResult{
-		ItemID:     value.ItemID,
-		BlockID:    value.BlockID,
-		Content:    value.Content,
-		IsDetached: value.IsDetached,
-		Warnings:   value.Warnings,
+		ItemID:          value.ItemID,
+		BlockID:         value.BlockID,
+		Content:         value.Content,
+		IsDetached:      value.IsDetached,
+		Warnings:        value.Warnings,
+		OpenAfterCreate: value.OpenAfterCreate,
 	}
 }
 func toContractAVCreateAttributeViewItemDocsResult(value *model.CreateAttributeViewItemDocsResult) *apicontract.AVCreateAttributeViewItemDocsResult {
@@ -1355,4 +1347,24 @@ func toContractAVItemConditionalColors(value *av.ItemConditionalColors) *apicont
 		}
 	}
 	return result
+}
+
+func toContractAVValueLocation(value *av.ValueLocation) *apicontract.AVValueLocation {
+	if value == nil {
+		return nil
+	}
+	return &apicontract.AVValueLocation{
+		Name: value.Name, Latitude: value.Latitude, Longitude: value.Longitude,
+		OriginalInput: value.OriginalInput,
+	}
+}
+
+func fromContractAVValueLocation(value *apicontract.AVValueLocation) *av.ValueLocation {
+	if value == nil {
+		return nil
+	}
+	return &av.ValueLocation{
+		Name: value.Name, Latitude: value.Latitude, Longitude: value.Longitude,
+		OriginalInput: value.OriginalInput,
+	}
 }

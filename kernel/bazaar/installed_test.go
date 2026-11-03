@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package bazaar
 
@@ -198,6 +186,48 @@ func TestPackageDirContainsFile(t *testing.T) {
 	}
 	if !containsFile {
 		t.Fatal("expected an empty file to count as an actual file")
+	}
+}
+
+// TestPackageDirContainsFileIgnoresDSStore 校验判空忽略 .DS_Store，但仍会计入真实文件。
+func TestPackageDirContainsFileIgnoresDSStore(t *testing.T) {
+	root := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(root, ".DS_Store"), nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	containsFile, err := PackageDirContainsFile(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsFile {
+		t.Fatal("expected a directory with only .DS_Store not to contain files")
+	}
+
+	if err = os.WriteFile(filepath.Join(root, "plugin.json"), []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	containsFile, err = PackageDirContainsFile(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsFile {
+		t.Fatal("expected a real file to count as an actual file")
+	}
+}
+
+func TestPackageDirContainsFileInMetadataNamedDirectory(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, ".DS_Store")
+	if err := os.Mkdir(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "data.json"), []byte("{}"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	contains, err := PackageDirContainsFile(root)
+	if err != nil || !contains {
+		t.Fatalf("nested business file must be preserved: contains=%v, err=%v", contains, err)
 	}
 }
 

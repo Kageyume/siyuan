@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package api
 
 import (
@@ -75,6 +79,7 @@ func TestAPIContractBasicRequests(t *testing.T) {
 		{"/api/system/setNetworkServeTLS", `{"networkServeTLS":1}`, setNetworkServeTLS, -1},
 		{"/api/system/setNetworkProxy", `{"scheme":"http","host":"host"}`, setNetworkProxy, -1},
 		{"/api/system/setDownloadInstallPkg", `{"downloadInstallPkg":"true"}`, setDownloadInstallPkg, -1},
+		{"/api/system/setSettingsWindow", `{"settingsWindow":"true"}`, setSettingsWindow, -1},
 		{"/api/system/setUpdateChannel", `{"updateChannel":null}`, setUpdateChannel, -1},
 		{"/api/setting/setEditorReadOnly", `{"readonly":1}`, setEditorReadOnly, -1},
 		{"/api/setting/addVirtualBlockRefInclude", `{"keywords":[null]}`, addVirtualBlockRefInclude, -1},

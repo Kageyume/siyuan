@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package api
 
@@ -37,6 +25,9 @@ func githubClipboardFixture(t *testing.T) string {
 }
 
 func TestMatchHTMLClipboardElements(t *testing.T) {
+	originalMarkdown := util.MarkdownSettings.Load()
+	util.MarkdownSettings.Store(util.NewMarkdown())
+	t.Cleanup(func() { util.MarkdownSettings.Store(originalMarkdown) })
 	input := render.Sanitize(githubClipboardFixture(t)) + `<h2 style="color:red;background:yellow;font:20px serif">` +
 		`<strong>heading</strong></h2><p style="color:gray;font-size:1rem">text ` +
 		`<a href="https://example.com" title="title" style="color:blue;background-color:transparent;` +
@@ -58,18 +49,41 @@ func TestMatchHTMLClipboardElements(t *testing.T) {
 	lute := util.NewLute()
 	lute.SetHTMLTag2TextMark(true)
 	blockDOM := lute.HTML2BlockDOM(output)
-	for _, want := range []string{`data-type="NodeHeading"`, `data-type="strong"`, `data-type="a"`, `data-type="s"`, `data-href="https://example.com"`, `data-title="title"`} {
+	for _, want := range []string{`data-type="NodeHeading"`, `data-type="strong"`} {
 		if !strings.Contains(blockDOM, want) {
 			t.Errorf("missing %q: %s", want, blockDOM)
 		}
 	}
-	for _, unexpected := range []string{"color:", "background", "font-family:", "font-size:", `data-type="a u`} {
+	for range 3 {
+		blockDoc, err := goquery.NewDocumentFromReader(strings.NewReader(blockDOM))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// 组合样式平铺到同一文本标记，链接目标、标题和删除线必须在编辑转换后保留。
+		if blockDoc.Find(`[data-type~="a"][data-type~="s"][data-href="https://example.com"][data-title="title"]`).Text() != "link" || blockDoc.Find(`[data-type~="a"][data-type~="u"]`).Length() != 0 {
+			t.Fatalf("lost combined link styles: %s", blockDOM)
+		}
+		blockDOM = lute.SpinBlockDOM(blockDOM)
+	}
+	for _, unexpected := range []string{"color:", "background", "font-family:", "font-size:"} {
 		if strings.Contains(blockDOM, unexpected) {
 			t.Errorf("unexpected %q: %s", unexpected, blockDOM)
 		}
 	}
 	if again := matchHTMLClipboardElements(output); again != output {
 		t.Fatal("matching elements is not idempotent")
+	}
+}
+
+func TestMatchHTMLClipboardElementsRestoresMarkdownSettings(t *testing.T) {
+	originalMarkdown := util.MarkdownSettings.Load()
+	settings := util.NewMarkdown()
+	settings.InlineAsterisk, settings.InlineStrikethrough = false, false
+	util.MarkdownSettings.Store(settings)
+	t.Cleanup(func() { util.MarkdownSettings.Store(originalMarkdown) })
+	t.Run("default syntax", TestMatchHTMLClipboardElements)
+	if util.MarkdownSettings.Load() != settings {
+		t.Fatal("clipboard fixture did not restore the previous Markdown settings")
 	}
 }
 

@@ -1,10 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package agent
 
@@ -90,11 +86,11 @@ func TestCheckpointRestoresUserMessageImage(t *testing.T) {
 		{Role: "user", Content: "What is the title?", EntryID: "user-2"},
 	}
 
-	initial := buildInitialMessages(checkpoint[0].Content, "English", nil, EditorContext{}, nil)
+	initial := checkpointMessagesToOpenAIWithSummary(checkpoint[:1], "English", nil, nil)
 	if len(initial) != 3 || !isAttachmentMessage(initial[2]) {
 		t.Fatalf("initial user image was not attached: %#v", initial)
 	}
-	messages := checkpointMessagesToOpenAI(checkpoint, "English", nil)
+	messages := checkpointMessagesToOpenAIWithSummary(checkpoint, "English", nil, nil)
 	if len(messages) != 5 || !isAttachmentMessage(messages[2]) {
 		t.Fatalf("user image was not restored after its message: %#v", messages)
 	}
@@ -295,8 +291,9 @@ func TestCreateImageCompatibleStreamDowngradesAndCaches(t *testing.T) {
 	defer server.Close()
 
 	call := func() {
-		stream, _, cancel, requestMessages, downgraded, unsupportedDetected, err := createImageCompatibleStream(
-			context.Background(), newTestOpenAIClient(server.URL), req, capabilityKey, false, 0,
+		stream, _, cancel, requestMessages, downgraded, unsupportedDetected, err := createProtocolImageCompatibleStream(
+			context.Background(), newTestOpenAIClient(server.URL), util.OpenAIProtocolChatCompletions,
+			req, nil, capabilityKey, false, 0,
 			time.Second, time.Second, noRetryDelay, make(chan AgentEvent, 2),
 		)
 		if err != nil {
@@ -352,8 +349,9 @@ func TestCreateImageCompatibleStreamHandlesInitialSSEError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stream, _, cancel, requestMessages, downgraded, unsupportedDetected, err := createImageCompatibleStream(
-		context.Background(), newTestOpenAIClient(server.URL), req, "", false, 0,
+	stream, _, cancel, requestMessages, downgraded, unsupportedDetected, err := createProtocolImageCompatibleStream(
+		context.Background(), newTestOpenAIClient(server.URL), util.OpenAIProtocolChatCompletions,
+		req, nil, "", false, 0,
 		time.Second, time.Second, noRetryDelay, make(chan AgentEvent, 2),
 	)
 	if err != nil {
@@ -407,8 +405,9 @@ func TestCreateImageCompatibleStreamKeepsTurnDowngradedAfterFallbackError(t *tes
 	}))
 	defer server.Close()
 
-	_, _, _, _, downgraded, unsupportedDetected, err := createImageCompatibleStream(
-		context.Background(), newTestOpenAIClient(server.URL), req, "", false, 0,
+	_, _, _, _, downgraded, unsupportedDetected, err := createProtocolImageCompatibleStream(
+		context.Background(), newTestOpenAIClient(server.URL), util.OpenAIProtocolChatCompletions,
+		req, nil, "", false, 0,
 		time.Second, time.Second, noRetryDelay, make(chan AgentEvent, 2),
 	)
 	if err == nil || !downgraded || !unsupportedDetected {
@@ -416,8 +415,9 @@ func TestCreateImageCompatibleStreamKeepsTurnDowngradedAfterFallbackError(t *tes
 			err, downgraded, unsupportedDetected)
 	}
 
-	stream, _, cancel, requestMessages, downgraded, repeatedDetection, err := createImageCompatibleStream(
-		context.Background(), newTestOpenAIClient(server.URL), req, "", unsupportedDetected, 0,
+	stream, _, cancel, requestMessages, downgraded, repeatedDetection, err := createProtocolImageCompatibleStream(
+		context.Background(), newTestOpenAIClient(server.URL), util.OpenAIProtocolChatCompletions,
+		req, nil, "", unsupportedDetected, 0,
 		time.Second, time.Second, noRetryDelay, make(chan AgentEvent, 2),
 	)
 	if err != nil {
@@ -450,8 +450,9 @@ func TestCreateImageCompatibleStreamKeepsUnrelatedValidationError(t *testing.T) 
 	}))
 	defer server.Close()
 
-	_, _, _, requestMessages, downgraded, unsupportedDetected, err := createImageCompatibleStream(
-		context.Background(), newTestOpenAIClient(server.URL), req, "unrelated-error", false, 0,
+	_, _, _, requestMessages, downgraded, unsupportedDetected, err := createProtocolImageCompatibleStream(
+		context.Background(), newTestOpenAIClient(server.URL), util.OpenAIProtocolChatCompletions,
+		req, nil, "unrelated-error", false, 0,
 		time.Second, time.Second, noRetryDelay, make(chan AgentEvent, 2),
 	)
 	if err == nil || downgraded || unsupportedDetected || !containsImageInput(requestMessages) || requests.Load() != 1 {
@@ -487,7 +488,7 @@ func TestCheckpointRestoresAttachmentAfterToolResults(t *testing.T) {
 			Attachments: []AgentAttachment{testAgentAttachment()},
 		}},
 	}}
-	messages := checkpointMessagesToOpenAI(checkpoint, "English", nil)
+	messages := checkpointMessagesToOpenAIWithSummary(checkpoint, "English", nil, nil)
 	if len(messages) != 4 {
 		t.Fatalf("unexpected restored message count: %d", len(messages))
 	}
@@ -561,7 +562,7 @@ func TestCheckpointKeepsOnlyLatestAttachmentBatch(t *testing.T) {
 			}},
 		},
 	}
-	messages := checkpointMessagesToOpenAI(checkpoint, "English", nil)
+	messages := checkpointMessagesToOpenAIWithSummary(checkpoint, "English", nil, nil)
 	encoded, err := json.Marshal(messages)
 	if err != nil {
 		t.Fatal(err)
@@ -589,8 +590,8 @@ func TestCompactionCandidatesKeepAttachmentToolCallInItsTurn(t *testing.T) {
 		{ID: "user-2", Type: "user", Content: "second"},
 		{ID: "user-3", Type: "user", Content: "current"},
 	}
-	candidates := compactionCandidateEntryCounts(entries, 0, "user-3")
-	if len(candidates) != 2 || candidates[0] != 3 || candidates[1] != 4 {
+	candidates, _ := compactionCandidateMessageCounts(entriesToAgentMessages(entries), 0, "openai", false, false)
+	if len(candidates) != 2 || candidates[0] != 2 || candidates[1] != 3 {
 		t.Fatalf("unexpected complete-turn compaction boundaries: %#v", candidates)
 	}
 }
@@ -610,12 +611,13 @@ func TestAttachmentRequestSurfacesUpstreamError(t *testing.T) {
 
 func TestAgentChatSendsToolAttachmentToCurrentModel(t *testing.T) {
 	useTestDataDir(t)
+	useTestToolRoundLimitLanguage(t)
 	originalConf := kernelModel.Conf
 	kernelModel.Conf = kernelModel.NewAppConf()
-	kernelModel.Conf.AI = kernelConf.NewAI()
-	kernelModel.Conf.AI.MCP = nil
-	kernelModel.Conf.AI.Agent.MaxToolCallRounds = 1
-	kernelModel.Conf.Variables = kernelConf.NewVariables()
+	kernelModel.Conf.AI.Store(kernelConf.NewAI())
+	kernelModel.Conf.AI.Load().MCP = nil
+	kernelModel.Conf.AI.Load().Agent.MaxToolCallRounds = 1
+	kernelModel.Conf.Variables.Store(kernelConf.NewVariables())
 	t.Cleanup(func() { kernelModel.Conf = originalConf })
 
 	const toolName = "test_current_model_image"
@@ -655,7 +657,7 @@ func TestAgentChatSendsToolAttachmentToCurrentModel(t *testing.T) {
 		"updatedAt": int64(1),
 		"entries":   []any{map[string]any{"id": "user-1", "type": "user", "content": "look at the image"}},
 	}
-	if revision, err := SaveSession(marshalSession(t, session)); err != nil || revision != 1 {
+	if revision, _, err := SaveSessionState(marshalSession(t, session)); err != nil || revision != 1 {
 		t.Fatalf("save initial session failed: revision=%d, err=%v", revision, err)
 	}
 
@@ -703,16 +705,22 @@ func TestAgentChatSendsToolAttachmentToCurrentModel(t *testing.T) {
 		context.Background(), newTestOpenAIClient(server.URL), "openai", "test-model", "", 0, testSessionID, "user-1", 1,
 		"look at the image", nil, "English", nil, EditorContext{}, nil, false, time.Second, 0, "", time.Second, time.Second,
 	)
-	doneSeen := false
+	doneSeen, limitSeen := false, false
 	for event := range events {
 		if event.Type == "done" {
 			doneSeen = true
 		}
+		if event.Type == "error" {
+			limitSeen = true
+			if event.Error != testToolRoundLimitMessage {
+				t.Fatalf("unexpected final response error: %s", event.Error)
+			}
+		}
 	}
-	if requests.Load() != 2 || !attachmentSeen.Load() || !finalToolsOmitted.Load() || !doneSeen {
+	if requests.Load() != 2 || !attachmentSeen.Load() || !finalToolsOmitted.Load() || doneSeen || !limitSeen {
 		t.Fatalf(
-			"attachment did not reach final model round: requests=%d, attachmentSeen=%v, finalToolsOmitted=%v, doneSeen=%v",
-			requests.Load(), attachmentSeen.Load(), finalToolsOmitted.Load(), doneSeen,
+			"attachment did not reach final model round: requests=%d, attachmentSeen=%v, finalToolsOmitted=%v, doneSeen=%v, limitSeen=%v",
+			requests.Load(), attachmentSeen.Load(), finalToolsOmitted.Load(), doneSeen, limitSeen,
 		)
 	}
 }

@@ -1,20 +1,8 @@
-//go:build fts5
-
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+//go:build fts5
 
 package api
 
@@ -90,12 +78,12 @@ func TestPublishSearchCountExclusion(t *testing.T) {
 
 	model.Conf = model.NewAppConf()
 	model.Conf.Lang = "en"
-	model.Conf.FileTree = conf.NewFileTree()
-	model.Conf.Editor = conf.NewEditor()
-	model.Conf.Export = conf.NewExport()
-	model.Conf.Search = conf.NewSearch()
+	model.Conf.FileTree.Store(conf.NewFileTree())
+	model.Conf.Editor.Store(conf.NewEditor())
+	model.Conf.Export.Store(conf.NewExport())
+	model.Conf.Search.Store(conf.NewSearch())
 	model.Conf.NotebookCrypto = conf.NewNotebookCrypto()
-	model.Conf.Sync = conf.NewSync()
+	model.Conf.Sync.Store(conf.NewSync())
 
 	const boxID = "20260823000000-b0xb0x1"
 	const publicID = "20260823000001-aabbccd"

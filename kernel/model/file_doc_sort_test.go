@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 //go:build fts5
 
@@ -72,7 +60,7 @@ func TestSetDocSortModeValidationAndPersistence(t *testing.T) {
 		treenode.UpsertBlockTree(tree)
 	}
 	t.Cleanup(func() {
-		sql.CloseDatabase()
+		closeModelTestDatabases()
 		util.TempDir = originalTempDir
 		util.QueueDir = originalQueueDir
 		util.ConfDir = originalConfDir
@@ -131,7 +119,7 @@ func TestSetDocSortModeValidationAndPersistence(t *testing.T) {
 	if nil != err {
 		t.Fatalf("remove document sort mode failed: %v", err)
 	}
-	if nil != clearResult.SortMode || Conf.FileTree.Sort != clearResult.EffectiveSortMode {
+	if nil != clearResult.SortMode || Conf.FileTree.Load().Sort != clearResult.EffectiveSortMode {
 		t.Fatalf("cleared document sort mode did not inherit the global mode: %#v", clearResult)
 	}
 	tree, err = LoadTreeByBlockID(fixture.sourceID)

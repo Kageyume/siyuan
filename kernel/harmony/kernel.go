@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package main
 
@@ -28,7 +16,6 @@ import (
 
 	"github.com/88250/gulu"
 	"github.com/88250/lute/ast"
-	"github.com/siyuan-note/filelock"
 	"github.com/siyuan-note/logging"
 	"github.com/siyuan-note/siyuan/kernel/cache"
 	"github.com/siyuan-note/siyuan/kernel/job"
@@ -141,8 +128,8 @@ func StartKernel(container, appDir, workspaceBaseDir, timezoneID, localIPs, lang
 		sql.InitDatabase(false)
 		sql.InitHistoryDatabase(false)
 		sql.InitAssetContentDatabase(false)
-		sql.SetCaseSensitive(model.Conf.Search.CaseSensitive)
-		sql.SetIndexAssetPath(model.Conf.Search.IndexAssetPath)
+		// 数据库打开后重新应用搜索配置，使 PRAGMA case_sensitive_like 对新连接生效
+		model.ApplySearchRuntime()
 
 		model.BootSyncData()
 		model.CleanupEmptyPluginStorageDirs()
@@ -173,11 +160,6 @@ func ShowMsg(msg *C.char, timeout int) {
 //export IsHttpServing
 func IsHttpServing() bool {
 	return util.HttpServing
-}
-
-//export SetHttpServerPort
-func SetHttpServerPort(port int) {
-	filelock.AndroidServerPort = port
 }
 
 //export GetCurrentWorkspacePath
@@ -252,8 +234,7 @@ func Unzip(zipFilePath, destination *C.char) {
 func GetExportFilePath(exportPath *C.char) *C.char {
 	pathStr := C.GoString(exportPath)
 	var absPath string
-	if strings.HasPrefix(pathStr, "/export/") {
-		fileName := strings.TrimPrefix(pathStr, "/export/")
+	if fileName, ok := strings.CutPrefix(pathStr, "/export/"); ok {
 		if decoded, err := url.PathUnescape(fileName); err == nil {
 			fileName = decoded
 		}

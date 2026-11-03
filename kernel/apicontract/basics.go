@@ -1,3 +1,7 @@
+// SiYuan - https://github.com/siyuan-note/siyuan
+// Copyright (c) 2020-present, b3log.org
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package apicontract
 
 type WorkspaceInfoData struct {
@@ -38,6 +42,11 @@ type AutoLaunchRequest struct {
 
 type DownloadInstallPkgRequest struct {
 	DownloadInstallPkg bool `json:"downloadInstallPkg"`
+}
+
+// SettingsWindowRequest 更新工作空间的独立设置窗口开关，仅桌面 Electron 客户端使用。
+type SettingsWindowRequest struct {
+	SettingsWindow bool `json:"settingsWindow"`
 }
 
 type UpdateChannelRequest struct {

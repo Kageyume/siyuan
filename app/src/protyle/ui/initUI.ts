@@ -1,13 +1,14 @@
 import {setEditMode} from "../util/setEditMode";
 import {isTabGutterBridge} from "../gutter/tabs";
 import {isContainerGutterBridge} from "../gutter/container";
+import {cancelGutterHover, renderGutterOnHover} from "../gutter/hover";
 import {scrollEvent} from "../scroll/event";
 import {isMobile} from "../../util/functions";
 import {Constants} from "../../constants";
 import {getContenteditableElement, getEmbedGutterOperationContext, getLastBlock} from "../wysiwyg/getBlock";
 import {genEmptyElement, genHeadingElement} from "../../block/util";
 import {transaction} from "../wysiwyg/transaction";
-import {focusByRange} from "../util/selection";
+import {focusByRange} from "../util/selectionOffsets";
 /// #if !MOBILE
 import {moveResize} from "../../dialog/moveResize";
 /// #endif
@@ -213,6 +214,7 @@ export const initUI = (protyle: IProtyle) => {
         }
     });
     let overAttr = false;
+    protyle.element.addEventListener("mouseleave", () => cancelGutterHover(protyle.gutter?.element));
     protyle.element.addEventListener(isMobile() ? "pointerover" : "mouseover", (event: PointerEvent & {
         target: HTMLElement
     }) => {
@@ -223,6 +225,7 @@ export const initUI = (protyle: IProtyle) => {
         if (isMobile() && event.pointerType !== "mouse") {
             return;
         }
+        cancelGutterHover(protyle.gutter?.element);
         if (hasClosestByClassName(event.target, "protyle-db-attr")) {
             return;
         }
@@ -250,7 +253,8 @@ export const initUI = (protyle: IProtyle) => {
         }
         const tabsHeader = hasClosestByClassName(event.target, "tabs-header");
         const nodeElement = tabsHeader ? hasClosestBlock(tabsHeader.parentElement) : hasClosestBlock(event.target);
-        if (!tabsHeader && nodeElement && nodeElement.getAttribute("data-type") === "NodeTabItem") {
+        if (!tabsHeader && nodeElement && nodeElement.getAttribute("data-type") === "NodeTabItem" &&
+            nodeElement.parentElement.classList.contains("tabs")) {
             hideElements(["gutter"], protyle);
             return;
         }
@@ -269,11 +273,11 @@ export const initUI = (protyle: IProtyle) => {
             }
             const embedElement = isInEmbedBlock(nodeElement);
             if (embedElement) {
-                protyle.gutter.render(protyle,
+                renderGutterOnHover(protyle,
                     getEmbedGutterOperationContext(nodeElement) ? nodeElement : embedElement, event.target);
                 return;
             }
-            protyle.gutter.render(protyle, nodeElement, event.target);
+            renderGutterOnHover(protyle, nodeElement, event.target);
             return;
         }
 
@@ -352,7 +356,7 @@ export const addLoading = (protyle: IProtyle, msg?: string) => {
     setTimeout(() => {
         if (protyle.element.getAttribute("data-loading") !== "finished") {
             protyle.element.insertAdjacentHTML("beforeend", `<div style="background-color: var(--b3-theme-background);flex-direction: column;" class="fn__loading wysiwygLoading">
-    <img width="48px" src="/stage/loading-pure.svg">
+    <span class="b3-loading b3-loading--large" aria-hidden="true"></span>
     <div style="color: var(--b3-theme-on-surface);margin-top: 8px;">${sanitizeKernelHTML(msg || "")}</div>
 </div>`);
         }
@@ -378,6 +382,10 @@ export const setPadding = (protyle: IProtyle) => {
     const responsivePadding = protyle.contentElement.dataset.paddingMode === "responsive";
     let paddingLeft = protyle.options.backlinkData ? 24 : padding.left;
     let paddingRight = protyle.options.backlinkData ? 16 : padding.right;
+    if (protyle.element.classList.contains("protyle--page-scroll")) {
+        paddingRight = Math.max(paddingRight, parseFloat(getComputedStyle(protyle.element)
+            .getPropertyValue("--b3-protyle-page-scroll-gutter")) || 0);
+    }
     const backlinkBottomElement = protyle.contentElement.querySelector(".sy__backlink--bottom") as HTMLElement;
     const backlinkBottomVisible = backlinkBottomElement &&
         !backlinkBottomElement.classList.contains("fn__none") &&

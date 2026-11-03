@@ -1,16 +1,19 @@
 import {openMobileFileById} from "../editor";
+import {refreshSettingConfig} from "../../config/setting/sync";
 import {closeNotebookHistoryDialogs} from "../../history/notebookDialogs";
-import {MOBILE_BARS_CONFIG_KEY} from "./mobileBarsConfig";
-import {showMobileBars} from "./mobileBars";
+import {clearDocumentCreationPlans} from "../../util/configuredDocument";
+import {closeNotebookLivePhotos} from "../../protyle/preview/livePhoto";
 import {
+    downloadProgress,
     forceQuit,
     processBacklinkIndexCommit,
     processSync,
-    progressLoading,
     setDefRefCount,
     setRefDynamicText,
     transactionError
 } from "../../dialog/processSystem";
+import {progressLoading} from "../../dialog/progress";
+import {syncCheckoutProgress} from "../../sync/checkoutProgress";
 import type {App} from "../../index";
 import {applyPluginReload, syncGlobalPluginConfig} from "../../plugin/globalState";
 import {reloadEmoji} from "../../emoji";
@@ -29,6 +32,7 @@ import {handleMobileKernelExit} from "./kernelExit";
 import {sanitizeKernelHTML} from "../../util/hostCapabilities";
 import {applyEntryVisibility} from "../../config/entryVisibility/runtime";
 import {removeMobileBacklinkContent} from "./backlinkPanels";
+import {removeMobileReferenceSheet} from "./openReference";
 import {isPaidUser, needSubscribe} from "../../util/needSubscribe";
 
 let statusTimeout: number;
@@ -72,6 +76,9 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 break;
             case "setAppearance":
                 appearanceConfigApi.apply(data.data);
+                break;
+            case "settingChanged":
+                void refreshSettingConfig(data.data.namespace, data.data.revision);
                 break;
             case "refreshAppearance":
                 void refreshAppearance(data.data);
@@ -121,7 +128,10 @@ export const onMessage = (app: App, data: IWebSocketData) => {
             case "closeBox":
             case "removeBox": {
                 closeNotebookHistoryDialogs(data.data.box);
+                clearDocumentCreationPlans(data.data.box);
+                closeNotebookLivePhotos(data.data.box);
                 removeMobileBacklinkContent({notebookId: data.data.box});
+                removeMobileReferenceSheet({notebookId: data.data.box});
                 window.siyuan.mobile.tabs?.removeNotebook(data.data.box);
                 break;
             }
@@ -130,6 +140,7 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 break;
             case "removeDoc":
                 removeMobileBacklinkContent({rootIDs: data.data.ids});
+                removeMobileReferenceSheet({rootIDs: data.data.ids});
                 window.siyuan.mobile.tabs?.removeRoots(data.data.ids);
                 if (window.siyuan.config.onboarding?.newUser && !window.siyuan.config.onboarding.dismissed &&
                     data.data.ids.includes(window.siyuan.config.onboarding.documentID)) {
@@ -138,9 +149,6 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 break;
             case "setLocalStorageVal":
                 window.siyuan.storage[data.data.key] = data.data.val;
-                if (data.data.key === MOBILE_BARS_CONFIG_KEY) {
-                    showMobileBars();
-                }
                 if (data.data.key === Constants.LOCAL_MOBILE_BOTTOM_BAR) {
                     renderMobileBottomBar();
                 }
@@ -152,9 +160,6 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 Object.keys(data.data.keyVals).forEach((k) => {
                     window.siyuan.storage[k] = data.data.keyVals[k];
                 });
-                if (Object.prototype.hasOwnProperty.call(data.data.keyVals, MOBILE_BARS_CONFIG_KEY)) {
-                    showMobileBars();
-                }
                 if (Object.prototype.hasOwnProperty.call(data.data.keyVals, Constants.LOCAL_MOBILE_BOTTOM_BAR)) {
                     renderMobileBottomBar();
                 }
@@ -164,9 +169,6 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 break;
             case "removeLocalStorageVal":
                 delete window.siyuan.storage[data.data.key];
-                if (data.data.key === MOBILE_BARS_CONFIG_KEY) {
-                    showMobileBars();
-                }
                 if (data.data.key === Constants.LOCAL_MOBILE_BOTTOM_BAR) {
                     renderMobileBottomBar();
                 }
@@ -178,15 +180,18 @@ export const onMessage = (app: App, data: IWebSocketData) => {
                 data.data.keys.forEach((k: string) => {
                     delete window.siyuan.storage[k];
                 });
-                if (data.data.keys.includes(MOBILE_BARS_CONFIG_KEY)) {
-                    showMobileBars();
-                }
                 if (data.data.keys.includes(Constants.LOCAL_MOBILE_BOTTOM_BAR)) {
                     renderMobileBottomBar();
                 }
                 if (data.data.keys.includes(Constants.LOCAL_MOBILE_SIDE_PANEL)) {
                     dispatchMobileSidePanelConfigChange();
                 }
+                break;
+            case "downloadProgress":
+                downloadProgress(data.data);
+                break;
+            case "syncProgress":
+                syncCheckoutProgress(data);
                 break;
             case"progress":
                 progressLoading(data);

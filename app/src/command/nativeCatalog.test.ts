@@ -21,14 +21,14 @@ const expectedDesktopGeneralKeys = [
     "splitLR", "splitMoveB", "splitMoveR", "splitTB", "switchLeftDock", "switchRightDock", "switchBottomDock",
     "tabToWindow", "stickSearch", "toggleDock", "toggleLeftDockPanel", "toggleRightDockPanel",
     "toggleBottomDockPanel", "unsplitAll", "unsplit", "recentClosed", "increaseEditorFontSize",
-    "decreaseEditorFontSize", "resetEditorFontSize", "toggleWin", "switchTab",
+    "decreaseEditorFontSize", "resetEditorFontSize", "toggleWin", "switchTab", "previousDatabaseRow", "nextDatabaseRow",
 ];
 
 const expectedMobileGeneralKeys = [
     "addToDatabase", "fileTree", "outline", "bookmark", "tag", "dailyNote", "backlinks",
     "dataHistory", "editReadonly", "enter", "enterBack", "globalSearch", "lockScreen", "mainMenu", "move",
     "newFile", "recentDocs", "replace", "riffCard", "search", "selectOpen1", "syncNow", "increaseEditorFontSize",
-    "decreaseEditorFontSize", "resetEditorFontSize",
+    "decreaseEditorFontSize", "resetEditorFontSize", "previousDatabaseRow", "nextDatabaseRow",
 ];
 
 const getSupportedIds = (environment: TNativeCommandEnvironment) => NATIVE_COMMAND_CATALOG

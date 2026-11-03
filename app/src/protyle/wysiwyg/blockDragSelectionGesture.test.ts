@@ -1,12 +1,9 @@
 import * as assert from "node:assert/strict";
-import {readFileSync} from "node:fs";
 import {test} from "node:test";
-import {runInNewContext} from "node:vm";
-import {ModuleKind, ScriptTarget, transpileModule} from "typescript";
+import {ScriptTarget} from "typescript";
+import {compileModule, evaluateModule} from "../../testSupport/loadModule";
 
-const compiled = transpileModule(readFileSync("src/protyle/wysiwyg/blockDragSelectionGesture.ts", "utf8"), {
-    compilerOptions: {module: ModuleKind.CommonJS, target: ScriptTarget.ES2021},
-}).outputText;
+const compiled = compileModule("src/protyle/wysiwyg/blockDragSelectionGesture.ts", ScriptTarget.ES2021);
 
 class Surface {
     listeners = new Map<string, Set<(event: any) => void>>();
@@ -44,8 +41,7 @@ class Surface {
     }
 }
 
-const fixture = () => {
-    const exports: any = {};
+const fixture = (mountScroll = true) => {
     let time = 10000;
     const window = new Surface();
     const document = Object.assign(new Surface(), {defaultView: window});
@@ -53,28 +49,26 @@ const fixture = () => {
     const element = Object.assign(new Surface(), {ownerDocument: document, contains: (): boolean => true});
     const scrollElement = new Surface();
     let enabled = true;
-    let multiSelect = false;
     const selections: string[][] = [];
-    const finishes: Array<{source: string, cancelled: boolean}> = [];
+    const finishes: boolean[] = [];
     const scrolls: unknown[] = [];
-    runInNewContext(compiled, {
-        exports,
-        require: () => ({Constants: {SIZE_DRAG_THRESHOLD: 5, TIMEOUT_MULTIPLE_SELECT: 1500}}),
-        Date: {now: () => time},
-    });
-    const dispose = exports.bindBlockDragSelectionGesture(element, scrollElement, {
+    const exports = evaluateModule<any>(compiled, {Date: {now: () => time}});
+    let mountedScrollElement: Surface;
+    const dispose = exports.bindBlockDragSelectionGesture(element, () => mountedScrollElement, {
         canStart: () => enabled,
         getStartBlock: (target: object) => blocks.includes(target as typeof blocks[0]) ? target : undefined,
         getBlockAtPoint: (point: {clientY: number}) => blocks[Math.floor(point.clientY / 100)],
-        isMultiSelectMode: () => multiSelect,
         select: (start: typeof blocks[0], end: typeof blocks[0]) => selections.push([start.id, end.id]),
         scroll: (point: unknown) => scrolls.push(point),
-        finish: (source: string, cancelled: boolean) => finishes.push({source, cancelled}),
+        finish: (cancelled: boolean) => finishes.push(cancelled),
     });
+    if (mountScroll) {
+        mountedScrollElement = scrollElement;
+    }
     const mouseDown = (properties = {}) => element.send("mousedown", {target: blocks[0], ...properties});
     const touch = (type: string, y = 20, properties = {}) => {
         const point = {identifier: 1, clientX: 20, clientY: y};
-        return (type === "touchstart" ? element : document).send(type, {
+        return (type === "touchmove" ? document : element).send(type, {
             target: blocks[0], touches: type === "touchend" ? [] : [point], changedTouches: [point], ...properties,
         });
     };
@@ -82,9 +76,22 @@ const fixture = () => {
         element, document, window, scrollElement, selections, finishes, scrolls, blocks, dispose, mouseDown, touch,
         advance: (milliseconds: number) => time += milliseconds,
         disable: () => enabled = false,
-        enterMultiSelect: () => multiSelect = true,
+        mount: () => mountedScrollElement = scrollElement,
     };
 };
+
+test("scroll containers can be initialized after binding and disposal before a gesture is safe", () => {
+    const unused = fixture(false);
+    assert.doesNotThrow(unused.dispose);
+    assert.equal(unused.element.count(), 0);
+    const mounted = fixture(false);
+    mounted.mount();
+    mounted.mouseDown();
+    assert.equal(mounted.scrollElement.count(), 1);
+    mounted.document.send("mouseup");
+    assert.equal(mounted.scrollElement.count(), 0);
+    mounted.dispose();
+});
 
 test("mouse text selection stays native in one block and becomes a reversible whole-block range across blocks", () => {
     const f = fixture();
@@ -96,7 +103,7 @@ test("mouse text selection stays native in one block and becomes a reversible wh
     f.document.send("mousemove", {clientY: 20});
     assert.deepEqual(f.selections, [["a", "c"], ["a", "b"], ["a", "a"]]);
     assert.equal(f.document.send("mouseup").stopped, true);
-    assert.deepEqual(f.finishes, [{source: "mouse", cancelled: false}]);
+    assert.deepEqual(f.finishes, [false]);
     assert.equal(f.element.send("click").defaultPrevented, true);
     assert.equal(f.document.count(), 0);
     assert.equal(f.scrollElement.count(), 0);
@@ -115,71 +122,60 @@ test("new gestures preserve modifier clicks, right clicks, double clicks and han
     }
 });
 
-test("ordinary touch scrolling never changes into block selection after waiting", () => {
-    const f = fixture();
-    f.touch("touchstart");
-    assert.equal(f.touch("touchmove", 50).defaultPrevented, false);
-    f.advance(2000);
-    f.touch("touchmove", 220);
-    f.touch("touchend", 220);
-    assert.deepEqual(f.selections, []);
-    assert.equal(f.document.count(), 0);
-});
-
-test("a sustained touch can cross block boundaries without changing a short native word selection", () => {
-    const f = fixture();
-    f.touch("touchstart");
-    f.advance(1600);
-    assert.equal(f.touch("touchmove", 22).defaultPrevented, false);
-    assert.equal(f.touch("touchmove", 120).defaultPrevented, true);
-    assert.equal(f.touch("touchmove", 220).defaultPrevented, true);
-    assert.equal(f.touch("touchend", 220).defaultPrevented, true);
-    assert.deepEqual(f.selections, [["a", "b"], ["a", "c"]]);
-    assert.deepEqual(f.finishes, [{source: "touch", cancelled: false}]);
-    f.mouseDown();
-    assert.equal(f.document.count(), 0);
-});
-
-test("multi-select touch suppresses native scrolling and supports dragging after long-press activation", () => {
-    const f = fixture();
-    f.touch("touchstart");
-    f.enterMultiSelect();
-    assert.equal(f.touch("touchmove", 50).defaultPrevented, true);
-    f.touch("touchmove", 220);
-    f.touch("touchend", 220);
-    assert.deepEqual(f.selections, [["a", "a"], ["a", "c"]]);
-    assert.equal(f.touch("touchstart").defaultPrevented, true);
-    assert.equal(f.touch("touchend").defaultPrevented, false);
-});
-
-test("multi-touch, native cancellation, lost buttons, escape, blur and disposal release gesture listeners", () => {
-    for (const end of ["multi-touch", "touchcancel", "buttons", "escape", "blur", "dispose", "disabled", "detached"]) {
+test("touch swipes stay native even after a sustained press and never create a block selection", () => {
+    for (const duration of [0, 1600]) {
         const f = fixture();
-        if (end === "multi-touch" || end === "touchcancel") {
-            f.enterMultiSelect();
-            f.touch("touchstart");
-            f.touch("touchmove", 120);
-            f.document.send(end === "multi-touch" ? "touchstart" : "touchcancel", {touches: [{}, {}]});
-        } else {
-            f.mouseDown();
-            f.document.send("mousemove", {clientY: 120});
-            if (end === "buttons") {
-                f.document.send("mousemove", {buttons: 0});
-            } else if (end === "escape") {
-                f.document.send("keydown", {key: "Escape"});
-            } else if (end === "blur") {
-                f.window.send("blur");
-            } else if (end === "disabled" || end === "detached") {
-                if (end === "disabled") {
-                    f.disable();
-                } else {
-                    f.element.contains = () => false;
-                }
-                f.document.send("mousemove", {clientY: 220});
+        assert.equal(f.touch("touchstart").defaultPrevented, false);
+        f.advance(duration);
+        assert.equal(f.touch("touchmove", 50).defaultPrevented, false);
+        f.advance(2000);
+        assert.equal(f.touch("touchmove", 220).defaultPrevented, false);
+        assert.equal(f.touch("touchend", 220).defaultPrevented, false);
+        assert.deepEqual(f.selections, []);
+        assert.equal(f.document.count(), 0);
+        assert.equal(f.scrollElement.count(), 0);
+        assert.deepEqual(f.scrolls, []);
+        assert.deepEqual(f.finishes, []);
+        assert.equal(f.element.send("click").defaultPrevented, false);
+    }
+});
+
+test("compatibility mouse events after touch release or cancellation do not start block selection", () => {
+    for (const end of ["touchend", "touchcancel"]) {
+        const f = fixture();
+        f.touch("touchstart");
+        f.advance(2000);
+        f.touch(end);
+        f.mouseDown();
+        assert.equal(f.document.count(), 0);
+        f.advance(500);
+        f.mouseDown();
+        f.document.send("mousemove", {clientY: 220});
+        assert.deepEqual(f.selections, [["a", "c"]]);
+    }
+});
+
+test("lost buttons, escape, blur and disposal release mouse gesture listeners", () => {
+    for (const end of ["buttons", "escape", "blur", "dispose", "disabled", "detached"]) {
+        const f = fixture();
+        f.mouseDown();
+        f.document.send("mousemove", {clientY: 120});
+        if (end === "buttons") {
+            f.document.send("mousemove", {buttons: 0});
+        } else if (end === "escape") {
+            f.document.send("keydown", {key: "Escape"});
+        } else if (end === "blur") {
+            f.window.send("blur");
+        } else if (end === "disabled" || end === "detached") {
+            if (end === "disabled") {
+                f.disable();
             } else {
-                f.dispose();
-                assert.equal(f.element.count(), 0);
+                f.element.contains = () => false;
             }
+            f.document.send("mousemove", {clientY: 220});
+        } else {
+            f.dispose();
+            assert.equal(f.element.count(), 0);
         }
         assert.equal(f.finishes.length, 1, end);
         assert.equal(f.document.count(), 0, end);
@@ -195,7 +191,7 @@ test("scrolling refreshes the active range and a composition cancels it without 
     f.scrollElement.send("scroll");
     assert.equal(f.selections.length, 2);
     assert.equal(f.element.send("compositionstart").defaultPrevented, false);
-    assert.deepEqual(f.finishes, [{source: "mouse", cancelled: true}]);
+    assert.deepEqual(f.finishes, [true]);
     f.mouseDown();
     assert.equal(f.document.count(), 0);
     f.element.send("compositionend");
@@ -205,13 +201,10 @@ test("scrolling refreshes the active range and a composition cancels it without 
     assert.deepEqual(f.selections[f.selections.length - 1], ["a", "c"]);
 });
 
-test("native drag and non-cancelable touch scrolling stay with the browser", () => {
+test("native drag stays with the browser", () => {
     const f = fixture();
     f.mouseDown();
     assert.equal(f.document.send("dragstart").defaultPrevented, false);
     assert.equal(f.document.count(), 0);
-    f.touch("touchstart");
-    f.advance(1600);
-    assert.equal(f.touch("touchmove", 120, {cancelable: false}).defaultPrevented, false);
     assert.deepEqual(f.selections, []);
 });

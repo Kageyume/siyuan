@@ -1,18 +1,6 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package model
 
@@ -154,7 +142,7 @@ func TestPublishSessionPerAccountCapEvictsOldest(t *testing.T) {
 
 	base := time.Now()
 	sessionLock.Lock()
-	for i := 0; i < publishSessionPerAccountCap; i++ {
+	for i := range publishSessionPerAccountCap {
 		sessionsMap["id-"+strconv.Itoa(i)] = &PublishSession{
 			Username:   "alice",
 			LastActive: base.Add(time.Duration(i) * time.Second),
@@ -176,8 +164,8 @@ func TestPublishSessionInvalidatedAfterPasswordChange(t *testing.T) {
 	resetPublishSessions(t)
 
 	Conf = NewAppConf()
-	Conf.Publish = conf.NewPublish()
-	Conf.Publish.Auth.Accounts = []*conf.BasicAuthAccount{
+	Conf.Publish.Store(conf.NewPublish())
+	Conf.Publish.Load().Auth.Accounts = []*conf.BasicAuthAccount{
 		{Username: "alice", Password: "old-password"},
 		{Username: "bob", Password: "bob-password"},
 	}
@@ -188,7 +176,7 @@ func TestPublishSessionInvalidatedAfterPasswordChange(t *testing.T) {
 	aliceSessionID := AddSession(alice.Username, alice.CredentialVersion)
 	bobSessionID := AddSession(bob.Username, bob.CredentialVersion)
 
-	Conf.Publish.Auth.Accounts[0].Password = "new-password"
+	Conf.Publish.Load().Auth.Accounts[0].Password = "new-password"
 	InitPublishAccounts()
 
 	if sessionID := AddSession(alice.Username, alice.CredentialVersion); "" != sessionID {
@@ -208,8 +196,8 @@ func TestPublishSessionPreservedWhenCredentialsUnchanged(t *testing.T) {
 	resetPublishSessions(t)
 
 	Conf = NewAppConf()
-	Conf.Publish = conf.NewPublish()
-	Conf.Publish.Auth.Accounts = []*conf.BasicAuthAccount{
+	Conf.Publish.Store(conf.NewPublish())
+	Conf.Publish.Load().Auth.Accounts = []*conf.BasicAuthAccount{
 		{Username: "alice", Password: "same-password"},
 	}
 	InitPublishAccounts()
@@ -282,7 +270,7 @@ func TestInitPublishAccountsWithNilAuth(t *testing.T) {
 	preserveAuthState(t)
 
 	Conf = NewAppConf()
-	Conf.Publish = &conf.Publish{Enable: true, Port: 6808}
+	Conf.Publish.Store(&conf.Publish{Enable: true, Port: 6808})
 
 	defer func() {
 		if e := recover(); nil != e {
@@ -291,7 +279,7 @@ func TestInitPublishAccountsWithNilAuth(t *testing.T) {
 	}()
 	InitPublishAccounts()
 
-	if nil == Conf.Publish.Auth {
+	if nil == Conf.Publish.Load().Auth {
 		t.Fatal("InitPublishAccounts should default Publish.Auth when it is nil")
 	}
 }
@@ -350,13 +338,13 @@ func TestConcurrentPublishAccountRefreshAndJWTParsing(t *testing.T) {
 	wait.Add(2)
 	go func() {
 		defer wait.Done()
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			InitPublishAccounts()
 		}
 	}()
 	go func() {
 		defer wait.Done()
-		for i := 0; i < 100; i++ {
+		for range 100 {
 			_, _ = ParseJWT(account.Token)
 		}
 	}()

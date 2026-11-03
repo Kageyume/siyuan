@@ -1,25 +1,15 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package sql
 
 import (
+	"maps"
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/88250/lute/ast"
 	"github.com/88250/lute/parse"
@@ -27,6 +17,7 @@ import (
 	"github.com/jinzhu/copier"
 	gcache "github.com/patrickmn/go-cache"
 	"github.com/siyuan-note/logging"
+	"github.com/siyuan-note/siyuan/kernel/cache"
 	"github.com/siyuan-note/siyuan/kernel/search"
 )
 
@@ -41,22 +32,35 @@ func disableCache() {
 }
 
 var blockCache, _ = ristretto.NewCache(&ristretto.Config{
-	NumCounters: 100000,
-	MaxCost:     10240,
+	NumCounters: cache.AdmissionCounters,
+	MaxCost:     cache.LookupMaxCostBytes,
 	BufferItems: 64,
 	OnExit: func(value any) {
 		if entry, ok := value.(*blockCacheEntry); ok {
-			removeBlockCacheKey(entry.block.ID, entry.key)
+			removeBlockCacheKey(entry.block.ID, entry.key, entry)
 		}
 	},
 })
 
-var blockCacheKeys = map[string]map[string]struct{}{}
+var blockCacheKeys = map[string]map[string]*blockCacheEntry{}
 var blockCacheKeysMu sync.Mutex
+var blockCacheSequence uint64
 
 type blockCacheEntry struct {
-	key   string
-	block *Block
+	key      string
+	cacheKey uint64
+	block    *Block
+}
+
+// blockCacheCost 估算块结构、字符串和失效索引的驻留字节数，内部条目成本由缓存另行计入。
+func blockCacheCost(key string, block *Block) int64 {
+	cost := int64(unsafe.Sizeof(Block{})+unsafe.Sizeof(blockCacheEntry{})) + 256 + int64(len(key))
+	for _, value := range []string{block.ID, block.ParentID, block.RootID, block.Hash, block.Box, block.Path,
+		block.HPath, block.Name, block.Alias, block.Memo, block.Tag, block.Content, block.FContent,
+		block.Markdown, block.Type, block.SubType, block.IAL, block.Created, block.Updated} {
+		cost += int64(len(value))
+	}
+	return cost
 }
 
 func encryptedBoxCacheUnavailable(boxID string) bool {
@@ -73,9 +77,10 @@ func blockCacheKey(id, boxID string) string {
 }
 
 func ClearCache() {
+	clearFTSCountCache()
 	blockCache.Clear()
 	blockCacheKeysMu.Lock()
-	blockCacheKeys = map[string]map[string]struct{}{}
+	blockCacheKeys = map[string]map[string]*blockCacheEntry{}
 	blockCacheKeysMu.Unlock()
 	clearRefCache()
 }
@@ -93,9 +98,30 @@ func putBlockCache(block *Block) {
 	cloned.Content = strings.ReplaceAll(cloned.Content, search.SearchMarkLeft, "")
 	cloned.Content = strings.ReplaceAll(cloned.Content, search.SearchMarkRight, "")
 	key := blockCacheKey(cloned.ID, cloned.Box)
-	addBlockCacheKey(cloned.ID, key)
-	if !blockCache.Set(key, &blockCacheEntry{key: key, block: cloned}, 1) {
-		removeBlockCacheKey(cloned.ID, key)
+	cost := blockCacheCost(key, cloned)
+	if cost >= blockCache.MaxCost() {
+		removeBlockCache(cloned.ID)
+		return
+	}
+	entry := &blockCacheEntry{key: key, block: cloned}
+	// 每次刷新使用独立准入键，保留字节预算检查，并隔离旧条目的异步删除。
+	blockCacheKeysMu.Lock()
+	blockCacheSequence++
+	entry.cacheKey = blockCacheSequence
+	keys := blockCacheKeys[cloned.ID]
+	if keys == nil {
+		keys = map[string]*blockCacheEntry{}
+		blockCacheKeys[cloned.ID] = keys
+	}
+	previous := keys[key]
+	keys[key] = entry
+	accepted := blockCache.Set(entry.cacheKey, entry, cost)
+	blockCacheKeysMu.Unlock()
+	if previous != nil {
+		blockCache.Del(previous.cacheKey)
+	}
+	if !accepted {
+		removeBlockCacheKey(cloned.ID, key, entry)
 	}
 }
 
@@ -108,7 +134,13 @@ func getBlockCacheInBox(id, boxID string) (ret *Block) {
 		return
 	}
 
-	b, _ := blockCache.Get(blockCacheKey(id, boxID))
+	blockCacheKeysMu.Lock()
+	defer blockCacheKeysMu.Unlock()
+	entry := blockCacheKeys[id][blockCacheKey(id, boxID)]
+	if entry == nil {
+		return
+	}
+	b, _ := blockCache.Get(entry.cacheKey)
 	if nil != b {
 		if entry, ok := b.(*blockCacheEntry); ok {
 			ret = entry.block
@@ -122,27 +154,20 @@ func removeBlockCache(id string) {
 	keys := blockCacheKeys[id]
 	delete(blockCacheKeys, id)
 	blockCacheKeysMu.Unlock()
-	for key := range keys {
-		blockCache.Del(key)
+	for _, entry := range keys {
+		blockCache.Del(entry.cacheKey)
 	}
 	removeRefCacheByDefID(id)
 }
 
-func addBlockCacheKey(id, key string) {
-	blockCacheKeysMu.Lock()
-	defer blockCacheKeysMu.Unlock()
-	keys := blockCacheKeys[id]
-	if keys == nil {
-		keys = map[string]struct{}{}
-		blockCacheKeys[id] = keys
-	}
-	keys[key] = struct{}{}
-}
-
-func removeBlockCacheKey(id, key string) {
+func removeBlockCacheKey(id, key string, entry *blockCacheEntry) {
 	blockCacheKeysMu.Lock()
 	defer blockCacheKeysMu.Unlock()
 	if keys := blockCacheKeys[id]; keys != nil {
+		// 异步拒绝或淘汰只能移除对应版本的失效索引。
+		if keys[key] != entry {
+			return
+		}
 		delete(keys, key)
 		if len(keys) == 0 {
 			delete(blockCacheKeys, id)
@@ -220,9 +245,7 @@ func getRefsCacheByDefIDInBox(defID, boxID string,
 			cacheable = append(cacheable, ref)
 		}
 	}
-	for blockID, ref := range partial {
-		merged[blockID] = ref
-	}
+	maps.Copy(merged, partial)
 	ret = ret[:0]
 	for _, ref := range merged {
 		ret = append(ret, ref)
@@ -266,9 +289,7 @@ func putRefCacheIfGeneration(defID, boxID string, generation refCacheGeneration,
 	key := refCacheKey(defID, boxID)
 	if cached, ok := defIDRefsCache.Get(key); ok {
 		if entry, valid := cached.(*refCacheEntry); valid {
-			for blockID, ref := range entry.refs {
-				complete[blockID] = ref
-			}
+			maps.Copy(complete, entry.refs)
 		}
 	}
 	defIDRefsCache.SetDefault(key, &refCacheEntry{refs: complete, complete: true})

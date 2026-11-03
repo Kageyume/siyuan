@@ -1,3 +1,4 @@
+import {toggleMenu} from "../menus/menuToggle";
 import {Constants} from "../constants";
 import {fetchPost} from "../util/fetch";
 import {setStorageVal, updateHotkeyTip} from "../protyle/util/compatibility";
@@ -55,13 +56,13 @@ export const openSearchAsset = (element: HTMLElement, isStick: boolean) => {
         <input spellcheck="false" id="searchAssetInput" value="${localSearch.k}" class="b3-text-field b3-text-field--text" placeholder="${window.siyuan.languages.keyword}">
     </div>
     <div class="block__icons">
-        <span data-type="assetRefresh" aria-label="${window.siyuan.languages.refresh}" class="block__icon ariaLabel" data-position="9south">
+        <span data-type="assetRefresh" aria-label="${window.siyuan.languages.refresh}" class="block__icon block__icon--show ariaLabel" data-position="9south">
             <svg><use xlink:href="#iconRefresh"></use></svg>
         </span>
         <span class="fn__space"></span>
         ${genQueryHTML(localSearch.method, "assetSyntaxCheck")}
         <span class="fn__space"></span>
-        <span id="assetFilter" aria-label="${window.siyuan.languages.type}" class="block__icon ariaLabel" data-position="9south">
+        <span id="assetFilter" aria-label="${window.siyuan.languages.type}" class="block__icon block__icon--show ariaLabel" data-position="9south">
             <svg><use xlink:href="#iconFilter"></use></svg>
         </span>
     </div>
@@ -164,13 +165,24 @@ export const openSearchAsset = (element: HTMLElement, isStick: boolean) => {
     /// #endif
 };
 
-let inputTimeout: number;
+const inputTimeouts = new WeakMap<Element, number>();
+const inputRevisions = new WeakMap<Element, number>();
+export const refreshAssetContentSearch = () => {
+    document.querySelectorAll("[data-asset-search]").forEach(element => assetInputEvent(element));
+};
+
 export const assetInputEvent = (element: Element, localSearch?: ISearchAssetOption, page = 1) => {
+    const revision = (inputRevisions.get(element) || 0) + 1;
+    inputRevisions.set(element, revision);
+    element.setAttribute("data-asset-search", "true");
     const loadingElement = element.parentElement.querySelector(".fn__loading") as HTMLElement;
     loadingElement.classList.remove("fn__none");
     loadingElement.style.top = "84px";
-    clearTimeout(inputTimeout);
-    inputTimeout = window.setTimeout(() => {
+    clearTimeout(inputTimeouts.get(element));
+    inputTimeouts.set(element, window.setTimeout(() => {
+        if (!element.isConnected) {
+            return;
+        }
         if (!localSearch) {
             localSearch = window.siyuan.storage[Constants.LOCAL_SEARCHASSET] as ISearchAssetOption;
         }
@@ -188,6 +200,9 @@ export const assetInputEvent = (element: Element, localSearch?: ISearchAssetOpti
             method: localSearch.method,
             orderBy: localSearch.sort
         }, (response) => {
+            if (!element.isConnected || inputRevisions.get(element) !== revision) {
+                return;
+            }
             loadingElement.classList.add("fn__none");
             const nextElement = element.querySelector('[data-type="assetNext"]');
             if (page < response.data.pageCount) {
@@ -214,7 +229,7 @@ export const assetInputEvent = (element: Element, localSearch?: ISearchAssetOpti
     ${window.siyuan.languages.emptyContent}
 </div>`;
         });
-    }, Constants.TIMEOUT_INPUT);
+    }, Constants.TIMEOUT_INPUT));
 };
 
 export const renderPreview = (element: Element, id: string, query: string, queryMethod: number) => {
@@ -266,47 +281,49 @@ export const renderNextAssetMark = (element: Element) => {
 };
 
 export const assetMethodMenu = (target: HTMLElement, cb: () => void) => {
-    const method = window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method;
-    if (!window.siyuan.menus.menu.element.classList.contains("fn__none") &&
-        window.siyuan.menus.menu.element.getAttribute("data-name") === Constants.MENU_SEARCH_ASSET_METHOD) {
-        window.siyuan.menus.menu.remove();
-        return;
-    }
-    window.siyuan.menus.menu.remove();
-    window.siyuan.menus.menu.element.setAttribute("data-name", Constants.MENU_SEARCH_ASSET_METHOD);
-    window.siyuan.menus.menu.append(new MenuItem({
-        icon: "iconExact",
-        label: window.siyuan.languages.keyword,
-        current: method === 0,
-        click() {
-            window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method = 0;
-            cb();
-        }
-    }).element);
-    window.siyuan.menus.menu.append(new MenuItem({
-        icon: "iconQuote",
-        label: window.siyuan.languages.querySyntax,
-        current: method === 1,
-        click() {
-            window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method = 1;
-            cb();
-        }
-    }).element);
-    window.siyuan.menus.menu.append(new MenuItem({
-        icon: "iconRegex",
-        label: window.siyuan.languages.regex,
-        current: method === 3,
-        click() {
-            window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method = 3;
-            cb();
-        }
-    }).element);
-    /// #if MOBILE
-    window.siyuan.menus.menu.fullscreen();
-    /// #else
-    const rect = target.getBoundingClientRect();
-    window.siyuan.menus.menu.popup({x: rect.right, y: rect.bottom, h: rect.height, isLeft: true});
-    /// #endif
+    toggleMenu({
+        target: target,
+        build: (_menu, session) => {
+            const method = window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method;
+
+
+            window.siyuan.menus.menu.element.setAttribute("data-name", Constants.MENU_SEARCH_ASSET_METHOD);
+            window.siyuan.menus.menu.append(new MenuItem({
+                icon: "iconExact",
+                label: window.siyuan.languages.keyword,
+                current: method === 0,
+                click() {
+                    window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method = 0;
+                    cb();
+                }
+            }).element);
+            window.siyuan.menus.menu.append(new MenuItem({
+                icon: "iconQuote",
+                label: window.siyuan.languages.querySyntax,
+                current: method === 1,
+                click() {
+                    window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method = 1;
+                    cb();
+                }
+            }).element);
+            window.siyuan.menus.menu.append(new MenuItem({
+                icon: "iconRegex",
+                label: window.siyuan.languages.regex,
+                current: method === 3,
+                click() {
+                    window.siyuan.storage[Constants.LOCAL_SEARCHASSET].method = 3;
+                    cb();
+                }
+            }).element);
+            /// #if MOBILE
+            session.show(() => window.siyuan.menus.menu.fullscreen());
+            /// #else
+            const rect = target.getBoundingClientRect();
+            session.show(() => window.siyuan.menus.menu.popup({x: rect.right, y: rect.bottom, h: rect.height, isLeft: true}));
+            /// #endif
+
+        },
+    });
 };
 
 const filterTypesHTML = (types: IObject) => {
@@ -353,111 +370,106 @@ export const assetFilterMenu = (assetsElement: Element) => {
 };
 
 export const assetMoreMenu = (target: Element, element: Element, cb: () => void) => {
-    if (!window.siyuan.menus.menu.element.classList.contains("fn__none") &&
-        window.siyuan.menus.menu.element.getAttribute("data-name") === Constants.MENU_SEARCH_ASSET_MORE) {
-        window.siyuan.menus.menu.remove();
-        return;
-    }
-    window.siyuan.menus.menu.remove();
-    window.siyuan.menus.menu.element.setAttribute("data-name", Constants.MENU_SEARCH_ASSET_MORE);
-    const localData = window.siyuan.storage[Constants.LOCAL_SEARCHASSET];
-    const sortMenu = [{
-        iconHTML: "",
-        label: window.siyuan.languages.sortByRankAsc,
-        current: localData.sort === 1,
-        click() {
-            localData.sort = 1;
-            cb();
-        }
-    }, {
-        iconHTML: "",
-        label: window.siyuan.languages.sortByRankDesc,
-        current: localData.sort === 0,
-        click() {
-            localData.sort = 0;
-            cb();
-        }
-    }, {
-        iconHTML: "",
-        label: window.siyuan.languages.modifiedASC,
-        current: localData.sort === 3,
-        click() {
-            localData.sort = 3;
-            cb();
-        }
-    }, {
-        iconHTML: "",
-        label: window.siyuan.languages.modifiedDESC,
-        current: localData.sort === 2,
-        click() {
-            localData.sort = 2;
-            cb();
-        }
-    }];
-    window.siyuan.menus.menu.append(new MenuItem({
-        iconHTML: "",
-        label: window.siyuan.languages.sort,
-        type: "submenu",
-        submenu: sortMenu,
-    }).element);
-    /// #if !MOBILE
-    window.siyuan.menus.menu.append(new MenuItem({
-        iconHTML: "",
-        label: window.siyuan.languages.layout,
-        type: "submenu",
-        submenu: [{
-            iconHTML: "",
-            label: window.siyuan.languages.topBottomLayout,
-            current: localData.layout === 0,
-            click() {
-                element.querySelector(".search__layout").classList.remove("search__layout--row");
-                const previewElement = element.querySelector("#searchAssetPreview") as HTMLElement;
-                previewElement.style.width = "";
-                if (localData.row) {
-                    previewElement.style.height = localData.row;
-                    previewElement.classList.remove("fn__flex-1");
-                } else {
-                    previewElement.classList.add("fn__flex-1");
+    toggleMenu({
+        target: target,
+        build: (_menu, session) => {
+            window.siyuan.menus.menu.element.setAttribute("data-name", Constants.MENU_SEARCH_ASSET_MORE);
+            const localData = window.siyuan.storage[Constants.LOCAL_SEARCHASSET];
+            const sortMenu = [{
+                iconHTML: "",
+                label: window.siyuan.languages.sortByRankAsc,
+                current: localData.sort === 1,
+                click() {
+                    localData.sort = 1;
+                    cb();
                 }
-                localData.layout = 0;
-                setStorageVal(Constants.LOCAL_SEARCHASSET, window.siyuan.storage[Constants.LOCAL_SEARCHASSET]);
-            }
-        }, {
-            iconHTML: "",
-            label: window.siyuan.languages.leftRightLayout,
-            current: localData.layout === 1,
-            click() {
-                const previewElement = element.querySelector("#searchAssetPreview") as HTMLElement;
-                element.querySelector(".search__layout").classList.add("search__layout--row");
-                previewElement.style.height = "";
-                if (localData.col) {
-                    previewElement.style.width = localData.col;
-                    previewElement.classList.remove("fn__flex-1");
-                } else {
-                    previewElement.classList.add("fn__flex-1");
+            }, {
+                iconHTML: "",
+                label: window.siyuan.languages.sortByRankDesc,
+                current: localData.sort === 0,
+                click() {
+                    localData.sort = 0;
+                    cb();
                 }
-                localData.layout = 1;
-                setStorageVal(Constants.LOCAL_SEARCHASSET, window.siyuan.storage[Constants.LOCAL_SEARCHASSET]);
-            }
-        }]
-    }).element);
-    /// #endif
-    window.siyuan.menus.menu.append(new MenuItem({
-        iconHTML: "",
-        label: window.siyuan.languages.rebuildAssetContentIndex,
-        click() {
-            const loadingElement = element.parentElement.querySelector(".fn__loading") as HTMLElement;
-            loadingElement.classList.remove("fn__none");
-            loadingElement.style.top = "84px";
-            fetchPost("/api/asset/fullReindexAssetContent", {}, () => {
-                assetInputEvent(element, localData);
-            });
+            }, {
+                iconHTML: "",
+                label: window.siyuan.languages.modifiedASC,
+                current: localData.sort === 3,
+                click() {
+                    localData.sort = 3;
+                    cb();
+                }
+            }, {
+                iconHTML: "",
+                label: window.siyuan.languages.modifiedDESC,
+                current: localData.sort === 2,
+                click() {
+                    localData.sort = 2;
+                    cb();
+                }
+            }];
+            window.siyuan.menus.menu.append(new MenuItem({
+                iconHTML: "",
+                label: window.siyuan.languages.sort,
+                type: "submenu",
+                submenu: sortMenu,
+            }).element);
+            /// #if !MOBILE
+            window.siyuan.menus.menu.append(new MenuItem({
+                iconHTML: "",
+                label: window.siyuan.languages.layout,
+                type: "submenu",
+                submenu: [{
+                    iconHTML: "",
+                    label: window.siyuan.languages.topBottomLayout,
+                    current: localData.layout === 0,
+                    click() {
+                        element.querySelector(".search__layout").classList.remove("search__layout--row");
+                        const previewElement = element.querySelector("#searchAssetPreview") as HTMLElement;
+                        previewElement.style.width = "";
+                        if (localData.row) {
+                            previewElement.style.height = localData.row;
+                            previewElement.classList.remove("fn__flex-1");
+                        } else {
+                            previewElement.classList.add("fn__flex-1");
+                        }
+                        localData.layout = 0;
+                        setStorageVal(Constants.LOCAL_SEARCHASSET, window.siyuan.storage[Constants.LOCAL_SEARCHASSET]);
+                    }
+                }, {
+                    iconHTML: "",
+                    label: window.siyuan.languages.leftRightLayout,
+                    current: localData.layout === 1,
+                    click() {
+                        const previewElement = element.querySelector("#searchAssetPreview") as HTMLElement;
+                        element.querySelector(".search__layout").classList.add("search__layout--row");
+                        previewElement.style.height = "";
+                        if (localData.col) {
+                            previewElement.style.width = localData.col;
+                            previewElement.classList.remove("fn__flex-1");
+                        } else {
+                            previewElement.classList.add("fn__flex-1");
+                        }
+                        localData.layout = 1;
+                        setStorageVal(Constants.LOCAL_SEARCHASSET, window.siyuan.storage[Constants.LOCAL_SEARCHASSET]);
+                    }
+                }]
+            }).element);
+            /// #endif
+            window.siyuan.menus.menu.append(new MenuItem({
+                iconHTML: "",
+                label: window.siyuan.languages.rebuildAssetContentIndex,
+                click() {
+                    fetchPost("/api/asset/fullReindexAssetContent", {});
+                },
+            }).element);
+            /// #if MOBILE
+            session.show(() => window.siyuan.menus.menu.fullscreen());
+            /// #else
+            const rect = target.getBoundingClientRect();
+            session.show(() => window.siyuan.menus.menu.popup({x: rect.right, y: rect.bottom, h: rect.height, isLeft: true}));
+            /// #endif
+
         },
-    }).element);
-    /// #if MOBILE
-    window.siyuan.menus.menu.fullscreen();
-    /// #else
-    const rect = target.getBoundingClientRect();
-    window.siyuan.menus.menu.popup({x: rect.right, y: rect.bottom, h: rect.height, isLeft: true});
-    /// #endif
+    });
 };

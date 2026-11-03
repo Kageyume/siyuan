@@ -1,14 +1,11 @@
-// SiYuan - From thought to insight, with agents
+// SiYuan - https://github.com/siyuan-note/siyuan
 // Copyright (c) 2020-present, b3log.org
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
+// SPDX-License-Identifier: AGPL-3.0-or-later
 
 package agent
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/siyuan-note/siyuan/kernel/conf"
@@ -30,6 +27,54 @@ func TestFrontendCapabilityModelNamesAreStableAndDistinct(t *testing.T) {
 	}
 }
 
+func TestContentCapabilitiesExposeSharedToolDescriptions(t *testing.T) {
+	originalConf := kernelModel.Conf
+	kernelModel.Conf = kernelModel.NewAppConf()
+	kernelModel.Conf.AI.Store(conf.NewAI())
+	t.Cleanup(func() { kernelModel.Conf = originalConf })
+	for _, tc := range []struct {
+		tool     *tools.Tool
+		property string
+	}{
+		{tools.BlockTool, "data"}, {tools.DocumentTool, "markdown"},
+		{tools.DailynoteTool, "data"}, {tools.TemplateTool, "content"},
+	} {
+		t.Run(tc.tool.Name, func(t *testing.T) {
+			id := tools.CapabilityIDForTool(tc.tool)
+			kernelModel.Conf.AI.Load().Agent.CapabilityPolicy = &conf.CapabilityPolicy{
+				Default: "deny", Overrides: map[string]string{id: "allow"},
+			}
+			set, err := buildCapabilitySet(nil, capabilityAccessContext{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(set.definitions) != 1 || set.definitions[0].Function.Name != tc.tool.Name {
+				t.Fatal("content capability was not exposed independently")
+			}
+			definition := set.definitions[0].Function
+			if definition.Description != tc.tool.Description {
+				t.Fatal("agent did not receive the shared content tool description")
+			}
+			data, err := json.Marshal(definition.Parameters)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var schema tools.ToolSchema
+			if err = json.Unmarshal(data, &schema); err != nil {
+				t.Fatal(err)
+			}
+			if schema.Properties[tc.property].Description != tc.tool.InputSchema.Properties[tc.property].Description {
+				t.Fatal("agent did not receive the shared content syntax")
+			}
+			kernelModel.Conf.AI.Load().Agent.CapabilityPolicy.Overrides[id] = "deny"
+			set, err = buildCapabilitySet(nil, capabilityAccessContext{})
+			if err != nil || len(set.definitions) != 0 {
+				t.Fatalf("disabled content tool descriptions were still exposed: %v", err)
+			}
+		})
+	}
+}
+
 func TestCapabilityPolicyControlsExposureAndExecution(t *testing.T) {
 	const toolName = "test_capability_policy_tool"
 	const backendID = "native/backend/test_capability_policy_tool"
@@ -37,8 +82,8 @@ func TestCapabilityPolicyControlsExposureAndExecution(t *testing.T) {
 
 	originalConf := kernelModel.Conf
 	kernelModel.Conf = kernelModel.NewAppConf()
-	kernelModel.Conf.AI = conf.NewAI()
-	kernelModel.Conf.AI.Agent.CapabilityPolicy = &conf.CapabilityPolicy{
+	kernelModel.Conf.AI.Store(conf.NewAI())
+	kernelModel.Conf.AI.Load().Agent.CapabilityPolicy = &conf.CapabilityPolicy{
 		Default: "deny",
 		Overrides: map[string]string{
 			backendID:  "allow",
@@ -79,22 +124,22 @@ func TestCapabilityPolicyControlsExposureAndExecution(t *testing.T) {
 	if frontendRegistration == nil {
 		t.Fatal("allowed browser capability was not exposed")
 	}
-	kernelModel.Conf.AI.Agent.ApprovalPolicy.Overrides[backendID] = &conf.CapabilityApproval{
+	kernelModel.Conf.AI.Load().Agent.ApprovalPolicy.Overrides[backendID] = &conf.CapabilityApproval{
 		Default: "allow",
 		Actions: map[string]string{"write": "confirm"},
 	}
-	if needsCapabilityConfirm(backendRegistration, "delete", nil, false, nil) {
+	if required, _ := capabilityConfirmRequirement(backendRegistration, "delete", nil, false, nil); required {
 		t.Fatal("capability auto approval was not applied")
 	}
-	if !needsCapabilityConfirm(backendRegistration, "write", nil, false, nil) {
+	if required, _ := capabilityConfirmRequirement(backendRegistration, "write", nil, false, nil); !required {
 		t.Fatal("action confirmation override was not applied")
 	}
-	if !needsCapabilityConfirm(backendRegistration, "write", nil, true, nil) {
+	if required, _ := capabilityConfirmRequirement(backendRegistration, "write", nil, true, nil); !required {
 		t.Fatal("explicit confirmation was bypassed by the session approval mode")
 	}
 
-	kernelModel.Conf.AI.Agent.CapabilityPolicy.Overrides[backendID] = "deny"
-	kernelModel.Conf.AI.Agent.CapabilityPolicy.Overrides[frontendID] = "deny"
+	kernelModel.Conf.AI.Load().Agent.CapabilityPolicy.Overrides[backendID] = "deny"
+	kernelModel.Conf.AI.Load().Agent.CapabilityPolicy.Overrides[frontendID] = "deny"
 	if capabilityStillExecutable(backendRegistration, nil) || capabilityStillExecutable(frontendRegistration, nil) {
 		t.Fatal("disabled capability remained executable from an earlier model round")
 	}
@@ -114,7 +159,7 @@ func TestMCPCapabilityRequiresEnabledConfiguredServer(t *testing.T) {
 
 	originalConf := kernelModel.Conf
 	kernelModel.Conf = kernelModel.NewAppConf()
-	kernelModel.Conf.AI = conf.NewAI()
+	kernelModel.Conf.AI.Store(conf.NewAI())
 	t.Cleanup(func() { kernelModel.Conf = originalConf })
 
 	tool := &tools.Tool{
@@ -142,7 +187,7 @@ func TestMCPCapabilityRequiresEnabledConfiguredServer(t *testing.T) {
 		t.Fatal("MCP capability without a configured server was exposed")
 	}
 
-	kernelModel.Conf.AI.MCP.Servers = []conf.MCPServer{{ID: serverID, Enabled: true}}
+	kernelModel.Conf.AI.Load().MCP.Servers = []conf.MCPServer{{ID: serverID, Enabled: true}}
 	set, err = buildCapabilitySet(nil, capabilityAccessContext{})
 	if err != nil {
 		t.Fatal(err)
@@ -152,7 +197,7 @@ func TestMCPCapabilityRequiresEnabledConfiguredServer(t *testing.T) {
 		t.Fatal("MCP capability for an enabled configured server was unavailable")
 	}
 
-	kernelModel.Conf.AI.MCP.Servers[0].Enabled = false
+	kernelModel.Conf.AI.Load().MCP.Servers[0].Enabled = false
 	if capabilityStillExecutable(registration, nil) {
 		t.Fatal("MCP capability remained executable after its server was disabled")
 	}
@@ -168,7 +213,7 @@ func TestMCPCapabilityRequiresEnabledConfiguredServer(t *testing.T) {
 func TestExplicitCapabilityConfirmationOverridesRiskAndSessionApproval(t *testing.T) {
 	originalConf := kernelModel.Conf
 	kernelModel.Conf = kernelModel.NewAppConf()
-	kernelModel.Conf.AI = conf.NewAI()
+	kernelModel.Conf.AI.Store(conf.NewAI())
 	t.Cleanup(func() { kernelModel.Conf = originalConf })
 
 	registration := &capabilityRegistration{
@@ -178,18 +223,18 @@ func TestExplicitCapabilityConfirmationOverridesRiskAndSessionApproval(t *testin
 		Runtime:   "kernel",
 		Tool:      tools.SearchTool,
 	}
-	if needsCapabilityConfirm(registration, "fulltext", nil, false, nil) {
+	if required, _ := capabilityConfirmRequirement(registration, "fulltext", nil, false, nil); required {
 		t.Fatal("risk-based local search unexpectedly required confirmation")
 	}
 	required, forced := capabilityConfirmRequirement(registration, "semantic", nil, false, nil)
 	if !required || forced {
 		t.Fatal("risk-based semantic search did not require confirmation")
 	}
-	if needsCapabilityConfirm(registration, "semantic", nil, true, nil) {
+	if required, _ := capabilityConfirmRequirement(registration, "semantic", nil, true, nil); required {
 		t.Fatal("session approval did not bypass risk-based confirmation")
 	}
 
-	kernelModel.Conf.AI.Agent.ApprovalPolicy.Overrides[registration.ID] = &conf.CapabilityApproval{
+	kernelModel.Conf.AI.Load().Agent.ApprovalPolicy.Overrides[registration.ID] = &conf.CapabilityApproval{
 		Default: conf.ApprovalDecisionConfirm,
 		Actions: map[string]string{"semantic": conf.ApprovalDecisionAllow},
 	}
@@ -201,7 +246,7 @@ func TestExplicitCapabilityConfirmationOverridesRiskAndSessionApproval(t *testin
 	if !required || !forced {
 		t.Fatal("session approval bypassed explicit capability confirmation")
 	}
-	if needsCapabilityConfirm(registration, "semantic", nil, false, nil) {
+	if required, _ := capabilityConfirmRequirement(registration, "semantic", nil, false, nil); required {
 		t.Fatal("action auto approval did not override capability confirmation")
 	}
 }
