@@ -2,7 +2,6 @@
 
 import hashlib
 import itertools
-import json
 import os
 from pathlib import Path
 import re
@@ -162,10 +161,10 @@ class EditorWorkflowTests(unittest.TestCase):
                 self.assertIn("if: always()", report)
                 self.assertIn("WORKFLOW_STEPS: ${{ toJSON(steps) }}", report)
                 self.assertIn("scripts/report-workflow-outcomes.mjs", report)
-        self.assertIn("node source/scripts/report-workflow-outcomes.mjs", job("editor_e2e"))
+        self.assertNotIn("  editor_e2e:", CD)
 
     def test_builds_run_in_parallel_with_frontend_checks(self):
-        for name in ["build", "build_macos_arm64", "build_android"]:
+        for name in ["build", "build_android"]:
             dependencies = re.search(r"needs: \[(.*?)\]", job(name)).group(1).split(", ")
             self.assertEqual(dependencies, ["prepare", "languages", "contracts"], name)
         frontend = job("frontend-tests")
@@ -183,7 +182,7 @@ class EditorWorkflowTests(unittest.TestCase):
 
     def test_release_waits_for_all_checks_with_existing_failure_rules(self):
         release = job("create_release")
-        self.assertIn("needs: [prepare, kernel-tests-linux, kernel-tests-windows, frontend-tests, build, build_macos_arm64, build_android, editor_e2e]", release)
+        self.assertIn("needs: [prepare, kernel-tests-linux, kernel-tests-windows, frontend-tests, build, build_android]", release)
         expression = re.search(r"if: >-\s*\$\{\{(.*?)\}\}", release, re.S).group(1)
         expression = expression.replace("always()", "True").replace("!cancelled()", "not cancelled")
         expression = expression.replace("&&", " and ")
@@ -191,10 +190,10 @@ class EditorWorkflowTests(unittest.TestCase):
         expression = " ".join(expression.split())
         expression = compile(expression, "release condition", "eval")
         states = ["success", "failure", "skipped", "cancelled"]
-        for values in itertools.product(states, repeat=8):
-            results = dict(zip(["prepare", "kernel-tests-linux", "kernel-tests-windows", "frontend-tests", "build", "build_macos_arm64", "build_android", "editor_e2e"], values))
+        for values in itertools.product(states, repeat=6):
+            results = dict(zip(["prepare", "kernel-tests-linux", "kernel-tests-windows", "frontend-tests", "build", "build_android"], values))
             for cancelled in [False, True]:
-                expected = not cancelled and all(value == "success" for value in values[:7]) and values[7] != "cancelled"
+                expected = not cancelled and all(value == "success" for value in values)
                 actual = eval(expression, {"__builtins__": {}}, {"results": results, "cancelled": cancelled})
                 self.assertEqual(actual, expected, (results, cancelled))
 
@@ -268,8 +267,6 @@ class EditorWorkflowTests(unittest.TestCase):
         for section in job("build").split("          - os: ")[1:]:
             desktop_configs.append({key: re.search(rf"^            {key}: (\S+)", section, re.M)[1].strip('"')
                                     for key in ["goos", "goarch"]})
-        desktop_configs.append(json.loads(re.search(r"config: >-\n\s*(\{[^\n]+\})", job("build_macos_arm64"))[1]))
-
         def saves(workflow, name, config, hit):
             matches = re.findall(rf"- name: {name}\n(.*?)(?=      - |\Z)", workflow, re.S)
             if not matches:
@@ -289,7 +286,7 @@ class EditorWorkflowTests(unittest.TestCase):
                    ("windows", job("kernel-tests-windows"), {}), ("linux", job("build_android"), {})]
         readers += [(config["goos"], DESKTOP, config) for config in desktop_configs]
         for cache in ["Go cache", "pnpm store"]:
-            for host in ["linux", "windows", "darwin"]:
+            for host in ["linux", "windows"]:
                 with self.subTest(cache=cache, host=host):
                     candidates = [(workflow, config) for os_name, workflow, config in readers if os_name == host]
                     self.assertEqual(sum(saves(workflow, "Save " + cache, config, False)
@@ -319,18 +316,25 @@ class EditorWorkflowTests(unittest.TestCase):
         self.assertLess(step.index(":app:verifyBuildConfiguration"), step.index("./gradlew assembleOfficialRelease"))
         self.assertIn("mv siyuan-*-official-release.apk siyuan-${{ needs.prepare.outputs.version }}.apk", step)
 
-    def test_independent_editor_runners_and_serial_workers(self):
-        editor = job("editor_e2e")
-        self.assertIn("needs: [prepare, build_macos_arm64]", editor)
-        self.assertIn("fail-fast: false", editor)
-        self.assertIn("group: [1, 2]", editor)
-        self.assertIn("--workers=1", editor)
-        self.assertIn('--workspace="$HOME/SiYuan-Testing"', editor)
-        self.assertNotIn("continue-on-error: true\n        run: >-", editor)
-        for name in ["Stop editor kernel", "Record editor outcome and collect logs", "Upload editor reports and logs"]:
-            step = editor.split(f"- name: {name}\n", 1)[1].split("      - ", 1)[0]
-            self.assertIn("        if: always()", step)
-        self.assertIn("NOT RUN (test prerequisites did not complete)", editor)
+    def test_release_builds_only_windows_and_android_arm64(self):
+        desktop = job("build")
+        configs = desktop.split("        config:\n", 1)[1].split("\n\n    uses:", 1)[0]
+        self.assertEqual(configs.count("- os:"), 1)
+        self.assertIn("- os: windows-latest", configs)
+        self.assertIn('suffix: "win.exe"', configs)
+        self.assertIn('e2e_shards: ""', configs)
+        self.assertNotRegex(configs, r"(?m)^\s+goos: \"(?:linux|darwin)\"$")
+        self.assertNotIn("build_macos_arm64", CD)
+        self.assertNotIn("editor_e2e:", CD)
+        self.assertIn("-target android/arm64", job("build_android"))
+        prepare = job("prepare")
+        self.assertIn("ref: v${{ steps.version.outputs.value }}", prepare)
+        self.assertIn("siyuanVersionName", prepare)
+        release = job("create_release")
+        self.assertIn('"siyuan-${VERSION}-win.exe"', release)
+        self.assertIn('"siyuan-${VERSION}.apk"', release)
+        self.assertNotIn("mac.dmg", release)
+        self.assertNotIn("linux.AppImage", release)
 
     @unittest.skipUnless(os.name == "posix" and all(shutil.which(tool) for tool in ["bash", "node", "tar", "shasum"]),
                          "Snapshot command requires Unix tools")
