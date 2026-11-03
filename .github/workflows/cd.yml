@@ -54,12 +54,12 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: siyuan-note/siyuan-android
-          ref: main
+          ref: v${{ steps.version.outputs.value }}
           path: ${{ github.workspace }}/siyuan-android
 
       - name: Verify siyuan-android version
         id: android_version
-        # Android 的 siyuanVersionName 必须与 package.json 版本一致，否则在打包前终止整个流程。
+        # 按思源版本检出对应 Android 标签，并验证声明一致后固定提交 SHA 供后续构建使用。
         run: |
           ANDROID_VERSION=$(sed -nE 's/^[[:space:]]*siyuanVersionName[[:space:]]*=[[:space:]]*"([^"]+)"[[:space:]]*$/\1/p' build.gradle)
           VERSION="${{ steps.version.outputs.value }}"
